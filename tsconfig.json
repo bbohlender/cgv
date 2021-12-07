@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "declaration": true,
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "jsx": "react",
+        "strict": true,
+        "target": "ES6",
+        "lib": ["DOM", "ES2018"],
+        "outDir": "dist",
+        "experimentalDecorators": true
+    },
+    "include": ["src/**/*"]
+}
