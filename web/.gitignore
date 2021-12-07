@@ -1,0 +1,10 @@
+/node_modules/
+/out/*
+/.next/
+/public/sw*
+/public/workbox*
+/public/icons/*.png
+/public/icons/*.jpg
+
+# IntelliJ project files
+.idea

@@ -1,0 +1,23 @@
+@import "../node_modules/bootstrap/scss/bootstrap.scss";
+
+* {
+    font-family: monospace;
+}
+
+a {
+    text-decoration: none;
+}
+
+.flex-basis-0 {
+    flex-basis: 0;
+    min-width: 0;
+}
+
+.responsive-flex-direction {
+    flex-direction: column;
+}
+@media only screen and (min-aspect-ratio: 1/1) {
+    .responsive-flex-direction {
+        flex-direction: row;
+    }
+}

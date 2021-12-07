@@ -1,11 +1,16 @@
 {
-  "name": "cgv",
-  "version": "1.0.0",
-  "description": "_Computer Generated Verse_",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC"
+    "name": "cgv",
+    "version": "1.0.0",
+    "description": "Computer Generated Verse",
+    "scripts": {
+        "generate:arithmetic": "nearleyc arithmetic.ne -o src/arithmetic/parser.ts",
+        "build": "tsc",
+        "test": "ts-node src/arithmetic/index"
+    },
+    "devDependencies": {
+        "@types/nearley": "^2.11.2",
+        "nearley": "^2.20.1",
+        "ts-node": "^10.4.0",
+        "typescript": "^4.5.2"
+    }
 }
