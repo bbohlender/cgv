@@ -6,10 +6,10 @@ function id(d: any[]): any { return d[0]; }
 declare var ws: any;
 declare var identifier: any;
 declare var arrow: any;
-declare var equal: any;
 declare var openBracket: any;
 declare var closedBracket: any;
 declare var event: any;
+declare var equal: any;
 declare var js: any;
 
 import moo from "moo";
@@ -19,6 +19,7 @@ const lexer = moo.compile({
     equal: /=/,
     openBracket: /\(/,
     closedBracket: /\)/,
+    parrallel: /\|/,
     event: /event/,
     identifier: /[A-Za-z]+/,
     js: /".+?"/,
@@ -61,15 +62,16 @@ const grammar: Grammar = {
     {"name": "Grammar", "symbols": ["ws", "Event", (lexer.has("ws") ? {type: "ws"} : ws), "Grammar"], "postprocess": ([,[identifier, fn],,prev]) => ({ rules: prev.rules, events: { [identifier]: fn, ...prev.events } })},
     {"name": "Grammar", "symbols": ["ws"], "postprocess": () => ({ rules: {}, events: {} })},
     {"name": "Rule", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("arrow") ? {type: "arrow"} : arrow), "ws", "RuleSteps"], "postprocess": ([{ value },,,, steps]) => [value.trim(), steps]},
-    {"name": "RuleSteps", "symbols": ["ws", "RuleStep"], "postprocess": (val) => [val[1]]},
-    {"name": "RuleSteps", "symbols": ["ws", "RuleStep", (lexer.has("ws") ? {type: "ws"} : ws), "RuleSteps"], "postprocess": (val) => [val[1], ...val[3]]},
-    {"name": "RuleStep", "symbols": ["RuleOperation"], "postprocess": ([operation]) => operation},
-    {"name": "RuleStep", "symbols": ["RuleSymbol"], "postprocess": ([symbol]) => symbol},
-    {"name": "RuleStep", "symbols": ["RuleEvent"], "postprocess": ([event]) => event},
+    {"name": "RuleSteps", "symbols": ["ws", "Value"], "postprocess": (val) => [val[1]]},
+    {"name": "RuleSteps", "symbols": ["ws", "Value", (lexer.has("ws") ? {type: "ws"} : ws), "RuleSteps"], "postprocess": (val) => [val[1], ...val[3]]},
+    {"name": "Value", "symbols": ["Operation"], "postprocess": ([operation]) => operation},
+    {"name": "Value", "symbols": ["Symbol"], "postprocess": ([symbol]) => symbol},
+    {"name": "Value", "symbols": ["Event"], "postprocess": ([event]) => event},
+    {"name": "Value", "symbols": ["JS"], "postprocess": ([value]) => ({ type: "js", value })},
+    {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value }]) => ({ type: "operation", identifier: value.trim() })},
+    {"name": "Symbol", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([{ value }]) => ({ type: "symbol", identifier: value.trim() })},
+    {"name": "Event", "symbols": [(lexer.has("event") ? {type: "event"} : event), (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", (lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,,, { value }]) => ({ type: "event", identifier: value.trim() })},
     {"name": "Event", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("equal") ? {type: "equal"} : equal), "ws", "JS"], "postprocess": ([{ value },,,, fn]) => [value.trim(), fn]},
-    {"name": "RuleOperation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value }]) => ({ type: "operation", identifier: value.trim() })},
-    {"name": "RuleSymbol", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([{ value }]) => ({ type: "symbol", identifier: value.trim() })},
-    {"name": "RuleEvent", "symbols": [(lexer.has("event") ? {type: "event"} : event), (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", (lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,,, { value }]) => ({ type: "event", identifier: value.trim() })},
     {"name": "JS", "symbols": [(lexer.has("js") ? {type: "js"} : js)], "postprocess": ([{ value }]) => eval((value as string).replace(/"(.+?)"/, (_,fn) => fn))},
     {"name": "ws", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},
     {"name": "ws", "symbols": []}

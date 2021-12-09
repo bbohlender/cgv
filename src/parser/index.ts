@@ -3,7 +3,7 @@ import grammar from "./parser"
 
 const G = Grammar.fromCompiled(grammar)
 
-export function parse(text: string): ParsedGrammarResult {
+export function parse(text: string): ParsedGrammarDefinition {
     const parser = new Parser(G)
     parser.feed(text)
     if (parser.results.length === 0) {
@@ -12,30 +12,37 @@ export function parse(text: string): ParsedGrammarResult {
     return parser.results[0]
 }
 
-export type ParsedEventResult = (values: Array<any>) => Array<any>
-export type ParsedRuleResult = Array<ParsedRuleStepResult>
-export type ParsedRuleStepResult = ParsedRuleOperationResult | ParsedRuleSymbolResult | ParsedRuleEventResult
-export type ParsedRuleOperationResult = {
+export type ParsedEventDefintion = (values: Array<any>) => Array<Array<any>>
+
+export type ParsedSymbolDefintion = Array<ParsedValue>
+
+export type ParsedValue = ParsedOperation | ParsedSymbol | ParsedEvent | ParsedJS
+
+export type ParsedOperation = {
     type: "operation"
     identifier: string
 }
-export type ParsedRuleSymbolResult = {
+export type ParsedSymbol = {
     type: "symbol"
     identifier: string
 }
-export type ParsedRuleEventResult = {
+export type ParsedEvent = {
     type: "event"
     identifier: string
 }
-
-export type ParsedEventsResult = {
-    [EventId in string]: ParsedEventResult
-}
-export type ParsedRulesResult = {
-    [Symbol in string]: ParsedRuleResult
+export type ParsedJS = {
+    type: "js"
+    value: any
 }
 
-export type ParsedGrammarResult = {
-    rules: ParsedRulesResult
-    events: ParsedEventsResult
+export type ParsedEventDefinitions = {
+    [EventId in string]: ParsedEventDefintion
+}
+export type ParsedRuleDefinitions = {
+    [Symbol in string]: ParsedSymbolDefintion
+}
+
+export type ParsedGrammarDefinition = {
+    rules: ParsedRuleDefinitions
+    events: ParsedEventDefinitions
 }

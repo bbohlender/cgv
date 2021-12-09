@@ -1,4 +1,4 @@
-import { ParsedGrammarResult, ParsedRuleStepResult } from "./parser"
+import { ParsedGrammarDefinition, ParsedValue } from "./parser"
 
 export type Operations<T> = {
     [name in string]: (value: T /*...parameters*/) => Array<T>
@@ -6,7 +6,7 @@ export type Operations<T> = {
 
 export function derive<T>(
     value: T,
-    grammar: ParsedGrammarResult,
+    grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
     maxIterations: number = 1000
 ): Array<T> {
@@ -16,11 +16,12 @@ export function derive<T>(
     }
 
     const values: Array<T> = []
-    const unresolvedEvents: Map<string, Array<Omit<FlattendEvent<T>, "type">>> = new Map()
+    const unresolvedEvents: Map<string, Array<FlattendEvent<T>>> = new Map()
     let unresolvedSymbols: Array<Omit<FlattendSymbol<T>, "type">> = [
         {
             identifier: ruleNames[0],
             value,
+            subsequentSteps: [],
         },
     ]
 
@@ -42,6 +43,10 @@ export function derive<T>(
                         throw new Error(`unknown symbol "${symbol.identifier}"`)
                     }
                     return deriveFlat(symbol.value, steps, operations)
+                        .map((flattend) => {
+                            //deriveFlat(value, symbol.subsequentSteps, operations)
+                        })
+                        .reduce((v1, v2) => v1.concat(v2), [])
                 })
                 .reduce((v1, v2) => v1.concat(v2), [])
         } else {
@@ -53,12 +58,26 @@ export function derive<T>(
             if (fn == null) {
                 throw new Error(`unkown event "${eventName}"`)
             }
-            const results = fn(eventEntries.map((entry) => entry.value))
-            if (results.length != eventEntries.length) {
+            const resultArrays = fn(eventEntries.map((entry) => entry.value))
+            if (!Array.isArray(resultArrays)) {
+                throw new Error(
+                    `event function return value is not an array. event functions must map each event input to an array`
+                )
+            }
+            if (resultArrays.length != eventEntries.length) {
                 throw new Error(`result arrray of an event execution must have the same length as the input array`)
             }
-            flattendResult = results
-                .map((result, i) => deriveFlat(result, eventEntries[i].subsequentSteps, operations))
+            flattendResult = resultArrays
+                .map((array, i) => {
+                    if (!Array.isArray(array)) {
+                        throw new Error(
+                            `an entry in the event function return value is not an array. event functions must map each event input to an array`
+                        )
+                    }
+                    return array
+                        .map((value) => deriveFlat(value, eventEntries[i].subsequentSteps, operations))
+                        .reduce((v1, v2) => v1.concat(v2))
+                })
                 .reduce((v1, v2) => v1.concat(v2), [])
         }
         flattendResult.forEach((result) => {
@@ -87,58 +106,60 @@ export function derive<T>(
 
 type FlattendResult<T> = FlattendValue<T> | FlattendSymbol<T> | FlattendEvent<T>
 
-type FlattendValue<T> = { type: "value"; value: T }
+type FlattendValue<T> = { type: "value"; value: T; subsequentSteps: Array<ParsedValue> }
 type FlattendSymbol<T> = {
     type: "symbol"
     identifier: string
     value: T
+    subsequentSteps: Array<ParsedValue>
 }
 type FlattendEvent<T> = {
     type: "event"
     identifier: string
     value: T
-    subsequentSteps: Array<ParsedRuleStepResult>
+    subsequentSteps: Array<ParsedValue>
 }
 
-function deriveFlat<T>(
-    value: T,
-    steps: Array<ParsedRuleStepResult>,
-    operations: Operations<T>
-): Array<FlattendResult<T>> {
-    let current: Array<T> = [value]
-    const results: Array<FlattendResult<T>> = []
-    for (let i = 0; i < steps.length && current.length > 0; i++) {
+function deriveFlat<T>(current: Array<FlattendResult<T>>, steps: Array<ParsedValue>, operations: Operations<T>): Array<FlattendResult<T>> {
+    for (let i = 0; i < steps.length; i++) {
         const step = steps[i]
         switch (step.type) {
             case "event":
-                results.push(
-                    ...current.map<FlattendResult<T>>((value) => ({
-                        type: "event",
-                        identifier: step.identifier,
-                        subsequentSteps: steps.slice(i + 1),
-                        value,
-                    }))
-                )
-                return results
+                return current.map<FlattendResult<T>>(({ value }) => ({
+                    type: "event",
+                    identifier: step.identifier,
+                    subsequentSteps: steps.slice(i + 1),
+                    value,
+                }))
             case "operation":
-                current = current.map((value) => operations[step.identifier](value)).reduce((v1, v2) => v1.concat(v2))
+                const operation = operations[step.identifier]
+                current = current
+                    .map(({ value }) =>
+                        operation(value).map<FlattendResult<T>>((value) => ({
+                            type: "value",
+                            value,
+                            subsequentSteps: []
+                        }))
+                    )
+                    .reduce((v1, v2) => v1.concat(v2))
                 break
             case "symbol":
-                results.push(
-                    ...current.map<FlattendResult<T>>((value) => ({
-                        identifier: step.identifier,
-                        type: "symbol",
-                        value,
-                    }))
-                )
+                return current.map<FlattendResult<T>>(({ value }) => ({
+                    identifier: step.identifier,
+                    type: "symbol",
+                    value,
+                    subsequentSteps: steps.slice(i + 1),
+                }))
+            case "js":
+                current = [
+                    {
+                        type: "value",
+                        value: step.value,
+                        subsequentSteps: []
+                    },
+                ]
                 break
         }
     }
-    results.push(
-        ...current.map<FlattendValue<T>>((value) => ({
-            type: "value",
-            value,
-        }))
-    )
-    return results
+    return current
 }
