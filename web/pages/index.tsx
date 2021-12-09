@@ -1,10 +1,22 @@
 import Head from "next/head"
 import React, { useMemo, useState } from "react"
-import parse from "cgv/arithmetic"
+import { parse, addOne, derive } from "cgv"
+
+const arithmeticOperations = {
+    addOne,
+}
 
 export default function Index() {
     const [text, setText] = useState("")
-    const [result, error] = useMemo(() => parse(text), [text])
+    const [result, error] = useMemo(() => {
+        try {
+            const values = derive(0, parse(text), arithmeticOperations)
+            console.log(values)
+            return [JSON.stringify(values), undefined]
+        } catch (error: any) {
+            return [undefined, error.message]
+        }
+    }, [text])
     return (
         <>
             <Head>
@@ -13,7 +25,9 @@ export default function Index() {
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
-                <div className="p-3 flex-basis-0 flex-grow-1 bg-white h3 mb-0">{result}</div>
+                <div style={{ whiteSpace: "pre-line" }} className="p-3 flex-basis-0 flex-grow-1 bg-white h3 mb-0">
+                    {result}
+                </div>
                 <div className="d-flex flex-column flex-basis-0 flex-grow-1">
                     <textarea
                         style={{ resize: "none", outline: 0 }}
@@ -22,9 +36,13 @@ export default function Index() {
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 text-light border-0 bg-dark flex-grow-1"
                     />
                     <div
-                        className="overflow-auto p-3 flex-basis-0 h3 mb-0 text-danger bg-black flex-grow-1"
-                        style={{ maxHeight: 300 }}>
-                        {error}
+                        className="overflow-auto p-3 flex-basis-0 h3 mb-0 bg-black flex-grow-1"
+                        style={{ whiteSpace: "pre-line", maxHeight: 300 }}>
+                        {error == null ? (
+                            <span className="text-success">ok</span>
+                        ) : (
+                            <span className="text-danger">{error}</span>
+                        )}
                     </div>
                 </div>
             </div>
