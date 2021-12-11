@@ -1,3 +1,21 @@
+export function setNext(values: ParsedValues, next: ParsedValues): ParsedValues {
+    return values
+        .map<ParsedValues>((value) => {
+            const valueNext = value.next
+            if (valueNext == null) {
+                return [
+                    {
+                        value: value.value,
+                        next,
+                    },
+                ]
+            } else {
+                return setNext(valueNext, next)
+            }
+        })
+        .reduce((v1, v2) => v1.concat(v2), [])
+}
+
 import { Grammar, Parser } from "nearley"
 import grammar from "./parser"
 
@@ -14,12 +32,16 @@ export function parse(text: string): ParsedGrammarDefinition {
 
 export type ParsedEventDefintion = (values: Array<any>) => Array<Array<any>>
 
-export type ParsedSymbolDefintion = Array<ParsedValue>
+export type ParsedValues = Array<{
+    value: ParsedValue
+    next?: ParsedValues
+}>
 
-export type ParsedValue = ParsedOperation | ParsedSymbol | ParsedEvent | ParsedJS
+export type ParsedValue = ParsedOperation | ParsedSymbol | ParsedEvent | ParsedRaw
 
 export type ParsedOperation = {
     type: "operation"
+    parameters: ParsedValues
     identifier: string
 }
 export type ParsedSymbol = {
@@ -30,8 +52,8 @@ export type ParsedEvent = {
     type: "event"
     identifier: string
 }
-export type ParsedJS = {
-    type: "js"
+export type ParsedRaw = {
+    type: "raw"
     value: any
 }
 
@@ -39,7 +61,7 @@ export type ParsedEventDefinitions = {
     [EventId in string]: ParsedEventDefintion
 }
 export type ParsedRuleDefinitions = {
-    [Symbol in string]: ParsedSymbolDefintion
+    [Symbol in string]: ParsedValues
 }
 
 export type ParsedGrammarDefinition = {

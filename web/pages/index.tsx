@@ -11,9 +11,9 @@ export default function Index() {
     const [result, error] = useMemo(() => {
         try {
             const values = derive(0, parse(text), arithmeticOperations)
-            console.log(values)
             return [JSON.stringify(values), undefined]
         } catch (error: any) {
+            console.error(error.stack)
             return [undefined, error.message]
         }
     }, [text])
@@ -32,6 +32,7 @@ export default function Index() {
                     <textarea
                         style={{ resize: "none", outline: 0 }}
                         value={text}
+                        spellCheck={false}
                         onChange={(e) => setText(e.target.value)}
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 text-light border-0 bg-dark flex-grow-1"
                     />
