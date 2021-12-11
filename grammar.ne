@@ -1,14 +1,13 @@
 @preprocessor typescript
 @{%
 import moo from "moo";
-import { setNext } from ".";
 
 const lexer = moo.compile({
     arrow: /->/,
     equal: /=/,
     openBracket: /\(/,
     closedBracket: /\)/,
-    parrallel: /\|/,
+    parallel: /\|/,
     event: /event/,
     identifier: /[A-Za-z]+/,
     js: /".+?"/,
@@ -27,12 +26,17 @@ RuleDefinition      ->  %identifier ws %arrow ws Values                         
 
 Values              ->  ParallelValues                                              {% ([values]) => values %}
 EmptyValues         ->  ParallelValues                                              {% ([values]) => values %}
-                    |   null                                                        {% () => [] %}
-ParallelValues      ->  SequentialValues ws %parrallel ParallelValues               {% ([values1,,,values2]) => [...values1, ...values2]  %}
-                    |   SequentialValues                                            {% ([values]) => values %}
-SequentialValues    ->  PrimaryValues %ws SequentialValues                          {% ([values1,,values2]) => setNext(values1, values2) %}
-                    |   PrimaryValues                                               {% ([values]) => values %}
-PrimaryValues       ->  ws Value                                                    {% ([,value]) => [{ value }] %}
+                    |   null                                                        {% () => ({ type: "raw", value: [] }) %}
+
+ParallelValues      ->  SequentialValues ParallelValue:+                            {% ([sequential,sequentials]) => ({ type: "parallel", values: [sequential, ...sequentials] }) %}
+                    |   SequentialValues                                            {% ([sequential]) => sequential %}
+ParallelValue       ->  ws %parallel SequentialValues                               {% ([,,sequential]) => sequential %}
+
+SequentialValues    ->  PrimaryValues SequentialValue:+                             {% ([primary,primaries]) => ({ type: "sequential", values: [primary, ...primaries] }) %}
+                    |   PrimaryValues                                               {% ([primary]) => primary %}
+SequentialValue     ->  %ws PrimaryValues                                           {% ([,primary]) => primary %}
+
+PrimaryValues       ->  ws Value                                                    {% ([,value]) => value %}
                     |   ws %openBracket Values ws %closedBracket                    {% ([,,values]) => values %}
 
 Value               ->  Operation                                                   {% ([operation]) => operation %}
@@ -40,7 +44,7 @@ Value               ->  Operation                                               
                     |   Event                                                       {% ([event]) => event %}
                     |   JS                                                          {% ([value]) => ({ type: "raw", value }) %}
 
-Operation           ->  %identifier ws %openBracket EmptyValues ws %closedBracket   {% ([{ value },,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
+Operation           ->  %identifier ws %openBracket EmptyValues ws %closedBracket   {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
 Symbol              ->  %identifier                                                 {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
 Event               ->  %event %openBracket ws %identifier ws %closedBracket        {% ([,,, { value }]) => ({ type: "event", identifier: value }) %}
 

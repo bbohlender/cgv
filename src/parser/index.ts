@@ -1,21 +1,3 @@
-export function setNext(values: ParsedValues, next: ParsedValues): ParsedValues {
-    return values
-        .map<ParsedValues>((value) => {
-            const valueNext = value.next
-            if (valueNext == null) {
-                return [
-                    {
-                        value: value.value,
-                        next,
-                    },
-                ]
-            } else {
-                return setNext(valueNext, next)
-            }
-        })
-        .reduce((v1, v2) => v1.concat(v2), [])
-}
-
 import { Grammar, Parser } from "nearley"
 import grammar from "./parser"
 
@@ -32,12 +14,17 @@ export function parse(text: string): ParsedGrammarDefinition {
 
 export type ParsedEventDefintion = (values: Array<any>) => Array<Array<any>>
 
-export type ParsedValues = Array<{
-    value: ParsedValue
-    next?: ParsedValues
-}>
+export type ParsedValues = ParsedParallelValues | ParsedSequantialValues | ParsedOperation | ParsedSymbol | ParsedEvent | ParsedRaw
 
-export type ParsedValue = ParsedOperation | ParsedSymbol | ParsedEvent | ParsedRaw
+export type ParsedParallelValues = {
+    type: "parallel",
+    values: Array<ParsedValues>
+}
+
+export type ParsedSequantialValues = {
+    type: "sequential"
+    values: Array<ParsedValues>
+}
 
 export type ParsedOperation = {
     type: "operation"
