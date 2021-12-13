@@ -22,7 +22,7 @@ const lexer = moo.compile({
     closedBracket: /\)/,
     parallel: /\|/,
     event: /event/,
-    identifier: /[A-Za-z]+/,
+    identifier: /[A-Za-z\d]+/,
     js: /".+?"/,
     ws: { match: /\s+/, lineBreaks: true },
 });

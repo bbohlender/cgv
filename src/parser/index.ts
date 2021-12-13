@@ -12,12 +12,18 @@ export function parse(text: string): ParsedGrammarDefinition {
     return parser.results[0]
 }
 
-export type ParsedEventDefintion = (values: Array<any>) => Array<Array<any>>
+export type ParsedEventDefintion = (values: Array<Array<any>>) => Array<Array<any>>
 
-export type ParsedValues = ParsedParallelValues | ParsedSequantialValues | ParsedOperation | ParsedSymbol | ParsedEvent | ParsedRaw
+export type ParsedValues =
+    | ParsedParallelValues
+    | ParsedSequantialValues
+    | ParsedOperation
+    | ParsedSymbol
+    | ParsedEvent
+    | ParsedRaw
 
 export type ParsedParallelValues = {
-    type: "parallel",
+    type: "parallel"
     values: Array<ParsedValues>
 }
 
