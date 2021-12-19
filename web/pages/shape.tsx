@@ -54,7 +54,7 @@ export default function Index() {
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
-                <div style={{ whiteSpace: "pre-line" }} className="p-3 flex-basis-0 flex-grow-1 bg-white h3 mb-0">
+                <div style={{ whiteSpace: "pre-line" }} className="flex-basis-0 flex-grow-1 bg-white h3 mb-0">
                     <Canvas>
                         <OrbitControls />
                         <gridHelper />
