@@ -4,7 +4,12 @@ export type Operations<T> = {
     [name in string]: Operation<T>
 }
 
-export function derive<T>(prev: Array<T>, grammar: ParsedGrammarDefinition, operations: Operations<T>): Array<T> {
+export function derive<T>(
+    prev: Array<T>,
+    grammar: ParsedGrammarDefinition,
+    operations: Operations<T>,
+    clone: (value: T, index: number) => T
+): Array<T> {
     const rules = Object.values(grammar.rules)
     if (rules.length === 0) {
         return prev
@@ -24,7 +29,7 @@ export function derive<T>(prev: Array<T>, grammar: ParsedGrammarDefinition, oper
         entry.push({ prev, resolve })
     }
     let result: Array<T> | undefined = undefined
-    deriveRec(prev, value, grammar, operations, resolveEvent, (r) => (result = r))
+    deriveRec(prev, value, grammar, operations, clone, resolveEvent, (r) => (result = r))
     while (unresolvedEvents.size > 0) {
         const [[eventName, entries]] = unresolvedEvents.entries()
         unresolvedEvents.delete(eventName)
@@ -55,11 +60,15 @@ function deriveRec<T>(
     value: ParsedValues,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
+    clone: (value: T, index: number) => T,
     resolveEvent: (prev: Array<T>, identifier: string, callback: (result: Array<T>) => void) => void,
     callback: (result: Array<T>) => void
 ): void {
     let values: Array<ParsedValues>
     switch (value.type) {
+        case "this":
+            callback(prev)
+            break
         case "event":
             resolveEvent(prev, value.identifier, callback)
             break
@@ -68,30 +77,41 @@ function deriveRec<T>(
             if (operation == null) {
                 throw new Error(`unknown operation "${value.identifier}"`)
             }
-            deriveRec(prev, value.parameters, grammar, operations, resolveEvent, (parameters) =>
-                callback(operation(...prev, ...parameters))
+            deriveRec(prev, value.parameters, grammar, operations, clone, resolveEvent, (parameters) =>
+                callback(operation(...parameters))
             )
             break
         case "parallel":
             let i = 0
+            let counter = 0
             values = value.values
             const results: Array<Array<T>> = []
-            values.forEach((value, index) => deriveRec(prev, value, grammar, operations, resolveEvent, (result) => {
-                i++
-                results[index] = result
-                if(i === values.length) {
-                    callback(results.reduce((v1, v2) => v1.concat(v2)))
-                }
-            }))
+            values.forEach((value, index) =>
+                deriveRec(
+                    prev.map((v) => clone(v, counter++)),
+                    value,
+                    grammar,
+                    operations,
+                    clone,
+                    resolveEvent,
+                    (result) => {
+                        i++
+                        results[index] = result
+                        if (i === values.length) {
+                            callback(results.reduce((v1, v2) => v1.concat(v2)))
+                        }
+                    }
+                )
+            )
             break
         case "raw":
-            callback(Array.isArray(value.value) ? value.value : [value.value])
+            callback(Array.isArray(value.value) ? value.value : prev.map(() => value.value))
             break
         case "sequential":
             values = value.values
             function d(result: Array<T>, i: number) {
                 if (i < values.length) {
-                    deriveRec(result, values[i], grammar, operations, resolveEvent, (result) => d(result, i + 1))
+                    deriveRec(result, values[i], grammar, operations, clone, resolveEvent, (result) => d(result, i + 1))
                 } else {
                     callback(result)
                 }
@@ -103,7 +123,7 @@ function deriveRec<T>(
             if (rule == null) {
                 throw new Error(`unknown rule "${value.identifier}"`)
             }
-            deriveRec(prev, rule, grammar, operations, resolveEvent, callback)
+            deriveRec(prev, rule, grammar, operations, clone, resolveEvent, callback)
             break
     }
 }

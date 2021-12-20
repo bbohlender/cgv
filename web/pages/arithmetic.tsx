@@ -1,16 +1,17 @@
 import Head from "next/head"
 import React, { useMemo, useState } from "react"
-import { parse, derive, sum } from "cgv"
+import { parse, derive } from "cgv"
+import { sum } from "cgv/domains/arithmetic"
 
 const arithmeticOperations = {
-    sum
+    sum,
 }
 
 export default function Index() {
     const [text, setText] = useState("")
     const [result, error] = useMemo(() => {
         try {
-            const values = derive([0], parse(text), arithmeticOperations)
+            const values = derive([0], parse(text), arithmeticOperations, (v) => v)
             return [JSON.stringify(values), undefined]
         } catch (error: any) {
             return [undefined, error.message]

@@ -4,8 +4,7 @@
     "description": "Computer Generated Verse",
     "scripts": {
         "generate:parser": "nearleyc grammar.ne -o src/parser/parser.ts",
-        "build": "tsc",
-        "test": "ts-node src/arithmetic/index"
+        "build": "tsc"
     },
     "devDependencies": {
         "@types/moo": "^0.5.5",

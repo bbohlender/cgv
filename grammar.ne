@@ -9,6 +9,7 @@ const lexer = moo.compile({
     closedBracket: /\)/,
     parallel: /\|/,
     event: /event/,
+    thisSymbol: /this/,
     identifier: /[A-Za-z\d]+/,
     js: /".+?"/,
     ws: { match: /\s+/, lineBreaks: true },
@@ -43,6 +44,7 @@ Value               ->  Operation                                               
                     |   Symbol                                                      {% ([symbol]) => symbol %}
                     |   Event                                                       {% ([event]) => event %}
                     |   JS                                                          {% ([value]) => ({ type: "raw", value }) %}
+                    |   %thisSymbol                                                 {% () => ({ type: "this" }) %}
 
 Operation           ->  %identifier ws %openBracket EmptyValues ws %closedBracket   {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
 Symbol              ->  %identifier                                                 {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}

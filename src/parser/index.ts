@@ -21,6 +21,7 @@ export type ParsedValues =
     | ParsedSymbol
     | ParsedEvent
     | ParsedRaw
+    | ParsedThis
 
 export type ParsedParallelValues = {
     type: "parallel"
@@ -48,6 +49,9 @@ export type ParsedEvent = {
 export type ParsedRaw = {
     type: "raw"
     value: any
+}
+export type ParsedThis = {
+    type: "this"
 }
 
 export type ParsedEventDefinitions = {

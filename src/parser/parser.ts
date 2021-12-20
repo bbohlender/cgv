@@ -9,6 +9,7 @@ declare var arrow: any;
 declare var parallel: any;
 declare var openBracket: any;
 declare var closedBracket: any;
+declare var thisSymbol: any;
 declare var event: any;
 declare var equal: any;
 declare var js: any;
@@ -22,6 +23,7 @@ const lexer = moo.compile({
     closedBracket: /\)/,
     parallel: /\|/,
     event: /event/,
+    thisSymbol: /this/,
     identifier: /[A-Za-z\d]+/,
     js: /".+?"/,
     ws: { match: /\s+/, lineBreaks: true },
@@ -82,6 +84,7 @@ const grammar: Grammar = {
     {"name": "Value", "symbols": ["Symbol"], "postprocess": ([symbol]) => symbol},
     {"name": "Value", "symbols": ["Event"], "postprocess": ([event]) => event},
     {"name": "Value", "symbols": ["JS"], "postprocess": ([value]) => ({ type: "raw", value })},
+    {"name": "Value", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol)], "postprocess": () => ({ type: "this" })},
     {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "EmptyValues", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value })},
     {"name": "Symbol", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([{ value }]) => ({ type: "symbol", identifier: value })},
     {"name": "Event", "symbols": [(lexer.has("event") ? {type: "event"} : event), (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", (lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,,, { value }]) => ({ type: "event", identifier: value })},
