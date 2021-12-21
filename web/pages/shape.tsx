@@ -1,82 +1,19 @@
 import Head from "next/head"
 import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react"
-import { parse, derive } from "cgv"
-
-import {
-    connect,
-    points,
-    faces,
-    lines,
-    union3d,
-    subtract3d,
-    intersect3d,
-    translate,
-    rotate,
-    scale,
-    sample2d,
-    getRoot,
-    Instance,
-    attribute,
-    InstanceParameters,
-} from "cgv/domains/shape"
-
-import { PointPrimitive } from "co-3gen"
-import { Matrix4 } from "three"
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
-import { AttributeInput } from "../components/attribute"
-
-const shapeOperations = {
-    connect,
-    points,
-    faces,
-    lines,
-    union3d,
-    subtract3d,
-    intersect3d,
-    translate,
-    rotate,
-    scale,
-    sample2d,
-    attribute,
-}
+import { AttributeInput } from "../src/attribute"
+import { InstanceParameters, getRoot, Instance } from "cgv/domains/shape"
+import { error } from "moo"
+import { Scene } from "../src/scene"
+import { useResult } from "../src/result"
 
 export default function Index() {
     const [text, setText] = useState("")
     const [parameters, setParameters] = useState<InstanceParameters>({})
 
-    const [result, error] = useMemo(() => {
-        try {
-            const values = derive(
-                [
-                    {
-                        attributes: {},
-                        parameters,
-                        children: [],
-                        id: "root",
-                        primitive: new PointPrimitive(new Matrix4()),
-                    },
-                ],
-                parse(text),
-                shapeOperations,
-                (instance, i) => {
-                    const child = {
-                        parent: instance,
-                        id: `${instance.id}/${i}`,
-                        attributes: instance.attributes,
-                        parameters: instance.parameters,
-                        primitive: instance.primitive.clone(),
-                        children: [],
-                    }
-                    instance.children.push(child)
-                    return child
-                }
-            )
-            return [values, undefined]
-        } catch (error: any) {
-            return [undefined, error.message]
-        }
-    }, [text, parameters])
+    const [result, error] = useResult(parameters, text)
+
     return (
         <>
             <Head>
@@ -94,9 +31,7 @@ export default function Index() {
                             <gridHelper />
                             <pointLight position={[3, 3, 3]} />
                             <ambientLight />
-                            {result?.map((instance, i) => (
-                                <primitive key={i} object={instance.primitive.getObject3D(true)} />
-                            ))}
+                            {result != null && <Scene instances={result} />}
                         </Canvas>
                         <button
                             className="btn btn-primary"
@@ -108,7 +43,7 @@ export default function Index() {
                     <div
                         className="overflow-auto mb-0 border-top flex-basis-0 h5 bg-light flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300, height: 300 }}>
-                        {result && result.length > 0 && (
+                        {result != null && (
                             <Explorer parameters={parameters} setParameters={setParameters} result={result} />
                         )}
                     </div>
@@ -149,15 +84,22 @@ function Explorer({
     const root = useMemo(() => getRoot(result), [result])
     return (
         <div className="d-flex h-100 flex-row">
-            <div className="flex-basis-0 p-3 flex-grow-1 d-flex flex-column">
-                <ExplorerItem selectedInstance={selectedInstance} select={setSelectedInstance} instance={root} />
+            <div className="flex-basis-0 p-3 flex-grow-1 d-flex flex-column overflow-auto">
+                {root.map((instance) => (
+                    <ExplorerItem
+                        key={instance.id}
+                        selectedInstance={selectedInstance}
+                        select={setSelectedInstance}
+                        instance={instance}
+                    />
+                ))}
             </div>
             {selectedInstance == null ? (
                 <div className="p-3 border-start flex-basis-0 flex-grow-1 d-flex align-items-center justify-content-center">
                     No Instance Selected
                 </div>
             ) : (
-                <div className="border-start flex-basis-0 flex-grow-1 d-flex flex-column">
+                <div className="border-start flex-basis-0 flex-grow-1 d-flex flex-column overflow-auto">
                     <h4 className="p-3 border-bottom">{selectedInstance.id}</h4>
                     {Object.entries(selectedInstance.attributes)
                         .filter(([, a]) => a != null)

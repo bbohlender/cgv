@@ -13,7 +13,7 @@ export type Instance = {
     children: Array<Instance>
 }
 
-export function getRoot(values: Array<Instance>): Instance {
+export function getRoot(values: Array<Instance>): Array<Instance> {
     if (values.length === 0) {
         throw new Error("can't get the root of an empty instance array")
     }
@@ -28,11 +28,8 @@ export function getRoot(values: Array<Instance>): Instance {
         }
     }
     const stepUp = Array.from(stepUpSet)
-    if(!anyInstanceHasAParent) {
-        if(stepUp.length === 1) {
-            return stepUp[0]
-        }
-        throw new Error("more then one root element found; no instance has a parent but they are more then one instance remaining")
+    if (!anyInstanceHasAParent) {
+        return stepUp
     }
     return getRoot(stepUp)
 }
