@@ -13,13 +13,13 @@ import {
     boolean2d,
 } from "co-3gen"
 import { Matrix4, Plane } from "three"
-import { AttributeType, Instance } from "."
+import { Attribute, AttributeType, Instance } from "."
 import { Operation } from "../.."
 
 export function attribute(...values: Array<any>): Array<any> {
     const input = splitValues<[Instance, string, number, number, "int" | "float"]>(values, 5)
     return input.map(([instance, name, min, max, type]) => {
-        instance.attributes[name] = {
+        const attribute: Attribute = {
             type: type === "float" ? AttributeType.Float : AttributeType.Int,
             min,
             max,
@@ -28,21 +28,25 @@ export function attribute(...values: Array<any>): Array<any> {
                     ? () => min + Math.random() * (max - min)
                     : () => min + Math.floor(Math.random() * (1 + max - min)),
         }
+        setAttribute(instance, name, attribute)
         const split = instance.id.split("/")
-        let path = name
-        for (let i = 0; i < split.length + 1; i++) {
-            const value = instance.parameters[path]
+        let path: string | undefined = undefined
+        for (let i = 0; i < split.length; i++) {
+            path = (path == null ? "" : path + "/") + split[i]
+            const value = instance.parameters[`${path}/${name}`]
             if (value != null) {
                 return value
             }
-            path = split[i] + "/" + path
-        }
-        const attribute = instance.attributes[name]
-        if (attribute == null) {
-            throw new Error(`unknown attribute '${name}' at instance "${instance.id}"`)
         }
         return attribute.generateRandomValue()
     })
+}
+
+function setAttribute(instance: Instance, name: string, attribute: Attribute): void {
+    instance.attributes[name] = attribute
+    if (instance.parent != null) {
+        setAttribute(instance.parent, name, attribute)
+    }
 }
 
 function boolean3DOp(op: "union" | "intersect" | "subtract", ...values: Array<Instance>): Array<Instance> {

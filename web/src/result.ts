@@ -1,7 +1,7 @@
 import { parse, derive } from "cgv"
-import { Primitive, CombinedPrimitive, LinePrimitive } from "co-3gen"
+import { Primitive, CombinedPrimitive, LinePrimitive, FacePrimitive } from "co-3gen"
 import { useState, useEffect, useMemo } from "react"
-import { Matrix4, Vector3 } from "three"
+import { Matrix4, Plane, Vector3 } from "three"
 import { loadLayers } from "./api"
 import {
     connect,
@@ -22,6 +22,7 @@ import {
     intersect2d,
     subtract2d,
     union2d,
+    cloneInstance,
 } from "cgv/domains/shape"
 
 const shapeOperations = {
@@ -43,23 +44,10 @@ const shapeOperations = {
     expand2d,
 }
 
-function clone(instance: Instance, i: number) {
-    const child = {
-        parent: instance,
-        id: `${instance.id}/${i}`,
-        attributes: instance.attributes,
-        parameters: instance.parameters,
-        primitive: instance.primitive.clone(),
-        children: [],
-    }
-    instance.children.push(child)
-    return child
-}
-
 export function useResult(
     parameters: InstanceParameters,
     text: string
-): [Array<Instance> | undefined, string | undefined] {
+): [Array<Instance> | undefined, Instance | undefined, string | undefined] {
     const [lotPrimitives, setLotPrimitives] = useState<Array<Primitive> | undefined>(undefined)
     useEffect(
         () =>
@@ -83,7 +71,20 @@ export function useResult(
                                     )
                             )
                         })
-                        .reduce((v1, v2) => v1.concat(v2), [])
+                        .reduce<Array<Primitive>>((v1, v2) => v1.concat(v2), [])
+                        .concat(
+                            layers["building"]
+                                .map((value) =>
+                                    value.geometry.map((lot) =>
+                                        FacePrimitive.fromPointsOnPlane(
+                                            new Matrix4(),
+                                            new Plane(new Vector3(0, 1, 0)),
+                                            lot.map(({ x, y }) => new Vector3(x, 0, y))
+                                        )
+                                    )
+                                )
+                                .reduce((v1, v2) => v1.concat(v2), [])
+                        )
                 )
             }),
         []
@@ -97,25 +98,34 @@ export function useResult(
         }
     }, [text])
 
-    const [result, derivationError] = useMemo(() => {
+    const [result, base, derivationError] = useMemo(() => {
         if (lotPrimitives == null || definition == null) {
-            return [undefined, undefined]
+            return [undefined, undefined, undefined]
         } else {
+            const base: Instance = {
+                children: [],
+                id: "root",
+                attributes: {},
+                parameters,
+                primitive: new CombinedPrimitive(new Matrix4(), lotPrimitives),
+            }
             const instances = lotPrimitives.map<Instance>((primitive, i) => ({
                 attributes: {},
                 parameters,
                 primitive,
                 children: [],
-                id: i.toString(),
+                id: `root/${i}`,
+                parent: base,
             }))
+            base.children.push(...instances)
             try {
-                const values = derive(instances, definition, shapeOperations, clone)
-                return [values, undefined]
+                const values = derive(instances, definition, shapeOperations, cloneInstance)
+                return [values, base, undefined]
             } catch (error: any) {
-                return [undefined, error.message]
+                return [undefined, undefined, error.message]
             }
         }
     }, [definition, lotPrimitives, parameters])
 
-    return useMemo(() => [result, parseError ?? derivationError], [result, parseError, derivationError])
+    return useMemo(() => [result, base, parseError ?? derivationError], [result, base, parseError, derivationError])
 }

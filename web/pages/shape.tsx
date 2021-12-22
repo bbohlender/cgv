@@ -3,16 +3,16 @@ import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "r
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
 import { AttributeInput } from "../src/attribute"
-import { InstanceParameters, getRoot, Instance } from "cgv/domains/shape"
-import { error } from "moo"
+import { InstanceParameters, Instance } from "cgv/domains/shape"
 import { Scene } from "../src/scene"
 import { useResult } from "../src/result"
 
 export default function Index() {
     const [text, setText] = useState("")
     const [parameters, setParameters] = useState<InstanceParameters>({})
+    const [selectedInstance, setSelectedInstance] = useState<Instance | undefined>(undefined)
 
-    const [result, error] = useResult(parameters, text)
+    const [result, base, error] = useResult(parameters, text)
 
     return (
         <>
@@ -31,7 +31,13 @@ export default function Index() {
                             <gridHelper />
                             <pointLight position={[3, 3, 3]} />
                             <ambientLight />
-                            {result != null && <Scene instances={result} />}
+                            {result != null && (
+                                <Scene
+                                    setSelectedInstance={setSelectedInstance}
+                                    selectedInstance={selectedInstance}
+                                    instances={result}
+                                />
+                            )}
                         </Canvas>
                         <button
                             className="btn btn-primary"
@@ -43,8 +49,14 @@ export default function Index() {
                     <div
                         className="overflow-auto mb-0 border-top flex-basis-0 h5 bg-light flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300, height: 300 }}>
-                        {result != null && (
-                            <Explorer parameters={parameters} setParameters={setParameters} result={result} />
+                        {base != null && (
+                            <Explorer
+                                selectedInstance={selectedInstance}
+                                setSelectedInstance={setSelectedInstance}
+                                parameters={parameters}
+                                setParameters={setParameters}
+                                base={base}
+                            />
                         )}
                     </div>
                 </div>
@@ -72,27 +84,27 @@ export default function Index() {
 }
 
 function Explorer({
-    result,
+    base,
     setParameters,
     parameters,
+    selectedInstance,
+    setSelectedInstance,
 }: {
-    result: Array<Instance>
+    base: Instance
     setParameters: Dispatch<SetStateAction<InstanceParameters>>
     parameters: InstanceParameters
+    selectedInstance: Instance | undefined
+    setSelectedInstance: (instance: Instance | undefined) => void
 }) {
-    const [selectedInstance, setSelectedInstance] = useState<undefined | Instance>()
-    const root = useMemo(() => getRoot(result), [result])
     return (
         <div className="d-flex h-100 flex-row">
             <div className="flex-basis-0 p-3 flex-grow-1 d-flex flex-column overflow-auto">
-                {root.map((instance) => (
-                    <ExplorerItem
-                        key={instance.id}
-                        selectedInstance={selectedInstance}
-                        select={setSelectedInstance}
-                        instance={instance}
-                    />
-                ))}
+                <ExplorerItem
+                    key={base.id}
+                    selectedInstance={selectedInstance}
+                    select={setSelectedInstance}
+                    instance={base}
+                />
             </div>
             {selectedInstance == null ? (
                 <div className="p-3 border-start flex-basis-0 flex-grow-1 d-flex align-items-center justify-content-center">
@@ -130,6 +142,7 @@ function ExplorerItem({
     instance: Instance
     select: (id: Instance) => void
 }) {
+    const [open, setOpen] = useState(false)
     useEffect(() => {
         if (selectedInstance?.id === instance.id && selectedInstance != instance) {
             select(instance)
@@ -137,10 +150,21 @@ function ExplorerItem({
     }, [selectedInstance, instance])
     return (
         <>
-            <span onClick={() => select(instance)} className="mt-1 p-1 pointer">
-                {instance.id}
-            </span>
-            <div className="ms-3 d-flex flex-column">
+            <div className="mt-1 d-flex flex-row align-items-center">
+                {instance.children.length > 0 && (
+                    <span className="pointer p-1" onClick={() => setOpen(!open)}>
+                        {open ? "-" : "+"}
+                    </span>
+                )}
+                <div className="flex-grow-1 p-1 pointer">
+                    <span
+                        onClick={() => select(instance)}
+                        className={selectedInstance === instance ? "p-1 rounded text-light bg-primary" : "p1"}>
+                        {instance.id}
+                    </span>
+                </div>
+            </div>
+            <div className={`ms-3 ${open ? "d-flex" : "d-none"} flex-column`}>
                 {instance.children.map((instance) => (
                     <ExplorerItem
                         key={instance.id}
