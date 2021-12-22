@@ -16,6 +16,23 @@ import { Matrix4, Plane } from "three"
 import { Attribute, AttributeType, Instance } from "."
 import { Operation } from "../.."
 
+/*export function equal(): Array<any> {
+
+}*/
+
+export function isRoad(...values: Array<any>): Array<any> {
+    return values.map((value) => value.parameters.layer === "road")
+}
+
+export function isBuilding(...values: Array<any>): Array<any> {
+    return values.map((value) => value.parameters.layer === "building")
+}
+
+export function filter(...values: Array<any>): Array<any> {
+    const input = splitValues<[Instance, boolean]>(values, 2)
+    return input.filter(([, v]) => v).map(([v]) => v)
+}
+
 export function attribute(...values: Array<any>): Array<any> {
     const input = splitValues<[Instance, string, number, number, "int" | "float"]>(values, 5)
     return input.map(([instance, name, min, max, type]) => {

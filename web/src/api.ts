@@ -4,12 +4,14 @@
 import { VectorTile } from "vector-tile"
 import Protobuf from "pbf"
 
-export async function loadLayers(): Promise<{
+export type Layers = {
     [Layer in string]: Array<{
         properties: any
         geometry: Array<Array<{ x: number; y: number }>>
     }>
-}> {
+}
+
+export async function loadLayers(): Promise<Layers> {
     const response = await fetch("/22545.mvt")
     const data = await response.arrayBuffer()
     const vectorTile = new VectorTile(new Protobuf(data))

@@ -1,7 +1,7 @@
 import { Primitive } from "co-3gen"
 import { Attribute } from "./attribute"
 
-export type InstanceParameters = { [name in string]?: number }
+export type InstanceParameters = { [name in string]?: any }
 export type InstanceAttributes = { [name in string]?: Attribute }
 
 export type Instance = {
