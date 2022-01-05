@@ -1,54 +1,9 @@
-import { parse, derive } from "cgv"
+import { parse, interprete } from "cgv"
 import { Primitive, CombinedPrimitive, LinePrimitive, FacePrimitive } from "co-3gen"
 import { useState, useEffect, useMemo } from "react"
 import { Matrix4, Plane, Vector3 } from "three"
 import { Layers, loadLayers } from "./api"
-import {
-    connect,
-    points,
-    faces,
-    lines,
-    union3d,
-    subtract3d,
-    intersect3d,
-    translate,
-    rotate,
-    scale,
-    sample2d,
-    attribute,
-    Instance,
-    InstanceParameters,
-    expand2d,
-    intersect2d,
-    subtract2d,
-    union2d,
-    cloneInstance,
-    filter,
-    isBuilding,
-    isRoad,
-} from "cgv/domains/shape"
-
-const shapeOperations = {
-    connect,
-    points,
-    faces,
-    lines,
-    union3d,
-    subtract3d,
-    intersect3d,
-    union2d,
-    subtract2d,
-    intersect2d,
-    translate,
-    rotate,
-    scale,
-    sample2d,
-    attribute,
-    expand2d,
-    filter,
-    isRoad,
-    isBuilding,
-}
+import { cloneInstance, Instance, InstanceParameters, operations } from "cgv/domains/shape"
 
 export function useResult(
     parameters: InstanceParameters,
@@ -129,7 +84,7 @@ export function useResult(
                 )
             base.children.push(...instances)
             try {
-                const values = derive(instances, definition, shapeOperations, cloneInstance)
+                const values = interprete(instances, definition, operations, cloneInstance)
                 return [values, base, undefined]
             } catch (error: any) {
                 return [undefined, undefined, error.message]

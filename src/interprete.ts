@@ -4,7 +4,7 @@ export type Operations<T> = {
     [name in string]: Operation<T>
 }
 
-export function derive<T>(
+export function interprete<T>(
     prev: Array<T>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,

@@ -20,20 +20,20 @@ import { Operation } from "../.."
 
 }*/
 
-export function isRoad(...values: Array<any>): Array<any> {
+function isRoad(...values: Array<any>): Array<any> {
     return values.map((value) => value.parameters.layer === "road")
 }
 
-export function isBuilding(...values: Array<any>): Array<any> {
+function isBuilding(...values: Array<any>): Array<any> {
     return values.map((value) => value.parameters.layer === "building")
 }
 
-export function filter(...values: Array<any>): Array<any> {
+function filter(...values: Array<any>): Array<any> {
     const input = splitValues<[Instance, boolean]>(values, 2)
     return input.filter(([, v]) => v).map(([v]) => v)
 }
 
-export function attribute(...values: Array<any>): Array<any> {
+function attribute(...values: Array<any>): Array<any> {
     const input = splitValues<[Instance, string, number, number, "int" | "float"]>(values, 5)
     return input.map(([instance, name, min, max, type]) => {
         const attribute: Attribute = {
@@ -90,12 +90,12 @@ function boolean2DOp(op: "union" | "intersect" | "subtract", ...values: Array<In
     ]
 }
 
-export const connect: Operation<Instance> = (...values: Array<Instance>) => {
+const connect: Operation<Instance> = (...values: Array<Instance>) => {
     const input = splitValues<[Instance, Instance]>(values, 2)
     return input.map(([i1, i2]) => instanceChangePrimitive(connect3Gen(i1.primitive, i2.primitive), i1))
 }
 
-export const sample2d: Operation<Instance> = (...values: Array<any>) => {
+const sample2d: Operation<Instance> = (...values: Array<any>) => {
     const input = splitValues<[Instance, number]>(values, 2)
 
     return input.map(([instance, amount]) =>
@@ -109,35 +109,35 @@ export const sample2d: Operation<Instance> = (...values: Array<any>) => {
     )
 }
 
-export const union3d: Operation<Instance> = boolean3DOp.bind(null, "union")
-export const intersect3d: Operation<Instance> = boolean3DOp.bind(null, "intersect")
-export const subtract3d: Operation<Instance> = boolean3DOp.bind(null, "subtract")
+const union3d: Operation<Instance> = boolean3DOp.bind(null, "union")
+const intersect3d: Operation<Instance> = boolean3DOp.bind(null, "intersect")
+const subtract3d: Operation<Instance> = boolean3DOp.bind(null, "subtract")
 
-export const union2d: Operation<Instance> = boolean2DOp.bind(null, "union")
-export const intersect2d: Operation<Instance> = boolean2DOp.bind(null, "intersect")
-export const subtract2d: Operation<Instance> = boolean2DOp.bind(null, "subtract")
+const union2d: Operation<Instance> = boolean2DOp.bind(null, "union")
+const intersect2d: Operation<Instance> = boolean2DOp.bind(null, "intersect")
+const subtract2d: Operation<Instance> = boolean2DOp.bind(null, "subtract")
 
-export const expand2d: Operation<Instance> = (...values: Array<any>) => {
+const expand2d: Operation<Instance> = (...values: Array<any>) => {
     const input = splitValues<[Instance, number]>(values, 2)
     return input.map(([instance, delta]) =>
         instanceChangePrimitive(expand(instance.primitive, new Plane(YAXIS), delta), instance)
     )
 }
 
-export const points: Operation<Instance> = (...values: Array<Instance>) =>
+const points: Operation<Instance> = (...values: Array<Instance>) =>
     values.map((value) => instanceChangePrimitive(value.primitive.components(ComponentType.Point), value))
-export const lines: Operation<Instance> = (...values: Array<Instance>) =>
+const lines: Operation<Instance> = (...values: Array<Instance>) =>
     values.map((value) => instanceChangePrimitive(value.primitive.components(ComponentType.Line), value))
-export const faces: Operation<Instance> = (...values: Array<Instance>) =>
+const faces: Operation<Instance> = (...values: Array<Instance>) =>
     values.map((value) => instanceChangePrimitive(value.primitive.components(ComponentType.Face), value))
 
-export const translate: Operation<Instance> = (...values) => {
+const translate: Operation<Instance> = (...values) => {
     const input = splitValues<[Instance, number, number, number]>(values, 4)
     return input.map(([instance, x, y, z]) =>
         instanceChangePrimitive(instance.primitive.applyMatrix(makeTranslationMatrix(x, y, z)), instance)
     )
 }
-export const rotate: Operation<Instance> = (...values) => {
+const rotate: Operation<Instance> = (...values) => {
     const input = splitValues<[Instance, number, number, number]>(values, 4)
     return input.map(([instance, ...euler]) =>
         instanceChangePrimitive(
@@ -149,7 +149,7 @@ export const rotate: Operation<Instance> = (...values) => {
     )
 }
 
-export const scale: Operation<Instance> = (...values) => {
+const scale: Operation<Instance> = (...values) => {
     const input = splitValues<[Instance, number, number, number]>(values, 4)
     return input.map(([instance, x, y, z]) =>
         instanceChangePrimitive(instance.primitive.applyMatrix(makeScaleMatrix(x, y, z)), instance)
@@ -171,4 +171,26 @@ function splitValues<T extends Array<any>>(array: Array<any>, splits: number): A
     return new Array(splitSize)
         .fill(null)
         .map((_, i) => new Array(splits).fill(null).map((_, ii) => array[ii * splitSize + i]) as T)
+}
+
+export const operations = {
+    connect,
+    points,
+    faces,
+    lines,
+    union3d,
+    subtract3d,
+    intersect3d,
+    union2d,
+    subtract2d,
+    intersect2d,
+    translate,
+    rotate,
+    scale,
+    sample2d,
+    attribute,
+    expand2d,
+    filter,
+    isRoad,
+    isBuilding,
 }
