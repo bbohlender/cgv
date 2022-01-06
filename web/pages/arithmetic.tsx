@@ -1,16 +1,20 @@
 import Head from "next/head"
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { parse, interprete } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
 
 export default function Index() {
     const [text, setText] = useState("")
-    const [result, error] = useMemo(() => {
+    const [[result, error], setState] = useState<[string | undefined, string | undefined]>([undefined, undefined])
+
+    useEffect(() => {
         try {
-            const values = interprete([0], parse(text), operations, (v) => v)
-            return [JSON.stringify(values), undefined]
+            void interprete([0], parse(text), operations, (v) => v)
+                .then((promises) => Promise.all(promises))
+                .then((results) => setState([JSON.stringify(results), undefined]))
+                .catch((error) => setState([undefined, error.message]))
         } catch (error: any) {
-            return [undefined, error.message]
+            setState([undefined, error.message])
         }
     }, [text])
     return (

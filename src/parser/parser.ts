@@ -25,7 +25,7 @@ const lexer = moo.compile({
     event: /event/,
     thisSymbol: /this/,
     identifier: /[A-Za-z\d]+/,
-    js: /".+?"/,
+    js: { match: /"[^"]+"/, lineBreaks: true },
     ws: { match: /\s+/, lineBreaks: true },
 });
 
@@ -89,7 +89,7 @@ const grammar: Grammar = {
     {"name": "Symbol", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([{ value }]) => ({ type: "symbol", identifier: value })},
     {"name": "Event", "symbols": [(lexer.has("event") ? {type: "event"} : event), (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", (lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,,, { value }]) => ({ type: "event", identifier: value })},
     {"name": "EventDefinition", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("equal") ? {type: "equal"} : equal), "ws", "JS"], "postprocess": ([{ value },,,, fn]) => [value, fn]},
-    {"name": "JS", "symbols": [(lexer.has("js") ? {type: "js"} : js)], "postprocess": ([{ value }]) => eval((value as string).replace(/"(.+?)"/, (_,fn) => fn))},
+    {"name": "JS", "symbols": [(lexer.has("js") ? {type: "js"} : js)], "postprocess": ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn))},
     {"name": "ws", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},
     {"name": "ws", "symbols": []}
   ],

@@ -19,7 +19,7 @@ import { Operation } from "../.."
 /*export function equal(): Array<any> {
 
 }*/
-
+/*
 function isRoad(...values: Array<any>): Array<any> {
     return values.map((value) => value.parameters.layer === "road")
 }
@@ -194,3 +194,4 @@ export const operations = {
     isRoad,
     isBuilding,
 }
+*/

@@ -11,7 +11,7 @@ const lexer = moo.compile({
     event: /event/,
     thisSymbol: /this/,
     identifier: /[A-Za-z\d]+/,
-    js: /".+?"/,
+    js: { match: /"[^"]+"/, lineBreaks: true },
     ws: { match: /\s+/, lineBreaks: true },
 });
 %}
@@ -52,5 +52,5 @@ Event               ->  %event %openBracket ws %identifier ws %closedBracket    
 
 EventDefinition     ->  %identifier ws %equal ws JS                                 {% ([{ value },,,, fn]) => [value, fn] %}
 
-JS                  ->  %js                                                         {% ([{ value }]) => eval((value as string).replace(/"(.+?)"/, (_,fn) => fn)) %}
+JS                  ->  %js                                                         {% ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn)) %}
 ws                  ->  %ws | null
