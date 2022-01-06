@@ -12,11 +12,11 @@ export async function interprete<T>(
     prev: Array<T>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
-    clone: (value: T, index: number) => T
-): Promise<Array<Promise<T>>> {
+    clone: (value: T, index: string) => T
+): Promise<Array<T>> {
     const rules = Object.values(grammar.rules)
     if (rules.length === 0) {
-        return prev.map((v) => Promise.resolve(v))
+        return Promise.resolve(prev)
     }
     const [value] = rules
     const unresolvedEvents = new Map<string, Array<{ prev: Array<T>; resolve: (result: Array<T>) => void }>>()
@@ -57,8 +57,8 @@ export async function interprete<T>(
             }
         })
     }
-    const computeArrays = await deriveRec(
-        prev.map((p) => () => Promise.resolve(p)),
+    const computeArrays = deriveRec(
+        prev.map((p) => () => Promise.resolve([p])),
         value,
         grammar,
         operations,
@@ -70,33 +70,41 @@ export async function interprete<T>(
         throw new Error(`not all events have been resolved`)
     }
     console.log("interpretion done")
-    return computeArrays.map((c) => c())
+    const results = await Promise.all(computeArrays.map((c) => c()))
+    return results.reduce((v1, v2) => v1.concat(v2))
 }
 
-async function deriveRec<T>(
-    prev: Array<() => Promise<T>>,
+function deriveRec<T>(
+    prev: Array<() => Promise<Array<T>>>,
     value: ParsedValues,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
-    clone: (value: T, index: number) => T,
+    clone: (value: T, index: string) => T,
     resolveEvent: (prev: Array<T>, identifier: string) => Promise<Array<T>>,
     parallelProcessTracker: { value: number }
-): Promise<Array<() => Promise<T>>> {
+): Array<() => Promise<Array<T>>> {
     let values: Array<ParsedValues>
     switch (value.type) {
         case "this":
             return prev
         case "event":
             //here we are waisting time
-            const eventResult = await resolveEvent(await Promise.all(prev.map((c) => c())), value.identifier)
-            return eventResult.map((v) => () => Promise.resolve(v))
+            return [
+                async () => {
+                    const eventInputs = await Promise.all(prev.map((c) => c()))
+                    return resolveEvent(
+                        eventInputs.reduce((v1, v2) => v1.concat(v2), []),
+                        value.identifier
+                    )
+                },
+            ]
         case "operation":
             const operation = operations[value.identifier]
             if (operation == null) {
                 throw new Error(`unknown operation "${value.identifier}"`)
             }
 
-            const parameters = await deriveRec(
+            const parameters = deriveRec(
                 prev,
                 value.parameters,
                 grammar,
@@ -108,43 +116,21 @@ async function deriveRec<T>(
 
             return operation(...parameters)
         case "parallel":
-            let counter = 0
             values = value.values
 
-            const results = await Promise.all(
-                values.map(async (value, i) => {
-                    if (i > 0) {
-                        parallelProcessTracker.value++
-                    }
-                    const result = await deriveRec(
-                        prev.map((c) => async () => {
-                            //TODO: this will be executed multiple times (with the same result: here we need caching)
-                            const prevResult = await c()
-                            return clone(prevResult, counter++)
-                        }),
-                        value,
-                        grammar,
-                        operations,
-                        clone,
-                        resolveEvent,
-                        parallelProcessTracker
-                    )
-                    if (i > 0) {
-                        parallelProcessTracker.value--
-                    }
-                    return result
-                })
-            )
-
-            return results.reduce((v1, v2) => v1.concat(v2), [])
-        case "raw":
-            return Array.isArray(value.value) ? value.value : prev.map(() => () => Promise.resolve(value.value))
-        case "sequential":
-            values = value.values
-            let current = prev
-            for (const value of values) {
-                current = await deriveRec(
-                    current,
+            const results = values.map((value, i) => {
+                const result = deriveRec(
+                    prev.map((compute, ii) => async () => {
+                        if (i > 0) {
+                            parallelProcessTracker.value++
+                        }
+                        //TODO: this will be executed multiple times (with the same result: here we need caching)
+                        const prevResult = await compute()
+                        if (i > 0) {
+                            parallelProcessTracker.value--
+                        }
+                        return prevResult.map((v, iii) => clone(v, `${i},${ii},${iii}`))
+                    }),
                     value,
                     grammar,
                     operations,
@@ -152,6 +138,19 @@ async function deriveRec<T>(
                     resolveEvent,
                     parallelProcessTracker
                 )
+                return result
+            })
+
+            return results.reduce((v1, v2) => v1.concat(v2), [])
+        case "raw":
+            return Array.isArray(value.value)
+                ? value.value.map((v) => () => Promise.resolve([v]))
+                : prev.map(() => () => Promise.resolve([value.value]))
+        case "sequential":
+            values = value.values
+            let current = prev
+            for (const value of values) {
+                current = deriveRec(current, value, grammar, operations, clone, resolveEvent, parallelProcessTracker)
             }
 
             return current

@@ -4,7 +4,7 @@ const sum: Operation<number> = (...waitValues) => [
     async () => {
         const values = await Promise.all(waitValues.map((v) => v()))
         await new Promise((resolve) => setTimeout(resolve, 1000))
-        return values.reduce((v1, v2) => v1 + v2, 0)
+        return [values.reduce((v1, v2) => v1 + v2.reduce((v1, v2) => v1 + v2, 0), 0)]
     },
 ]
 

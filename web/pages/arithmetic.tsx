@@ -17,6 +17,7 @@ export default function Index() {
             setState([undefined, error.message])
         }
     }, [text])
+
     return (
         <>
             <Head>

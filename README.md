@@ -26,3 +26,26 @@ _Computer Generated Verse_
 * parallel Step - the input is split/cloned into multiple values
 
 * premature Termination - the interpretion is cancelled before all possible steps are exhausted (reducing execution time but returning an unfinished/earlier result)
+
+
+## Test Grammars
+
+### Arithmetic
+
+```
+a -> sum("1" | "2") event(max) | "4" event(max)
+
+max = "a => {
+   let max = 0
+   let maxI = 0
+   let maxII = 0;
+   a.forEach((b, i) => b.forEach((c, ii) => {
+      if(c > max) {
+          max = c
+          maxI = i
+          maxII = ii
+      }
+   }))
+   return a.map((b, i) => maxI === i ? b.filter((c,ii) => maxII === ii) : [])
+}"
+```
