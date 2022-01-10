@@ -1,164 +1,171 @@
-import { Operation, ParsedEvent, ParsedGrammarDefinition, ParsedValues } from "."
+import {
+    combineLatest,
+    finalize,
+    isObservable,
+    map,
+    MonoTypeOperatorFunction,
+    Observable,
+    of,
+    Subject,
+    Subscriber,
+    switchMap,
+    tap,
+} from "rxjs"
+import { ParsedEventDefintion, ParsedGrammarDefinition, ParsedStep } from "."
+
+export type Operation<T> = (values: DeepObservable<T>) => DeepObservable<T>
 
 export type Operations<T> = {
     [name in string]: Operation<T>
 }
 
-//TODO: implement a cache map (that enables to continue at any point, and also InstancedMeshes)
-//the cache map should also contain loading requests (so requestes are not doubled)
+type DeepObservable<T> = Observable<Array<T | DeepObservable<T>>>
 
-//TODO: cancellation token
-export async function interprete<T>(
-    prev: Array<T>,
-    grammar: ParsedGrammarDefinition,
-    operations: Operations<T>,
-    clone: (value: T, index: string) => T
-): Promise<Array<T>> {
-    const rules = Object.values(grammar.rules)
-    if (rules.length === 0) {
-        return Promise.resolve(prev)
-    }
-    const [value] = rules
-    const unresolvedEvents = new Map<string, Array<{ prev: Array<T>; resolve: (result: Array<T>) => void }>>()
-    let unresolvedEventCount = 0
-    const parallelProcessTracker = { value: 1 }
-    const resolveEvent = async (prev: Array<T>, identifier: string): Promise<Array<T>> => {
-        let entry = unresolvedEvents.get(identifier)
-        if (entry == null) {
-            entry = []
-            unresolvedEvents.set(identifier, entry)
-        }
-        const e = entry
-        return new Promise((resolve) => {
-            e.push({ prev, resolve })
-            ++unresolvedEventCount
-
-            if (parallelProcessTracker.value === unresolvedEventCount) {
-                const [[eventName, entries]] = unresolvedEvents.entries()
-                unresolvedEvents.delete(eventName)
-                unresolvedEventCount -= entries.length
-                const event = grammar.events[eventName]
-                if (event == null) {
-                    throw new Error(`unknown event "${eventName}"`)
-                }
-                const results = event(entries.map(({ prev }) => prev))
-                if (!Array.isArray(results) || results.length != entries.length) {
-                    throw new Error(`an event must resolve into an array of arrays with the same length as the input`)
-                }
-                for (let i = 0; i < entries.length; i++) {
-                    const { resolve } = entries[i]
-                    if (!Array.isArray(results[i])) {
-                        throw new Error(
-                            `an event must resolve into an array of arrays with the same length as the input`
-                        )
-                    }
-                    resolve(results[i])
-                }
-            }
-        })
-    }
-    const computeArrays = deriveRec(
-        prev.map((p) => () => Promise.resolve([p])),
-        value,
-        grammar,
-        operations,
-        clone,
-        resolveEvent,
-        parallelProcessTracker
+export function flatten<T>(deep: DeepObservable<T>): Observable<Array<T>> {
+    return deep.pipe(
+        switchMap((values) =>
+            values.length === 0
+                ? of([])
+                : combineLatest(values.map((value) => (isObservable(value) ? flatten(value) : of([value]))))
+        ),
+        map((results) => results.reduce((v1, v2) => v1.concat(v2), []))
     )
-    if (unresolvedEventCount != 0) {
-        throw new Error(`not all events have been resolved`)
-    }
-    console.log("interpretion done")
-    const results = await Promise.all(computeArrays.map((c) => c()))
-    return results.reduce((v1, v2) => v1.concat(v2))
 }
 
-function deriveRec<T>(
-    prev: Array<() => Promise<Array<T>>>,
-    value: ParsedValues,
+function debounceParallel<T>(time: number): MonoTypeOperatorFunction<T> {
+    return (value) => {
+        const map = new Map<T, number>()
+        const subject = new Subject<T>()
+        const cleanup = () => map.forEach((handle) => clearTimeout(handle))
+        value.subscribe({
+            complete: () => {
+                cleanup()
+                subject.complete()
+            },
+            next: (value) => {
+                let entry = map.get(value)
+                if (entry != null) {
+                    clearTimeout(entry)
+                }
+                map.set(value, setTimeout(() => subject.next(value), time) as any)
+            },
+            error: (error) => {
+                cleanup()
+                subject.error(error)
+            },
+        })
+        return subject
+    }
+}
+
+export function interprete<T>(
+    input: Observable<Array<T>>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
-    clone: (value: T, index: string) => T,
-    resolveEvent: (prev: Array<T>, identifier: string) => Promise<Array<T>>,
-    parallelProcessTracker: { value: number }
-): Array<() => Promise<Array<T>>> {
-    let values: Array<ParsedValues>
-    switch (value.type) {
-        case "this":
-            return prev
-        case "event":
-            //here we are waisting time
-            return [
-                async () => {
-                    const eventInputs = await Promise.all(prev.map((c) => c()))
-                    return resolveEvent(
-                        eventInputs.reduce((v1, v2) => v1.concat(v2), []),
-                        value.identifier
-                    )
-                },
-            ]
-        case "operation":
-            const operation = operations[value.identifier]
-            if (operation == null) {
-                throw new Error(`unknown operation "${value.identifier}"`)
-            }
-
-            const parameters = deriveRec(
-                prev,
-                value.parameters,
-                grammar,
-                operations,
-                clone,
-                resolveEvent,
-                parallelProcessTracker
-            )
-
-            return operation(...parameters)
-        case "parallel":
-            values = value.values
-
-            const results = values.map((value, i) => {
-                const result = deriveRec(
-                    prev.map((compute, ii) => async () => {
-                        if (i > 0) {
-                            parallelProcessTracker.value++
+    eventDebounceTime: number = 100,
+): Observable<Array<T>> {
+    const [firstRule] = Object.values(grammar.rules)
+    const eventMap = new Map<ParsedEventDefintion, Array<[inputs: Array<T>, subscriber: Subscriber<T[]>]>>()
+    const eventScheduler = new Subject<ParsedEventDefintion>()
+    eventScheduler
+        .pipe(
+            debounceParallel(eventDebounceTime),
+            tap((event) => {
+                const entries = eventMap.get(event)
+                if (entries != null && entries.length > 0) {
+                    const results = event(entries.map(([values]) => values))
+                    console.log("event processed", entries.length, results.length)
+                    if (!Array.isArray(results) || results.length !== entries.length) {
+                        throw new Error(
+                            `the return value of an event must be an array with the same length as the input array`
+                        )
+                    }
+                    results.forEach((result, index) => {
+                        if (!Array.isArray(result)) {
+                            throw new Error(`each item in the array returned by the event must be a array be itself`)
                         }
-                        //TODO: this will be executed multiple times (with the same result: here we need caching)
-                        const prevResult = await compute()
-                        if (i > 0) {
-                            parallelProcessTracker.value--
-                        }
-                        return prevResult.map((v, iii) => clone(v, `${i},${ii},${iii}`))
-                    }),
-                    value,
-                    grammar,
-                    operations,
-                    clone,
-                    resolveEvent,
-                    parallelProcessTracker
-                )
-                return result
+                        entries[index][1].next(result)
+                    })
+                }
             })
+        )
+        .subscribe()
+    return flatten(
+        interpreteStep(
+            input,
+            firstRule,
+            grammar,
+            operations,
+            (identifier, input) =>
+                new Observable((subscriber) => {
+                    const event = grammar.events[identifier]
+                    if (event == null) {
+                        subscriber.error(new Error(`unknown event "${identifier}"`))
+                        return
+                    }
+                    let entry = eventMap.get(event)
+                    const newEntryEntry: [Array<T>, Subscriber<Array<T>>] = [input, subscriber]
+                    if (entry == null) {
+                        entry = [newEntryEntry]
+                        eventMap.set(event, entry)
+                    } else {
+                        entry.push(newEntryEntry)
+                    }
+                    eventScheduler.next(event)
+                    console.log("scheduled " + identifier, entry.length)
+                    const e = entry
+                    return () => {
+                        const index = e.findIndex((entryEntry) => entryEntry === newEntryEntry)
+                        if (index !== -1) {
+                            e.splice(index, 1)
+                            if (e.length === 0) {
+                                eventMap.delete(event)
+                            }
+                        }
+                    }
+                })
+        )
+    ).pipe(finalize(() => eventScheduler.complete()))
+}
 
-            return results.reduce((v1, v2) => v1.concat(v2), [])
+export function interpreteStep<T>(
+    input: DeepObservable<T>,
+    step: ParsedStep,
+    grammar: ParsedGrammarDefinition,
+    operations: Operations<T>,
+    scheduleEvent: (identifier: string, input: Array<T>) => Observable<Array<T>>
+): DeepObservable<T> {
+    switch (step.type) {
+        case "event":
+            return flatten(input).pipe(switchMap((input) => scheduleEvent(step.identifier, input)))
+        case "operation":
+            const operation = operations[step.identifier]
+            if (operation == null) {
+                throw new Error(`unknown operation "${step.identifier}"`)
+            }
+            return operation(interpreteStep(input, step.parameters, grammar, operations, scheduleEvent))
+        case "parallel":
+            return of(
+                step.steps.map(
+                    //TODO: clone
+                    (stepOfSteps) => interpreteStep(input, stepOfSteps, grammar, operations, scheduleEvent)
+                )
+            )
         case "raw":
-            return Array.isArray(value.value)
-                ? value.value.map((v) => () => Promise.resolve([v]))
-                : prev.map(() => () => Promise.resolve([value.value]))
+            return of(Array.isArray(step.value) ? step.value : [step.value])
         case "sequential":
-            values = value.values
-            let current = prev
-            for (const value of values) {
-                current = deriveRec(current, value, grammar, operations, clone, resolveEvent, parallelProcessTracker)
+            let current = input
+            for (const stepOfSteps of step.steps) {
+                current = interpreteStep(current, stepOfSteps, grammar, operations, scheduleEvent)
             }
-
             return current
+        case "this":
+            return input
         case "symbol":
-            const rule = grammar.rules[value.identifier]
+            const rule = grammar.rules[step.identifier]
             if (rule == null) {
-                throw new Error(`unknown rule "${value.identifier}"`)
+                throw new Error(`unknown rule "${step.identifier}"`)
             }
-            return deriveRec(prev, rule, grammar, operations, clone, resolveEvent, parallelProcessTracker)
+            return interpreteStep(input, rule, grammar, operations, scheduleEvent)
     }
 }

@@ -1,12 +1,8 @@
-import { Operation } from "../.."
+import { map } from "rxjs"
+import { flatten, Operation } from "../.."
 
-const sum: Operation<number> = (...waitValues) => [
-    async () => {
-        const values = await Promise.all(waitValues.map((v) => v()))
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-        return [values.reduce((v1, v2) => v1 + v2.reduce((v1, v2) => v1 + v2, 0), 0)]
-    },
-]
+const sum: Operation<number> = (values) =>
+    flatten(values).pipe(map((values) => [values.reduce((v1, v2) => v1 + v2, 0)]))
 
 export const operations = {
     sum,

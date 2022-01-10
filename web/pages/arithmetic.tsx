@@ -2,6 +2,7 @@ import Head from "next/head"
 import React, { useEffect, useMemo, useState } from "react"
 import { parse, interprete } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
+import { of } from "rxjs"
 
 export default function Index() {
     const [text, setText] = useState("")
@@ -9,10 +10,12 @@ export default function Index() {
 
     useEffect(() => {
         try {
-            void interprete([0], parse(text), operations, (v) => v)
-                .then((promises) => Promise.all(promises))
-                .then((results) => setState([JSON.stringify(results), undefined]))
-                .catch((error) => setState([undefined, error.message]))
+            const grammar = parse(text)
+            const subscription = interprete(of([0]), grammar, operations).subscribe({
+                next: (results) => setState([JSON.stringify(results), undefined]),
+                error: (error) => setState([undefined, error.message])
+            })
+            return () => subscription.unsubscribe()
         } catch (error: any) {
             setState([undefined, error.message])
         }

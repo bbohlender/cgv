@@ -14,7 +14,7 @@ export function parse(text: string): ParsedGrammarDefinition {
 
 export type ParsedEventDefintion = (values: Array<Array<any>>) => Array<Array<any>>
 
-export type ParsedValues =
+export type ParsedStep =
     | ParsedParallelValues
     | ParsedSequantialValues
     | ParsedOperation
@@ -25,17 +25,17 @@ export type ParsedValues =
 
 export type ParsedParallelValues = {
     type: "parallel"
-    values: Array<ParsedValues>
+    steps: Array<ParsedStep>
 }
 
 export type ParsedSequantialValues = {
     type: "sequential"
-    values: Array<ParsedValues>
+    steps: Array<ParsedStep>
 }
 
 export type ParsedOperation = {
     type: "operation"
-    parameters: ParsedValues
+    parameters: ParsedStep
     identifier: string
 }
 export type ParsedSymbol = {
@@ -58,7 +58,7 @@ export type ParsedEventDefinitions = {
     [EventId in string]: ParsedEventDefintion
 }
 export type ParsedRuleDefinitions = {
-    [Symbol in string]: ParsedValues
+    [Symbol in string]: ParsedStep
 }
 
 export type ParsedGrammarDefinition = {
