@@ -1,4 +1,4 @@
-import { finalize, map, Observable, of, share, shareReplay, tap } from "rxjs"
+import { map, Observable, shareReplay, tap } from "rxjs"
 import {
     MatrixChange,
     MatrixChangesObservable,
@@ -6,27 +6,12 @@ import {
     ParsedEventDefintion,
     ParsedGrammarDefinition,
     ParsedStep,
-    staticMatrix,
     toArray,
     toChanges,
     uncompleteOf,
 } from "."
 
 export type EventDepthMap = { [identifier in string]?: number }
-
-export function maxEventDepth(target: EventDepthMap, map: EventDepthMap): void {
-    const entries = Object.entries(map)
-    for (const entry of entries) {
-        const [eventName, eventDepth] = entry
-        if (eventDepth == null) {
-            continue
-        }
-        const currentEventDepth = target[eventName]
-        if (currentEventDepth == null || eventDepth > currentEventDepth) {
-            target[entry[0]] = entry[1]
-        }
-    }
-}
 
 export type Operation<T> = (
     values: MatrixChangesObservable<InterpretionValue<T>>
@@ -45,7 +30,7 @@ export function interprete<T>(
     input: Observable<Array<T>>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
-    eventDebounceTime: number = 100
+    debounceTime: number = 100
 ): Observable<Array<T>> {
     const rules = Object.values(grammar.rules)
     if (rules.length === 0) {
@@ -63,8 +48,12 @@ export function interprete<T>(
                 //TODO event scheduling
                 throw new Error("not implemented")
             }
-        )
-    ).pipe(map((interpretionResults) => interpretionResults.map(({ value }) => value)))
+        ),
+        debounceTime
+    ).pipe(
+        tap((r) => console.log("result", r)),
+        map((interpretionResults) => interpretionResults.map(({ value }) => value))
+    )
 }
 
 export function interpreteStep<T>(
@@ -92,7 +81,7 @@ export function interpreteStep<T>(
             }
             return operation(interpreteStep(input, step.parameters, grammar, operations, scheduleEvent))
         case "parallel":
-            const sharedInput = input.pipe(shareReplay(1))
+            const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
             return mergeMatrices(
                 step.steps.map(
                     //TODO: clone
@@ -116,7 +105,6 @@ export function interpreteStep<T>(
         case "sequential":
             let current = input
             for (const stepOfSteps of step.steps) {
-                //TODO: premature termination
                 current = interpreteStep(current, stepOfSteps, grammar, operations, scheduleEvent)
             }
             return current

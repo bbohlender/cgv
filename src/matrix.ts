@@ -1,4 +1,5 @@
-import { map, merge, Observable, scan, mergeMap, endWith, BehaviorSubject, filter, tap } from "rxjs"
+import { map, merge, Observable, scan, mergeMap, endWith, BehaviorSubject, filter } from "rxjs"
+import { bufferDebounceTime } from "."
 
 //TODO: index could be an observable to move values in a matrix
 
@@ -16,8 +17,8 @@ function matrixToArray<T>(matrix: Matrix<T>): Array<T> {
     }
 }
 
-export function toArray<T>(changes: MatrixChangesObservable<T>): Observable<Array<T>> {
-    return toMatrix(changes).pipe(map((matrix) => matrixToArray(matrix)))
+export function toArray<T>(changes: MatrixChangesObservable<T>, debounceTime: number): Observable<Array<T>> {
+    return toMatrix(changes, debounceTime).pipe(map((matrix) => matrixToArray(matrix)))
 }
 
 //TODO: improve & remove empty arrays
@@ -49,7 +50,7 @@ function changeMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T 
     return matrix
 }
 
-export function toMatrix<T>(changes: MatrixChangesObservable<T>): Observable<Matrix<T>> {
+export function toMatrix<T>(changes: MatrixChangesObservable<T>, debounceTime: number): Observable<Matrix<T>> {
     return changes.pipe(
         mergeMap((changes) =>
             merge(
@@ -61,8 +62,11 @@ export function toMatrix<T>(changes: MatrixChangesObservable<T>): Observable<Mat
                 )
             )
         ),
-        tap(console.log),
-        scan<MatrixChange<T | undefined>, Matrix<T>>((prev, cur) => changeMatrixEntry(prev, cur.index, cur.value), [])
+        bufferDebounceTime(debounceTime),
+        scan<Array<MatrixChange<T | undefined>>, Matrix<T>>(
+            (prev, cur) => cur.reduce((p, c) => changeMatrixEntry(p, c.index, c.value), prev),
+            []
+        )
     )
 }
 

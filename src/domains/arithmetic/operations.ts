@@ -1,23 +1,25 @@
-import { map, tap } from "rxjs"
+import { map } from "rxjs"
 import { toArray, Operation, toChanges, InterpretionValue, maxEventDepth } from "../.."
 
-//TODO: debounce and buffer changes
 //TODO: check dependencies
 //TODO: caching
 
 const sum: Operation<number> = (values) =>
     toChanges(
-        toArray(values).pipe(
-            map((values) => [
-                values.reduce<InterpretionValue<number>>(
-                    (prev, cur) => {
-                        prev.value += cur.value
-                        maxEventDepth(prev.eventDepthMap, cur.eventDepthMap)
-                        return prev
-                    },
-                    { eventDepthMap: {}, value: 0 }
-                ),
-            ])
+        toArray(values, 100).pipe(
+            map((values) => {
+                console.log("sum", ...values)
+                return [
+                    values.reduce<InterpretionValue<number>>(
+                        (prev, cur) => {
+                            prev.value += cur.value
+                            maxEventDepth(prev.eventDepthMap, cur.eventDepthMap)
+                            return prev
+                        },
+                        { eventDepthMap: {}, value: 0 }
+                    ),
+                ]
+            })
         )
     )
 
