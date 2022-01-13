@@ -1,8 +1,21 @@
 import { map } from "rxjs"
-import { flatten, Operation } from "../.."
+import { toArray, Operation, toChanges, InterpretionValue, maxEventDepth } from "../.."
 
 const sum: Operation<number> = (values) =>
-    flatten(values).pipe(map((values) => [values.reduce((v1, v2) => v1 + v2, 0)]))
+    toChanges(
+        toArray(values).pipe(
+            map((values) => [
+                values.reduce<InterpretionValue<number>>(
+                    (prev, cur) => {
+                        prev.value += cur.value
+                        maxEventDepth(prev.eventDepthMap, cur.eventDepthMap)
+                        return prev
+                    },
+                    { eventDepthMap: {}, value: 0 }
+                ),
+            ])
+        )
+    )
 
 export const operations = {
     sum,

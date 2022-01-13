@@ -1,5 +1,5 @@
 import Head from "next/head"
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { parse, interprete } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
 import { of } from "rxjs"
