@@ -1,4 +1,4 @@
-import { map, Observable, of, tap } from "rxjs"
+import { finalize, map, Observable, of, share, shareReplay, tap } from "rxjs"
 import {
     MatrixChange,
     MatrixChangesObservable,
@@ -9,6 +9,7 @@ import {
     staticMatrix,
     toArray,
     toChanges,
+    uncompleteOf,
 } from "."
 
 export type EventDepthMap = { [identifier in string]?: number }
@@ -59,7 +60,7 @@ export function interprete<T>(
             grammar,
             operations,
             (identifier, event, input) => {
-                //TODO
+                //TODO event scheduling
                 throw new Error("not implemented")
             }
         )
@@ -91,18 +92,21 @@ export function interpreteStep<T>(
             }
             return operation(interpreteStep(input, step.parameters, grammar, operations, scheduleEvent))
         case "parallel":
+            const sharedInput = input.pipe(shareReplay(1))
             return mergeMatrices(
                 step.steps.map(
                     //TODO: clone
-                    (stepOfSteps) => interpreteStep(input, stepOfSteps, grammar, operations, scheduleEvent)
+                    (stepOfSteps, i) =>
+                        interpreteStep(sharedInput.pipe(), stepOfSteps, grammar, operations, scheduleEvent)
                 )
             )
+
         case "raw":
             return input.pipe(
                 map((changes) =>
                     changes.map<MatrixChange<Observable<InterpretionValue<T>>>>((change) => ({
                         ...change,
-                        value: of({
+                        value: uncompleteOf({
                             eventDepthMap: {},
                             value: step.value,
                         }),

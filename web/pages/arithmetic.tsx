@@ -1,8 +1,8 @@
 import Head from "next/head"
 import React, { useEffect, useState } from "react"
-import { parse, interprete } from "cgv"
+import { parse, interprete, uncompleteOf } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { of } from "rxjs"
+import { finalize, interval, map, scan, tap, timer } from "rxjs"
 
 export default function Index() {
     const [text, setText] = useState("")
@@ -11,9 +11,9 @@ export default function Index() {
     useEffect(() => {
         try {
             const grammar = parse(text)
-            const subscription = interprete(of([0]), grammar, operations).subscribe({
+            const subscription = interprete(interval(10000).pipe(map((v) => [v])), grammar, operations).subscribe({
                 next: (results) => setState([JSON.stringify(results), undefined]),
-                error: (error) => setState([undefined, error.message])
+                error: (error) => setState([undefined, error.message]),
             })
             return () => subscription.unsubscribe()
         } catch (error: any) {

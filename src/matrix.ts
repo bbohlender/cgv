@@ -1,17 +1,8 @@
-import { map, merge, Observable, of, pairwise, scan, take, mergeMap, tap } from "rxjs"
+import { map, merge, Observable, scan, mergeMap, endWith, BehaviorSubject, filter, tap } from "rxjs"
 
-export enum ChangeType {
-    Set,
-    Unset,
-    //Move - unsure if that's efficient to implement
-}
+//TODO: index could be an observable to move values in a matrix
 
-export type MatrixChange<T> = { index: Array<number> } & (
-    | { type: ChangeType.Set; value: T }
-    | {
-          type: ChangeType.Unset
-      }
-)
+export type MatrixChange<T> = { index: Array<number>; value: T }
 
 export type MatrixChangesObservable<T> = Observable<Array<MatrixChange<Observable<T>>>>
 
@@ -29,6 +20,7 @@ export function toArray<T>(changes: MatrixChangesObservable<T>): Observable<Arra
     return toMatrix(changes).pipe(map((matrix) => matrixToArray(matrix)))
 }
 
+//TODO: improve & remove empty arrays
 function changeMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T | undefined): Matrix<T> {
     if (index.length <= 0) {
         if (value != null) {
@@ -61,19 +53,16 @@ export function toMatrix<T>(changes: MatrixChangesObservable<T>): Observable<Mat
     return changes.pipe(
         mergeMap((changes) =>
             merge(
-                ...changes.map<Observable<MatrixChange<T>>>(
-                    (change) =>
-                        change.type === ChangeType.Unset
-                            ? of(change)
-                            : change.value.pipe(map((value) => ({ type: ChangeType.Set, index: change.index, value }))) //TODO: we do not unsubscribe here ...
-                    //idea: there is no remove change but the value is complited when removed
+                ...changes.map<Observable<MatrixChange<T | undefined>>>((change) =>
+                    change.value.pipe(
+                        map((value) => ({ index: change.index, value })),
+                        endWith({ index: change.index, value: undefined })
+                    )
                 )
             )
         ),
-        scan<MatrixChange<T>, Matrix<T>>(
-            (prev, cur) => changeMatrixEntry(prev, cur.index, cur.type === ChangeType.Set ? cur.value : undefined),
-            []
-        )
+        tap(console.log),
+        scan<MatrixChange<T | undefined>, Matrix<T>>((prev, cur) => changeMatrixEntry(prev, cur.index, cur.value), [])
     )
 }
 
@@ -93,7 +82,11 @@ export function mergeMatrices<T>(changesObservables: Array<MatrixChangesObservab
 }
 
 export function staticMatrix<T>(matrix: Matrix<T>): MatrixChangesObservable<T> {
-    return of(getInitialChanges(matrix))
+    return uncompleteOf(getInitialChanges(matrix))
+}
+
+export function uncompleteOf<T>(value: T): Observable<T> {
+    return new Observable((subscriber) => subscriber.next(value))
 }
 
 function getInitialChanges<T>(matrix: Matrix<T>, index: Array<number> = []): Array<MatrixChange<Observable<T>>> {
@@ -106,47 +99,39 @@ function getInitialChanges<T>(matrix: Matrix<T>, index: Array<number> = []): Arr
         return [
             {
                 index,
-                type: ChangeType.Set,
-                value: of(matrix),
+                value: uncompleteOf(matrix),
             },
         ]
     }
 }
 
 export function toChanges<T>(array: Observable<Array<T>>): MatrixChangesObservable<T> {
-    return merge<Array<[undefined | Array<T>, Array<T> | undefined]>>(
-        array.pipe(
-            take(1),
-            map((array) => [undefined, array] as [undefined, Array<T>])
-        ),
-        array.pipe(pairwise())
-    ).pipe(
-        map(([prev, current]) => {
-            if (prev == null) {
-                if (current == null) {
-                    return []
-                }
-                return current.map<MatrixChange<Observable<T>>>((value, index) => ({
-                    type: ChangeType.Set,
-                    value: of(value),
-                    index: [index],
-                }))
-            } else if (current == null) {
-                return prev.map<MatrixChange<Observable<T>>>((_, index) => ({ type: ChangeType.Unset, index: [index] }))
-            } else {
-                const changes: Array<MatrixChange<Observable<T>>> = []
+    return array.pipe(
+        scan<Array<T>, [array: Array<BehaviorSubject<T>>, added: Array<MatrixChange<Observable<T>>>]>(
+            ([prev], current) => {
                 const length = Math.max(prev.length, current.length)
+                const added: Array<MatrixChange<Observable<T>>> = []
                 for (let i = 0; i < length; i++) {
-                    if (prev[i] != current[i]) {
-                        if (current[i] != null) {
-                            changes.push({ type: ChangeType.Set, value: of(current[i]), index: [i] })
+                    if (prev[i]?.value != current[i]) {
+                        if (current[i] != null && prev[i] != null) {
+                            prev[i].next(current[i])
+                        } else if (current[i] != null) {
+                            prev[i] = new BehaviorSubject(current[i])
+                            added.push({
+                                index: [i],
+                                value: prev[i],
+                            })
                         } else {
-                            changes.push({ type: ChangeType.Unset, index: [i] })
+                            prev[i].complete()
+                            prev.splice(i, 1)
                         }
                     }
                 }
-                return changes
-            }
-        })
+                return [prev, added]
+            },
+            [[], []]
+        ),
+        map(([, added]) => added),
+        filter((added) => added.length > 0)
     )
 }
