@@ -11,7 +11,13 @@ export default function Index() {
     useEffect(() => {
         try {
             const grammar = parse(text)
-            const subscription = interprete(interval(5000).pipe(map((v) => [v])), grammar, operations).subscribe({
+            setState([undefined, undefined])
+            const subscription = interprete(
+                interval(1000).pipe(map((v) => [v])),
+                grammar,
+                operations,
+                (v) => v
+            ).subscribe({
                 next: (results) => setState([JSON.stringify(results), undefined]),
                 error: (error) => setState([undefined, error.message]),
             })
@@ -44,7 +50,11 @@ export default function Index() {
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 bg-black flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300 }}>
                         {error == null ? (
-                            <span className="text-success">ok</span>
+                            result == null ? (
+                                <span className="text-primary">loading ...</span>
+                            ) : (
+                                <span className="text-success">ok</span>
+                            )
                         ) : (
                             <span className="text-danger">{error}</span>
                         )}

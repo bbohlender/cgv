@@ -12,9 +12,12 @@ import {
     YAXIS,
     boolean2d,
 } from "co-3gen"
+import { filter, from, map, mergeMap, Observable, shareReplay, switchMap, tap } from "rxjs"
 import { Matrix4, Plane } from "three"
+import { GLTFLoader, DRACOLoader } from "three-stdlib"
 import { Attribute, AttributeType, Instance } from "."
-import { Operation } from "../.."
+import { maxEventDepth, nestChanges, Operation, toArray } from "../.."
+import { ObjectPrimitive } from "./object-primitive"
 
 /*export function equal(): Array<any> {
 
@@ -172,9 +175,79 @@ function splitValues<T extends Array<any>>(array: Array<any>, splits: number): A
         .fill(null)
         .map((_, i) => new Array(splits).fill(null).map((_, ii) => array[ii * splitSize + i]) as T)
 }
+*/
+
+function instanceChangePrimitive(primitive: Primitive, instance: Instance): Instance {
+    instance.primitive = primitive
+    return instance
+}
+
+const cacheMap = new Map<string, Observable<any>>()
+function cache<T>(id: string, observable: Observable<T>): Observable<T> {
+    let entry = cacheMap.get(id)
+    if (entry == null) {
+        entry = observable.pipe(shareReplay(1))
+        cacheMap.set(id, entry)
+    }
+    return entry
+}
+
+const loader = new GLTFLoader()
+loader.setDRACOLoader(new DRACOLoader())
+
+const load: Operation<Instance> = (changes) =>
+    nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
+        map((outerChanges) =>
+            outerChanges.map((outerChange) => ({
+                index: outerChange.index,
+                value: toArray(outerChange.value, 100).pipe(
+                    filter((values) => values.length === 2),
+                    switchMap(([instance, url]) =>
+                        cache(url.value as any, from(loader.loadAsync(url.value as any))).pipe(
+                            map((gltf) => {
+                                const clone = gltf.scene.clone(true)
+                                instance.value.primitive.getPoint(0, clone.position)
+                                clone.scale.set(500, 500, 500) //TODO: remove - just for testing
+                                return {
+                                    eventDepthMap: maxEventDepth({ ...url.eventDepthMap }, instance.eventDepthMap),
+                                    value: instanceChangePrimitive(new ObjectPrimitive(clone), instance.value),
+                                }
+                            })
+                        )
+                    )
+                ),
+            }))
+        )
+    )
+
+const sample2d: Operation<Instance> = (changes) =>
+    nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
+        map((outerChanges) => {
+            return outerChanges.map((outerChange) => ({
+                index: outerChange.index,
+                value: toArray(outerChange.value, 100).pipe(
+                    filter((values) => values.length === 2),
+                    map(([instance, amount]) => ({
+                        eventDepthMap: maxEventDepth({ ...instance.eventDepthMap }, amount.eventDepthMap),
+                        value: instanceChangePrimitive(
+                            new CombinedPrimitive(
+                                new Matrix4(),
+                                new Array(amount.value as any)
+                                    .fill(null)
+                                    .map(() => sample2d3Gen(instance.value.primitive))
+                            ),
+                            instance.value
+                        ),
+                    }))
+                ),
+            }))
+        })
+    )
 
 export const operations = {
-    connect,
+    sample2d,
+    load,
+    /*connect,
     points,
     faces,
     lines,
@@ -187,11 +260,9 @@ export const operations = {
     translate,
     rotate,
     scale,
-    sample2d,
     attribute,
     expand2d,
     filter,
     isRoad,
-    isBuilding,
+    isBuilding,*/
 }
-*/

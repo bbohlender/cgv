@@ -1,7 +1,7 @@
 import { map, Observable, shareReplay, tap } from "rxjs"
 import {
-    MatrixChange,
-    MatrixChangesObservable,
+    MatrixEntry,
+    MatrixEntriesObservable,
     mergeMatrices,
     ParsedEventDefintion,
     ParsedGrammarDefinition,
@@ -14,8 +14,8 @@ import {
 export type EventDepthMap = { [identifier in string]?: number }
 
 export type Operation<T> = (
-    values: MatrixChangesObservable<InterpretionValue<T>>
-) => MatrixChangesObservable<InterpretionValue<T>>
+    values: MatrixEntriesObservable<InterpretionValue<T>>
+) => MatrixEntriesObservable<InterpretionValue<T>>
 
 export type Operations<T> = {
     [name in string]: Operation<T>
@@ -30,6 +30,7 @@ export function interprete<T>(
     input: Observable<Array<T>>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
+    clone: (value: T, index: number) => T,
     debounceTime: number = 100
 ): Observable<Array<T>> {
     const rules = Object.values(grammar.rules)
@@ -44,6 +45,7 @@ export function interprete<T>(
             rules[0],
             grammar,
             operations,
+            clone,
             (identifier, event, input) => {
                 //TODO event scheduling
                 throw new Error("not implemented")
@@ -57,16 +59,17 @@ export function interprete<T>(
 }
 
 export function interpreteStep<T>(
-    input: MatrixChangesObservable<InterpretionValue<T>>,
+    input: MatrixEntriesObservable<InterpretionValue<T>>,
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
+    clone: (value: T, index: number) => T,
     scheduleEvent: (
         identifier: string,
         event: ParsedEventDefintion,
-        input: MatrixChangesObservable<InterpretionValue<T>>
-    ) => MatrixChangesObservable<InterpretionValue<T>>
-): MatrixChangesObservable<InterpretionValue<T>> {
+        input: MatrixEntriesObservable<InterpretionValue<T>>
+    ) => MatrixEntriesObservable<InterpretionValue<T>>
+): MatrixEntriesObservable<InterpretionValue<T>> {
     switch (step.type) {
         case "event":
             const event = grammar.events[step.identifier]
@@ -79,21 +82,40 @@ export function interpreteStep<T>(
             if (operation == null) {
                 throw new Error(`unknown operation "${step.identifier}"`)
             }
-            return operation(interpreteStep(input, step.parameters, grammar, operations, scheduleEvent))
+            return operation(interpreteStep(input, step.parameters, grammar, operations, clone, scheduleEvent))
         case "parallel":
             const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
             return mergeMatrices(
                 step.steps.map(
                     //TODO: clone
                     (stepOfSteps, i) =>
-                        interpreteStep(sharedInput.pipe(), stepOfSteps, grammar, operations, scheduleEvent)
+                        interpreteStep(
+                            sharedInput.pipe(
+                                map((changes) =>
+                                    changes.map((change) => ({
+                                        index: change.index,
+                                        value: change.value.pipe(
+                                            map(({ value, eventDepthMap }) => ({
+                                                eventDepthMap,
+                                                value: clone(value, i),
+                                            }))
+                                        ),
+                                    }))
+                                )
+                            ),
+                            stepOfSteps,
+                            grammar,
+                            operations,
+                            clone,
+                            scheduleEvent
+                        )
                 )
             )
 
         case "raw":
             return input.pipe(
                 map((changes) =>
-                    changes.map<MatrixChange<Observable<InterpretionValue<T>>>>((change) => ({
+                    changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
                         ...change,
                         value: uncompleteOf({
                             eventDepthMap: {},
@@ -105,7 +127,7 @@ export function interpreteStep<T>(
         case "sequential":
             let current = input
             for (const stepOfSteps of step.steps) {
-                current = interpreteStep(current, stepOfSteps, grammar, operations, scheduleEvent)
+                current = interpreteStep(current, stepOfSteps, grammar, operations, clone, scheduleEvent)
             }
             return current
         case "this":
@@ -115,6 +137,6 @@ export function interpreteStep<T>(
             if (rule == null) {
                 throw new Error(`unknown rule "${step.identifier}"`)
             }
-            return interpreteStep(input, rule, grammar, operations, scheduleEvent)
+            return interpreteStep(input, rule, grammar, operations, clone, scheduleEvent)
     }
 }

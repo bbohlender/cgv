@@ -24,12 +24,13 @@ export function Scene({
         })
         return <primitive object={object} />
     }, [selectedInstance])
+    
     return (
         <group scale={0.01}>
             {highlight}
             {instances.map((instance, i) => (
                 <group key={i} onClick={() => setSelectedInstance && setSelectedInstance(instance)}>
-                    <primitive object={instance.primitive.getObject3D(true)} />
+                    <primitive object={instance.primitive.getObject3D(false)} />
                 </group>
             ))}
         </group>

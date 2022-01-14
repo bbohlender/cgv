@@ -1,5 +1,5 @@
 import Head from "next/head"
-import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react"
+import React, { Dispatch, SetStateAction, Suspense, useEffect, useState } from "react"
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
 import { AttributeInput } from "../src/attribute"
@@ -32,11 +32,13 @@ export default function Index() {
                             <pointLight position={[3, 3, 3]} />
                             <ambientLight />
                             {result != null && (
-                                <Scene
-                                    setSelectedInstance={setSelectedInstance}
-                                    selectedInstance={selectedInstance}
-                                    instances={result}
-                                />
+                                <Suspense fallback={null}>
+                                    <Scene
+                                        setSelectedInstance={setSelectedInstance}
+                                        selectedInstance={selectedInstance}
+                                        instances={result}
+                                    />
+                                </Suspense>
                             )}
                         </Canvas>
                         <button
@@ -72,7 +74,11 @@ export default function Index() {
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 bg-black flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300 }}>
                         {error == null ? (
-                            <span className="text-success">ok</span>
+                            result == null ? (
+                                <span className="text-primary">loading ...</span>
+                            ) : (
+                                <span className="text-success">ok</span>
+                            )
                         ) : (
                             <span className="text-danger">{error}</span>
                         )}
