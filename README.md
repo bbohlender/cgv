@@ -55,3 +55,17 @@ max = "a => {
 ```
 Forest -> sample2d(this | "1") load(this | "'/tree.gltf'")
 ```
+
+`Building`
+
+```
+a -> extrude(this | 3) faces(this) (filter(this | horizontal) walls) | (filter(this | upwards) roof)
+
+roof -> switch(this | attribute(enum | "roof1" | "roof2") | roof1 | roof2)
+
+roof2 -> this
+roof1 -> connectAll(center(this) translate(this | 0 | attribute(float | 0 | 3) | 0) | lines(this))
+
+walls -> split2d(this | horizontal | 3) split2d(this | vertical | 3) window
+window -> setback(this | 0.5) extrude(this | -0.1)
+```

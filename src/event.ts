@@ -1,4 +1,5 @@
-import { MonoTypeOperatorFunction, Subject } from "rxjs"
+import { mergeAll, mergeMap, MonoTypeOperatorFunction, Observable, Subject } from "rxjs"
+import { ParsedEventDefintion, MatrixEntriesObservable, InterpretionValue, MatrixEntry, toArray } from "."
 
 function debounceParallel<T>(time: number, compare: (v1: T, v2: T) => boolean): MonoTypeOperatorFunction<T> {
     return (value) => {
@@ -35,3 +36,26 @@ function debounceParallel<T>(time: number, compare: (v1: T, v2: T) => boolean): 
         debounceParallel(eventDebounceTime, )
     )
 }*/
+
+export function generateEventScheduler<T>(): (
+    identifier: string,
+    event: ParsedEventDefintion,
+    input: MatrixEntriesObservable<InterpretionValue<T>>
+) => MatrixEntriesObservable<InterpretionValue<T>> {
+    const map: Array<
+        [
+            event: ParsedEventDefintion,
+            depth: number,
+            subject: Subject<MatrixEntriesObservable<InterpretionValue<T>>>,
+            result: MatrixEntriesObservable<InterpretionValue<T>>
+        ]
+    > = []
+    return (identifier, event, input) => {
+        let entry = map.get(identifier)
+        if (entry == null) {
+            const subject = new Subject<MatrixEntriesObservable<InterpretionValue<T>>>()
+            entry = [subject, subject.pipe(mergeMap(changes => toArray(changes, 100))).pipe(values => event)]
+        }
+        return entry[1]
+    }
+}

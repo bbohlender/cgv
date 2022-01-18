@@ -1,25 +1,26 @@
-import { map } from "rxjs"
-import { toArray, Operation, toChanges, InterpretionValue, maxEventDepth } from "../.."
+import { map, Observable, tap } from "rxjs"
+import { toArray, Operation, InterpretionValue, maxEventDepth, nestChanges, MatrixEntry } from "../.."
 
-//TODO: check dependencies
-//TODO: caching
+//TODO: caching (by declaring and comparing dependencies)
 
-const sum: Operation<number> = (values) =>
-    toChanges(
-        toArray(values, 100).pipe(
-            map((values) => {
-                console.log("sum", ...values)
-                return [
-                    values.reduce<InterpretionValue<number>>(
-                        (prev, cur) => {
-                            prev.value += cur.value
-                            maxEventDepth(prev.eventDepthMap, cur.eventDepthMap)
-                            return prev
-                        },
-                        { eventDepthMap: {}, value: 0 }
-                    ),
-                ]
-            })
+const sum: Operation<number> = (changes) =>
+    nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
+        map((outerChanges) =>
+            outerChanges.map((outerChange) => ({
+                index: outerChange.index,
+                value: toArray(outerChange.value, 100).pipe(
+                    map((values) =>
+                        values.reduce<InterpretionValue<number>>(
+                            (prev, cur) => {
+                                prev.value += cur.value
+                                maxEventDepth(prev.eventDepthMap, cur.eventDepthMap)
+                                return prev
+                            },
+                            { eventDepthMap: {}, value: 0 }
+                        )
+                    )
+                ),
+            }))
         )
     )
 

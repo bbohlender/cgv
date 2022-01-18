@@ -1,27 +1,36 @@
-import { map, merge, Observable, scan, mergeMap, endWith, BehaviorSubject, filter, Subject, ReplaySubject } from "rxjs"
+import { filterNull } from "co-3gen"
+import {
+    map,
+    merge,
+    Observable,
+    scan,
+    mergeMap,
+    endWith,
+    BehaviorSubject,
+    filter,
+    Subject,
+    ReplaySubject,
+    finalize,
+} from "rxjs"
 import { bufferDebounceTime, uncompleteOf } from "."
 
-//TODO: index should be an observable to move values in a matrix
+//TODO: move matrix entry and Interpretion Value together (+ information needed for premature termination)
 
-export type MatrixEntry<T> = { index: Array<number>; value: T }
+export type MatrixEntry<T, I = Array<number>> = { index: I; value: T }
 
-export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T>>>>
+export type Matrix<T> = undefined | T | Array<Matrix<T>>
 
-export type Matrix<T> = T | Array<Matrix<T>>
-
-function matrixToArray<T>(matrix: Matrix<T>): Array<T> {
+export function matrixToArray<T>(matrix: Matrix<T>): Array<T> {
     if (Array.isArray(matrix)) {
         return matrix.reduce<Array<T>>((prev, cur) => prev.concat(matrixToArray(cur)), [])
+    } else if (matrix == null) {
+        return []
     } else {
         return [matrix]
     }
 }
 
-export function toArray<T>(changes: MatrixEntriesObservable<T>, debounceTime: number): Observable<Array<T>> {
-    return toMatrix(changes, debounceTime).pipe(map((matrix) => matrixToArray(matrix)))
-}
-
-function getMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): T | undefined {
+export function getMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): T | undefined {
     if (index.length <= 0) {
         return Array.isArray(matrix) ? undefined : matrix
     }
@@ -33,9 +42,17 @@ function getMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): T | undefin
     return undefined
 }
 
-function setMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T): Matrix<T> {
+//TODO: remove undefined entries at the end & clear empty matrices
+export function setMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T | undefined): Matrix<T> {
     if (index.length <= 0) {
+        if(Array.isArray(matrix)) {
+            throw new Error(`can't overwrite nested matrix (${JSON.stringify(matrix)}) at index (${JSON.stringify(index)})`)
+        }
         return value
+    }
+
+    if(matrix === undefined) {
+        matrix = []
     }
 
     if (Array.isArray(matrix)) {
@@ -46,7 +63,7 @@ function setMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T): M
     throw new Error(`can't set index (${index}) on a non nested matrix`)
 }
 
-function removeMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): Matrix<T> {
+/*export function removeMatrixEntry<T>(matrix: Matrix<T | undefined>, index: Array<number>): Matrix<T | undefined> {
     if (index.length <= 0 || !Array.isArray(matrix)) {
         throw new Error(`can't remove the whole matrix`)
     }
@@ -69,6 +86,24 @@ function removeMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): Matrix<T
     }
 
     return matrix
+}*/
+
+export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T>>>>
+
+export function toArray<T>(changes: MatrixEntriesObservable<T>, debounceTime: number): Observable<Array<T>> {
+    return toMatrix(changes, debounceTime).pipe(map((matrix) => matrixToArray(matrix).filter(filterNull)))
+}
+
+function compareIndex(i1: Array<number>, i2: Array<number>): boolean {
+    if (i1.length != i2.length) {
+        return false
+    }
+    for (let i = 0; i < i1.length; i++) {
+        if (i1[i] != i2[i]) {
+            return false
+        }
+    }
+    return true
 }
 
 export function nestChanges<T>(
@@ -81,43 +116,71 @@ export function nestChanges<T>(
         scan<
             Array<Array<MatrixEntry<Observable<T>>>>,
             [
-                Matrix<Subject<Array<MatrixEntry<Observable<T>>>>>,
+                Matrix<{ innerValues: number; value: Subject<Array<MatrixEntry<Observable<T>>>> } | undefined>,
                 Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>>
             ]
         >(
             ([prev], cur) => {
-                //TODO: group by outer index
                 const changes = cur.reduce((v1, v2) => v1.concat(v2))
-                const outerChanges: Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>> = []
-                for (const change of changes) {
+                const groupedChanges = changes.reduce<
+                    Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T>, Array<number>>>]>
+                >((prev, change) => {
                     const [outer, inner] = getIndex(change.index)
-                    let subject = getMatrixEntry(prev, outer)
-                    if (subject == null) {
-                        subject = new ReplaySubject<Array<MatrixEntry<Observable<T>>>>()
-                        prev = setMatrixEntry(prev, outer, subject)
-                        outerChanges.push({
-                            index: outer,
-                            value: subject,
-                        })
-                        //TODO: subject.complete() when all inner values are complete & removeMatrixEntry from prev
+                    let entry = prev.find(([index]) => compareIndex(index, outer))
+                    if (entry == null) {
+                        entry = [outer, []]
+                        prev.push(entry)
                     }
-                    subject.next([
-                        {
-                            index: inner,
-                            value: change.value,
-                        },
-                    ])
+                    entry[1].push({
+                        index: inner,
+                        value: change.value,
+                    })
+                    return prev
+                }, [])
+                const outerChanges: Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>> = []
+                for (const [index, changes] of groupedChanges) {
+                    let subject = getMatrixEntry(prev, index)
+                    if (subject == null) {
+                        subject = {
+                            value: new ReplaySubject<Array<MatrixEntry<Observable<T>>>>(),
+                            innerValues: 0,
+                        }
+                        prev = setMatrixEntry(prev, index, subject)
+                        outerChanges.push({
+                            index,
+                            value: subject.value,
+                        })
+                    }
+                    const s = subject
+                    subject.innerValues += changes.length
+                    subject.value.next(
+                        changes.map((change) => ({
+                            index: change.index,
+                            value: change.value.pipe(
+                                finalize(() => {
+                                    --s.innerValues
+                                    if (s.innerValues === 0) {
+                                        s.value.complete()
+                                        setMatrixEntry(prev, index, undefined)
+                                    }
+                                })
+                            ),
+                        }))
+                    )
                 }
                 return [prev, outerChanges]
             },
-            [[], []]
+            [undefined, []]
         ),
         map(([, changes]) => changes),
         filter((changes) => changes.length > 0)
     )
 }
 
-export function toMatrix<T>(changes: MatrixEntriesObservable<T>, debounceTime: number): Observable<Matrix<T>> {
+export function toMatrix<T>(
+    changes: MatrixEntriesObservable<T>,
+    debounceTime: number
+): Observable<Matrix<T | undefined>> {
     return changes.pipe(
         mergeMap((changes) =>
             merge(
@@ -132,11 +195,8 @@ export function toMatrix<T>(changes: MatrixEntriesObservable<T>, debounceTime: n
         bufferDebounceTime(debounceTime),
         scan<Array<MatrixEntry<T | undefined>>, Matrix<T>>(
             (prev, cur) =>
-                cur.reduce(
-                    (p, c) => (c.value == null ? removeMatrixEntry(p, c.index) : setMatrixEntry(p, c.index, c.value)),
-                    prev
-                ),
-            []
+                cur.reduce((p, c) => setMatrixEntry(p, c.index, c.value), prev),
+            undefined
         )
     )
 }
@@ -166,6 +226,8 @@ function getInitialChanges<T>(matrix: Matrix<T>, index: Array<number> = []): Arr
             (prev, cur, i) => prev.concat(getInitialChanges(cur, [i, ...index])),
             []
         )
+    } else if (matrix == null) {
+        return []
     } else {
         return [
             {

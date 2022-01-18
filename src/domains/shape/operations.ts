@@ -195,6 +195,7 @@ function cache<T>(id: string, observable: Observable<T>): Observable<T> {
 const loader = new GLTFLoader()
 loader.setDRACOLoader(new DRACOLoader())
 
+//TODO: fix draco loader wasm error
 const load: Operation<Instance> = (changes) =>
     nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
         map((outerChanges) =>

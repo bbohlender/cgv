@@ -9,6 +9,7 @@ import {
     toArray,
     toChanges,
     uncompleteOf,
+    generateEventScheduler,
 } from "."
 
 export type EventDepthMap = { [identifier in string]?: number }
@@ -37,6 +38,7 @@ export function interprete<T>(
     if (rules.length === 0) {
         return input
     }
+    const eventScheduler = generateEventScheduler<T>()
     return toArray(
         interpreteStep(
             toChanges(
@@ -46,16 +48,10 @@ export function interprete<T>(
             grammar,
             operations,
             clone,
-            (identifier, event, input) => {
-                //TODO event scheduling
-                throw new Error("not implemented")
-            }
+            eventScheduler
         ),
         debounceTime
-    ).pipe(
-        tap((r) => console.log("result", r)),
-        map((interpretionResults) => interpretionResults.map(({ value }) => value))
-    )
+    ).pipe(map((interpretionResults) => interpretionResults.map(({ value }) => value)))
 }
 
 export function interpreteStep<T>(
@@ -64,7 +60,7 @@ export function interpreteStep<T>(
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
     clone: (value: T, index: number) => T,
-    scheduleEvent: (
+    eventScheduler: (
         identifier: string,
         event: ParsedEventDefintion,
         input: MatrixEntriesObservable<InterpretionValue<T>>
@@ -76,39 +72,37 @@ export function interpreteStep<T>(
             if (event == null) {
                 throw new Error(`unknown event "${step.identifier}"`)
             }
-            return scheduleEvent(step.identifier, event, input)
+            return eventScheduler(step.identifier, event, input)
         case "operation":
             const operation = operations[step.identifier]
             if (operation == null) {
                 throw new Error(`unknown operation "${step.identifier}"`)
             }
-            return operation(interpreteStep(input, step.parameters, grammar, operations, clone, scheduleEvent))
+            return operation(interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
         case "parallel":
             const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
             return mergeMatrices(
-                step.steps.map(
-                    //TODO: clone
-                    (stepOfSteps, i) =>
-                        interpreteStep(
-                            sharedInput.pipe(
-                                map((changes) =>
-                                    changes.map((change) => ({
-                                        index: change.index,
-                                        value: change.value.pipe(
-                                            map(({ value, eventDepthMap }) => ({
-                                                eventDepthMap,
-                                                value: clone(value, i),
-                                            }))
-                                        ),
-                                    }))
-                                )
-                            ),
-                            stepOfSteps,
-                            grammar,
-                            operations,
-                            clone,
-                            scheduleEvent
-                        )
+                step.steps.map((stepOfSteps, i) =>
+                    interpreteStep(
+                        sharedInput.pipe(
+                            map((changes) =>
+                                changes.map((change) => ({
+                                    index: change.index,
+                                    value: change.value.pipe(
+                                        map(({ value, eventDepthMap }) => ({
+                                            eventDepthMap,
+                                            value: clone(value, i),
+                                        }))
+                                    ),
+                                }))
+                            )
+                        ),
+                        stepOfSteps,
+                        grammar,
+                        operations,
+                        clone,
+                        eventScheduler
+                    )
                 )
             )
 
@@ -127,7 +121,7 @@ export function interpreteStep<T>(
         case "sequential":
             let current = input
             for (const stepOfSteps of step.steps) {
-                current = interpreteStep(current, stepOfSteps, grammar, operations, clone, scheduleEvent)
+                current = interpreteStep(current, stepOfSteps, grammar, operations, clone, eventScheduler)
             }
             return current
         case "this":
@@ -137,6 +131,6 @@ export function interpreteStep<T>(
             if (rule == null) {
                 throw new Error(`unknown rule "${step.identifier}"`)
             }
-            return interpreteStep(input, rule, grammar, operations, clone, scheduleEvent)
+            return interpreteStep(input, rule, grammar, operations, clone, eventScheduler)
     }
 }
