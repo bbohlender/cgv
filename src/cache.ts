@@ -1,10 +1,11 @@
-import { connectable, mergeMap, MonoTypeOperatorFunction, Observable, OperatorFunction, ReplaySubject } from "rxjs"
+import { connectable, mergeMap, Observable, OperatorFunction, ReplaySubject } from "rxjs"
 
 export type ComputeFunction<Input, Output> = (input: Input) => Observable<Output>
 
 const cacheMap = new Map<ComputeFunction<any, any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
 
 //TODO: clear the cache after certain amount of unused time
+//TODO: clone when caching
 
 export function cache<Input, Output>(
     getDependencies: (input: Input) => Array<any>,

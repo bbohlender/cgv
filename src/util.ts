@@ -1,4 +1,4 @@
-import { buffer, debounceTime, Observable, OperatorFunction, shareReplay } from "rxjs"
+import { buffer, debounceTime, OperatorFunction, shareReplay } from "rxjs"
 import { EventDepthMap } from "."
 
 export function maxEventDepth(target: EventDepthMap, map: EventDepthMap): EventDepthMap {
@@ -21,8 +21,4 @@ export function bufferDebounceTime<T>(dueTime: number): OperatorFunction<T, Arra
         const shared = obs.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
         return shared.pipe(buffer(shared.pipe(debounceTime(dueTime))))
     }
-}
-
-export function uncompleteOf<T>(value: T): Observable<T> {
-    return new Observable((subscriber) => subscriber.next(value))
 }

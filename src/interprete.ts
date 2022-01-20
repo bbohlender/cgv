@@ -1,4 +1,4 @@
-import { map, Observable, shareReplay, tap } from "rxjs"
+import { map, Observable, of, shareReplay, tap } from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -8,7 +8,6 @@ import {
     ParsedStep,
     toArray,
     toChanges,
-    uncompleteOf,
     generateEventScheduler,
 } from "."
 
@@ -56,6 +55,8 @@ export function interprete<T>(
     ).pipe(map((interpretionResults) => interpretionResults.map(({ value }) => value)))
 }
 
+//TODO: combine clone, with clone from cache
+
 export function interpreteStep<T>(
     input: MatrixEntriesObservable<InterpretionValue<T>>,
     step: ParsedStep,
@@ -80,7 +81,7 @@ export function interpreteStep<T>(
             if (operation == null) {
                 throw new Error(`unknown operation "${step.identifier}"`)
             }
-            //TODO: async interpretation of parameters
+            //TODO: async interpretation of parameters (to allow recursion)
             return operation(interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
         case "parallel":
             const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
@@ -114,7 +115,7 @@ export function interpreteStep<T>(
                 map((changes) =>
                     changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
                         ...change,
-                        value: uncompleteOf({
+                        value: of({
                             eventDepthMap: {},
                             value: step.value,
                         }),

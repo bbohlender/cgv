@@ -5,14 +5,14 @@ import {
     Observable,
     scan,
     mergeMap,
-    endWith,
     BehaviorSubject,
     filter,
     Subject,
     ReplaySubject,
     finalize,
+    of,
 } from "rxjs"
-import { bufferDebounceTime, uncompleteOf } from "."
+import { bufferDebounceTime } from "."
 
 export type MatrixEntry<T, I = Array<number>> = { index: I; value: T }
 
@@ -127,7 +127,7 @@ export function nestChanges<T>(
         scan<
             Array<Array<MatrixEntry<Observable<T>>>>,
             [
-                Matrix<{ innerValues: number; value: Subject<Array<MatrixEntry<Observable<T>>>> } | undefined>,
+                Matrix<{ activeInnerValues: number; value: Subject<Array<MatrixEntry<Observable<T>>>> } | undefined>,
                 Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>>
             ]
         >(
@@ -154,7 +154,7 @@ export function nestChanges<T>(
                     if (subject == null) {
                         subject = {
                             value: new ReplaySubject<Array<MatrixEntry<Observable<T>>>>(),
-                            innerValues: 0,
+                            activeInnerValues: 0,
                         }
                         prev = setMatrixEntry(prev, index, subject)
                         outerChanges.push({
@@ -163,16 +163,15 @@ export function nestChanges<T>(
                         })
                     }
                     const s = subject
-                    subject.innerValues += changes.length
+                    subject.activeInnerValues += changes.length
                     subject.value.next(
                         changes.map((change) => ({
                             index: change.index,
                             value: change.value.pipe(
                                 finalize(() => {
-                                    --s.innerValues
-                                    if (s.innerValues === 0) {
+                                    --s.activeInnerValues
+                                    if (s.activeInnerValues === 0) {
                                         s.value.complete()
-                                        setMatrixEntry(prev, index, undefined)
                                     }
                                 })
                             ),
@@ -196,10 +195,7 @@ export function toMatrix<T>(
         mergeMap((changes) =>
             merge(
                 ...changes.map<Observable<MatrixEntry<T | undefined>>>((change) =>
-                    change.value.pipe(
-                        map((value) => ({ index: change.index, value })),
-                        endWith({ index: change.index, value: undefined })
-                    )
+                    change.value.pipe(map((value) => ({ index: change.index, value })))
                 )
             )
         ),
@@ -227,7 +223,7 @@ export function mergeMatrices<T>(changesObservables: Array<MatrixEntriesObservab
 }
 
 export function staticMatrix<T>(matrix: Matrix<T>): MatrixEntriesObservable<T> {
-    return uncompleteOf(getInitialChanges(matrix))
+    return of(getInitialChanges(matrix))
 }
 
 function getInitialChanges<T>(matrix: Matrix<T>, index: Array<number> = []): Array<MatrixEntry<Observable<T>>> {
@@ -242,7 +238,7 @@ function getInitialChanges<T>(matrix: Matrix<T>, index: Array<number> = []): Arr
         return [
             {
                 index,
-                value: uncompleteOf(matrix),
+                value: of(matrix),
             },
         ]
     }
@@ -256,17 +252,14 @@ export function toChanges<T>(array: Observable<Array<T>>): MatrixEntriesObservab
                 const added: Array<MatrixEntry<Observable<T>>> = []
                 for (let i = 0; i < length; i++) {
                     if (prev[i]?.value != current[i]) {
-                        if (current[i] != null && prev[i] != null) {
+                        if (prev[i] != null) {
                             prev[i].next(current[i])
-                        } else if (current[i] != null) {
+                        } else {
                             prev[i] = new BehaviorSubject(current[i])
                             added.push({
                                 index: [i],
                                 value: prev[i],
                             })
-                        } else {
-                            prev[i].complete()
-                            prev.splice(i, 1)
                         }
                     }
                 }

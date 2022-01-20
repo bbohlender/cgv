@@ -1,9 +1,9 @@
-import { distinctUntilChanged, map, Observable, of, tap } from "rxjs"
-import { toArray, Operation, InterpretionValue, maxEventDepth, nestChanges, uncompleteOf } from "../.."
+import { distinctUntilChanged, map, Observable, of } from "rxjs"
+import { toArray, Operation, InterpretionValue, maxEventDepth, nestChanges } from "../.."
 import { cache } from "../../cache"
 
 function computeSum(values: Array<InterpretionValue<number>>): Observable<InterpretionValue<number>> {
-    return uncompleteOf(
+    return of(
         values.reduce<InterpretionValue<number>>(
             (prev, cur) => {
                 prev.value += cur.value
