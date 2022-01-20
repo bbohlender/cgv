@@ -25,6 +25,8 @@ export type Operations<T> = {
 export type InterpretionValue<T> = {
     value: T
     eventDepthMap: EventDepthMap
+    //terminatec: boolean
+    //TODO: parameters (scoped variables accessible through this.type)
 }
 
 export function interprete<T>(
@@ -78,6 +80,7 @@ export function interpreteStep<T>(
             if (operation == null) {
                 throw new Error(`unknown operation "${step.identifier}"`)
             }
+            //TODO: async interpretation of parameters
             return operation(interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
         case "parallel":
             const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))

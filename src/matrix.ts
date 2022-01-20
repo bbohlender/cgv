@@ -14,8 +14,6 @@ import {
 } from "rxjs"
 import { bufferDebounceTime, uncompleteOf } from "."
 
-//TODO: move matrix entry and Interpretion Value together (+ information needed for premature termination)
-
 export type MatrixEntry<T, I = Array<number>> = { index: I; value: T }
 
 export type Matrix<T> = undefined | T | Array<Matrix<T>>
@@ -42,25 +40,38 @@ export function getMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): T | 
     return undefined
 }
 
-//TODO: remove undefined entries at the end & clear empty matrices
 export function setMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T | undefined): Matrix<T> {
     if (index.length <= 0) {
-        if(Array.isArray(matrix)) {
-            throw new Error(`can't overwrite nested matrix (${JSON.stringify(matrix)}) at index (${JSON.stringify(index)})`)
+        if (Array.isArray(matrix)) {
+            throw new Error(
+                `can't overwrite nested matrix (${JSON.stringify(matrix)}) at index (${JSON.stringify(index)})`
+            )
         }
         return value
     }
 
-    if(matrix === undefined) {
+    if (matrix === undefined) {
         matrix = []
     }
 
     if (Array.isArray(matrix)) {
         matrix[index[0]] = setMatrixEntry(matrix[index[0]], index.slice(1), value)
+        if (value === undefined) {
+            //clear empty end of matrix
+            let endIndex = matrix.length
+            while (endIndex > 0 && matrixEmpty(matrix[endIndex - 1])) {
+                --endIndex
+            }
+            matrix.splice(endIndex, matrix.length - endIndex)
+        }
         return matrix
     }
 
     throw new Error(`can't set index (${index}) on a non nested matrix`)
+}
+
+function matrixEmpty<T>(matrix: Matrix<T>): boolean {
+    return matrix === undefined || (Array.isArray(matrix) && matrix.length === 0)
 }
 
 /*export function removeMatrixEntry<T>(matrix: Matrix<T | undefined>, index: Array<number>): Matrix<T | undefined> {
@@ -194,8 +205,7 @@ export function toMatrix<T>(
         ),
         bufferDebounceTime(debounceTime),
         scan<Array<MatrixEntry<T | undefined>>, Matrix<T>>(
-            (prev, cur) =>
-                cur.reduce((p, c) => setMatrixEntry(p, c.index, c.value), prev),
+            (prev, cur) => cur.reduce((p, c) => setMatrixEntry(p, c.index, c.value), prev),
             undefined
         )
     )
