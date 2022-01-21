@@ -1,4 +1,4 @@
-import { map, Observable, of, shareReplay, tap } from "rxjs"
+import { map, Observable, of, shareReplay, tap, throwError } from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -6,8 +6,6 @@ import {
     ParsedEventDefintion,
     ParsedGrammarDefinition,
     ParsedStep,
-    toArray,
-    toChanges,
     generateEventScheduler,
 } from "."
 
@@ -26,35 +24,38 @@ export type Operations<T> = {
 export type InterpretionValue<T> = {
     value: T
     eventDepthMap: EventDepthMap
-    //terminatec: boolean
-    //TODO: parameters (scoped variables accessible through this.type)
+    //terminated: boolean
+    //TODO: parameters (scoped variables accessible through this.[parameterName])
 }
 
 export function interprete<T>(
-    input: Observable<Array<T>>,
+    input: MatrixEntriesObservable<T>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
-    clone: (value: T, index: number) => T,
-    debounceTime: number = 100
-): Observable<Array<T>> {
+    clone: (value: T, index: number) => T
+): MatrixEntriesObservable<T> {
     const rules = Object.values(grammar.rules)
     if (rules.length === 0) {
         return input
     }
     const eventScheduler = generateEventScheduler<T>()
-    return toArray(
-        interpreteStep(
-            toChanges(
-                input.pipe(map((inputs) => inputs.map<InterpretionValue<T>>((value) => ({ value, eventDepthMap: {} }))))
-            ),
-            rules[0],
-            grammar,
-            operations,
-            clone,
-            eventScheduler
+    return interpreteStep(
+        input.pipe(
+            map((changes) =>
+                changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
+                    ...change,
+                    value: change.value.pipe(map((value) => ({ value, eventDepthMap: {} }))),
+                }))
+            )
         ),
-        debounceTime
-    ).pipe(map((interpretionResults) => interpretionResults.map(({ value }) => value)))
+        rules[0],
+        grammar,
+        operations,
+        clone,
+        eventScheduler
+    ).pipe(
+        map((changes) => changes.map((change) => ({ ...change, value: change.value.pipe(map(({ value }) => value)) })))
+    )
 }
 
 //TODO: combine clone, with clone from cache
@@ -75,13 +76,13 @@ export function interpreteStep<T>(
         case "event":
             const event = grammar.events[step.identifier]
             if (event == null) {
-                throw new Error(`unknown event "${step.identifier}"`)
+                return throwError(() => new Error(`unknown event "${step.identifier}"`))
             }
             return eventScheduler(step.identifier, event, input)
         case "operation":
             const operation = operations[step.identifier]
             if (operation == null) {
-                throw new Error(`unknown operation "${step.identifier}"`)
+                return throwError(() => new Error(`unknown operation "${step.identifier}"`))
             }
             //TODO: async interpretation of parameters (to allow recursion)
             return operation(interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
@@ -135,7 +136,7 @@ export function interpreteStep<T>(
         case "symbol":
             const rule = grammar.rules[step.identifier]
             if (rule == null) {
-                throw new Error(`unknown rule "${step.identifier}"`)
+                return throwError(() => new Error(`unknown rule "${step.identifier}"`))
             }
             return interpreteStep(input, rule, grammar, operations, clone, eventScheduler)
     }

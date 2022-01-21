@@ -1,6 +1,6 @@
 import Head from "next/head"
 import React, { useEffect, useState } from "react"
-import { parse, interprete } from "cgv"
+import { parse, interprete, toArray, toChanges } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
 import { interval, map } from "rxjs"
 
@@ -12,11 +12,9 @@ export default function Index() {
         try {
             const grammar = parse(text)
             setState([undefined, undefined])
-            const subscription = interprete(
-                interval(1000).pipe(map((v) => [v])),
-                grammar,
-                operations,
-                (v) => v
+            const subscription = toArray(
+                interprete(toChanges(interval(1000).pipe(map((v) => [v]))), grammar, operations, (v) => v),
+                10
             ).subscribe({
                 next: (results) => setState([JSON.stringify(results), undefined]),
                 error: (error) => setState([undefined, error.message]),

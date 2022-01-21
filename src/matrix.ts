@@ -18,6 +18,7 @@ export type MatrixEntry<T> = { index: Array<number>; value: T }
 
 export type Matrix<T> = undefined | T | Array<Matrix<T>>
 
+//TODO: optimize
 export function matrixToArray<T>(matrix: Matrix<T>): Array<T> {
     if (Array.isArray(matrix)) {
         return matrix.reduce<Array<T>>((prev, cur) => prev.concat(matrixToArray(cur)), [])
@@ -101,11 +102,26 @@ function matrixEmpty<T>(matrix: Matrix<T>): boolean {
 
 export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T>>>>
 
+//TODO: convert to operator functions (rxjs)
+
 export function toArray<T>(changes: MatrixEntriesObservable<T>, debounceTime: number): Observable<Array<T>> {
     return toMatrix(changes, debounceTime).pipe(map((matrix) => matrixToArray(matrix).filter(filterNull)))
 }
 
-function compareIndex(i1: Array<number>, i2: Array<number>): boolean {
+/**
+ * @returns a negative value if i1 is smaller or equal to i2 and a positive value of i1 is bigger then i2
+ */
+export function indexSmallerEqual(i1: Array<number>, i2: Array<number>): number {
+    const length = Math.min(i1.length, i2.length)
+    for (let i = 0; i < length; i++) {
+        if (i1[i] != i2[i]) {
+            return i1[i] - i2[i]
+        }
+    }
+    return -1
+}
+
+export function indexEqual(i1: Array<number>, i2: Array<number>): boolean {
     if (i1.length != i2.length) {
         return false
     }
@@ -137,7 +153,7 @@ export function nestChanges<T>(
                     Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T>>>]>
                 >((prev, change) => {
                     const [outer, inner] = getIndex(change.index)
-                    let entry = prev.find(([index]) => compareIndex(index, outer))
+                    let entry = prev.find(([index]) => indexEqual(index, outer))
                     if (entry == null) {
                         entry = [outer, []]
                         prev.push(entry)
@@ -187,10 +203,31 @@ export function nestChanges<T>(
     )
 }
 
-export function toMatrix<T>(
+export function toOuterArray<T>(
     changes: MatrixEntriesObservable<T>,
     debounceTime: number
-): Observable<Matrix<T | undefined>> {
+): Observable<Array<Observable<T>>> {
+    return toOuterMatrix(changes, debounceTime).pipe(map((matrix) => matrixToArray(matrix)))
+}
+
+export function toOuterMatrix<T>(
+    changes: MatrixEntriesObservable<T>,
+    debounceTime: number
+): Observable<Matrix<Observable<T>>> {
+    return changes.pipe(
+        bufferDebounceTime(debounceTime),
+        scan<Array<Array<MatrixEntry<Observable<T>>>>, Matrix<Observable<T>>>(
+            (prev, cur) =>
+                cur.reduce(
+                    (p, entries) => entries.reduce((p, entry) => setMatrixEntry(p, entry.index, entry.value), p),
+                    prev
+                ),
+            undefined
+        )
+    )
+}
+
+export function toMatrix<T>(changes: MatrixEntriesObservable<T>, debounceTime: number): Observable<Matrix<T>> {
     return changes.pipe(
         mergeMap((changes) =>
             merge(

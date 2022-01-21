@@ -4,7 +4,7 @@ export type ComputeFunction<Input, Output> = (input: Input) => Observable<Output
 
 const cacheMap = new Map<ComputeFunction<any, any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
 
-//TODO: clear the cache after certain amount of unused time
+//TODO: clear the cache after certain amount of unused time (and unsubscribe connected observable)
 //TODO: clone when caching
 
 export function cache<Input, Output>(
