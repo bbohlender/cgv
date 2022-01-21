@@ -1,32 +1,17 @@
-import { distinctUntilChanged, map, Observable, of } from "rxjs"
-import { toArray, Operation, InterpretionValue, maxEventDepth, nestChanges } from "../.."
-import { cache } from "../../cache"
+import { of } from "rxjs"
+import { Operation, InterpretionValue, maxEventDepth, operation, staticMatrix } from "../.."
 
-function computeSum(values: Array<InterpretionValue<number>>): Observable<InterpretionValue<number>> {
+function computeSum(values: Array<InterpretionValue<number>>) {
     return of(
-        values.reduce<InterpretionValue<number>>(
-            (prev, cur) => {
-                prev.value += cur.value
-                maxEventDepth(prev.eventDepthMap, cur.eventDepthMap)
-                return prev
-            },
-            { eventDepthMap: {}, value: 0 }
-        )
+        staticMatrix({
+            eventDepthMap: maxEventDepth(...values.map(({ eventDepthMap }) => eventDepthMap)),
+            value: values.reduce<number>((prev, cur) => prev + cur.value, 0),
+        })
     )
 }
 
 const sum: Operation<number> = (changes) =>
-    nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
-        map((outerChanges) =>
-            outerChanges.map((outerChange) => ({
-                index: outerChange.index,
-                value: toArray(outerChange.value, 100).pipe(
-                    cache((values) => values.map(({ value }) => value), computeSum),
-                    distinctUntilChanged()
-                ),
-            }))
-        )
-    )
+    changes.pipe(operation(computeSum, (values) => values.map(({ value }) => value)))
 
 export const operations = {
     sum,

@@ -21,6 +21,8 @@ export type Operations<T> = {
     [name in string]: Operation<T>
 }
 
+//TODO: event syntax can be replaced with a operation
+
 export type InterpretionValue<T> = {
     value: T
     eventDepthMap: EventDepthMap

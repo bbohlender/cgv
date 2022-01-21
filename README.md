@@ -56,7 +56,21 @@ max = "a => {
 Forest -> sample2d(this | "1") load(this | "'/tree.gltf'")
 ```
 
-`Building`
+`City 1`
+
+```
+a -> road | building
+
+road -> filter(this | isRoad(this)) expand2d(this | attribute(this | "'delta'" | "10" | "50" | "'int'"))
+
+building -> filter(this | isBuilding(this)) translate(this | "0" | "20" | "0") lines(this)
+```
+
+```
+City ->  translate(this | "0" | attribute(this | "'height'" | "10" | "100" | "'float'") | "0") | lines(this) connect(translate(this | "0" | "20" | "0") | this)
+```
+
+`City 2`
 
 ```
 a -> extrude(this | 3) faces(this) (filter(this | horizontal) walls) | (filter(this | upwards) roof)

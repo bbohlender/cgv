@@ -7,59 +7,65 @@ import {
     connect as connect3Gen,
     sample2d as sample2d3Gen,
     Primitive,
-    CombinedPrimitive,
     expand,
     YAXIS,
     boolean2d,
 } from "co-3gen"
-import { filter, from, map, mergeMap, Observable, shareReplay, switchMap, tap } from "rxjs"
-import { Matrix4, Plane } from "three"
-import { GLTFLoader, DRACOLoader } from "three-stdlib"
+import { from, map, Observable, of } from "rxjs"
+import { Plane } from "three"
+import { GLTFLoader, DRACOLoader, GLTF } from "three-stdlib"
 import { Attribute, AttributeType, Instance } from "."
-import { maxEventDepth, nestChanges, Operation, toArray } from "../.."
+import {
+    EventDepthMap,
+    InterpretionValue,
+    MatrixEntriesObservable,
+    MatrixEntry,
+    maxEventDepth,
+    operation,
+    Operation,
+    OperationComputation,
+    Operations,
+    staticMatrix,
+} from "../.."
+import { cache } from "../../cache"
 import { ObjectPrimitive } from "./object-primitive"
 
 /*export function equal(): Array<any> {
 
 }*/
-/*
-function isRoad(...values: Array<any>): Array<any> {
-    return values.map((value) => value.parameters.layer === "road")
+
+const switchType: Operation<Instance> = (values) => {
+    //TODO
 }
 
-function isBuilding(...values: Array<any>): Array<any> {
-    return values.map((value) => value.parameters.layer === "building")
-}
-
-function filter(...values: Array<any>): Array<any> {
-    const input = splitValues<[Instance, boolean]>(values, 2)
-    return input.filter(([, v]) => v).map(([v]) => v)
-}
-
-function attribute(...values: Array<any>): Array<any> {
-    const input = splitValues<[Instance, string, number, number, "int" | "float"]>(values, 5)
-    return input.map(([instance, name, min, max, type]) => {
-        const attribute: Attribute = {
-            type: type === "float" ? AttributeType.Float : AttributeType.Int,
-            min,
-            max,
-            generateRandomValue:
-                type === "float"
-                    ? () => min + Math.random() * (max - min)
-                    : () => min + Math.floor(Math.random() * (1 + max - min)),
+const computeAttribute: OperationComputation<InterpretionValue<any>, InterpretionValue<Instance>> = (values) => {
+    const eventDepthMap = parameterMaxDepthMap(values)
+    const [instance, name, min, max, type] = values
+    const attribute: Attribute = {
+        type: type.value === "float" ? AttributeType.Float : AttributeType.Int,
+        min: min.value,
+        max: max.value,
+        generateRandomValue:
+            type.value === "float"
+                ? () => min.value + Math.random() * (max.value - min.value)
+                : () => min.value + Math.floor(Math.random() * (1 + max.value - min.value)),
+    }
+    setAttribute(instance.value, name.value, attribute)
+    const split = instance.value.id.split("/")
+    let path: string | undefined = undefined
+    for (let i = 0; i < split.length; i++) {
+        path = (path == null ? "" : path + "/") + split[i]
+        const value = instance.value.parameters[`${path}/${name}`]
+        if (value != null) {
+            return value
         }
-        setAttribute(instance, name, attribute)
-        const split = instance.id.split("/")
-        let path: string | undefined = undefined
-        for (let i = 0; i < split.length; i++) {
-            path = (path == null ? "" : path + "/") + split[i]
-            const value = instance.parameters[`${path}/${name}`]
-            if (value != null) {
-                return value
-            }
-        }
-        return attribute.generateRandomValue()
-    })
+    }
+    return of(
+        staticMatrix({
+            eventDepthMap,
+            value: attribute.generateRandomValue(),
+        })
+    )
 }
 
 function setAttribute(instance: Instance, name: string, attribute: Attribute): void {
@@ -69,201 +75,256 @@ function setAttribute(instance: Instance, name: string, attribute: Attribute): v
     }
 }
 
-function boolean3DOp(op: "union" | "intersect" | "subtract", ...values: Array<Instance>): Array<Instance> {
-    if (values.length === 0) {
-        return []
+function boolean3DOp(
+    op: "union" | "intersect" | "subtract",
+    input: Array<InterpretionValue<Instance>>
+): Observable<Array<MatrixEntry<Observable<InterpretionValue<Instance>>>>> {
+    if (input.length === 0) {
+        return of(staticMatrix<InterpretionValue<Instance>>(undefined))
     }
-    return [
-        instanceChangePrimitive(
-            values.slice(1).reduce((prev, current) => boolean3d(op, prev, current.primitive), values[0].primitive),
-            values[0]
-        ),
-    ]
-}
-
-function boolean2DOp(op: "union" | "intersect" | "subtract", ...values: Array<Instance>): Array<Instance> {
-    if (values.length === 0) {
-        return []
-    }
-    return [
-        instanceChangePrimitive(
-            boolean2d(op, values[0].primitive, ...values.slice(1).map((value) => value.primitive)),
-            values[0]
-        ),
-    ]
-}
-
-const connect: Operation<Instance> = (...values: Array<Instance>) => {
-    const input = splitValues<[Instance, Instance]>(values, 2)
-    return input.map(([i1, i2]) => instanceChangePrimitive(connect3Gen(i1.primitive, i2.primitive), i1))
-}
-
-const sample2d: Operation<Instance> = (...values: Array<any>) => {
-    const input = splitValues<[Instance, number]>(values, 2)
-
-    return input.map(([instance, amount]) =>
-        instanceChangePrimitive(
-            new CombinedPrimitive(
-                new Matrix4(),
-                new Array(amount).fill(null).map(() => sample2d3Gen(instance.primitive))
+    const eventDepthMap = parameterMaxDepthMap(input)
+    return of(
+        staticMatrix({
+            eventDepthMap,
+            value: instanceChangePrimitive(
+                input
+                    .slice(1)
+                    .reduce((prev, current) => boolean3d(op, prev, current.value.primitive), input[0].value.primitive),
+                input[0].value
             ),
-            instance
+        })
+    )
+}
+
+function boolean2DOp(
+    op: "union" | "intersect" | "subtract",
+    input: Array<InterpretionValue<Instance>>
+): Observable<Array<MatrixEntry<Observable<InterpretionValue<Instance>>>>> {
+    if (input.length === 0) {
+        return of(staticMatrix<InterpretionValue<Instance>>(undefined))
+    }
+    const eventDepthMap = parameterMaxDepthMap(input)
+    return of(
+        staticMatrix({
+            value: instanceChangePrimitive(
+                boolean2d(op, input[0].value.primitive, ...input.slice(1).map((value) => value.value.primitive)),
+                input[0].value
+            ),
+            eventDepthMap,
+        })
+    )
+}
+
+const computeConnect: OperationComputation<InterpretionValue<Instance>, InterpretionValue<Instance>> = (values) => {
+    const eventDepthMap = parameterMaxDepthMap(values)
+    const [i1, i2] = values
+    const value = instanceChangePrimitive(connect3Gen(i1.value.primitive, i2.value.primitive), i1.value)
+    return of(
+        staticMatrix({
+            eventDepthMap,
+            value,
+        })
+    )
+}
+
+const computeUnion3d: OperationComputation<InterpretionValue<Instance>, InterpretionValue<Instance>> = boolean3DOp.bind(
+    null,
+    "union"
+)
+const computeIntersect3d: OperationComputation<
+    InterpretionValue<Instance>,
+    InterpretionValue<Instance>
+> = boolean3DOp.bind(null, "intersect")
+const computeSubtract3d: OperationComputation<
+    InterpretionValue<Instance>,
+    InterpretionValue<Instance>
+> = boolean3DOp.bind(null, "subtract")
+
+const computeUnion2d: OperationComputation<InterpretionValue<Instance>, InterpretionValue<Instance>> = boolean2DOp.bind(
+    null,
+    "union"
+)
+const computeIntersect2d: OperationComputation<
+    InterpretionValue<Instance>,
+    InterpretionValue<Instance>
+> = boolean2DOp.bind(null, "intersect")
+const computeSubtract2d: OperationComputation<
+    InterpretionValue<Instance>,
+    InterpretionValue<Instance>
+> = boolean2DOp.bind(null, "subtract")
+
+const computeExpand2d: OperationComputation<InterpretionValue<any>, InterpretionValue<Instance>> = (values) => {
+    const eventDepthMap = parameterMaxDepthMap(values)
+    const [instance, delta] = values
+    return of(
+        staticMatrix({
+            eventDepthMap,
+            value: instanceChangePrimitive(
+                expand(instance.value.primitive, new Plane(YAXIS), delta.value),
+                instance.value
+            ),
+        })
+    )
+}
+
+function components(
+    type: number,
+    changes: MatrixEntriesObservable<InterpretionValue<Instance>>
+): MatrixEntriesObservable<InterpretionValue<Instance>> {
+    //TODO: cache, distinctUntilChanged
+    return changes.pipe(
+        map((changes) =>
+            changes.map((change) => ({
+                index: change.index,
+                value: change.value.pipe(
+                    map((value) => ({
+                        eventDepthMap: value.eventDepthMap,
+                        value: instanceChangePrimitive(value.value.primitive.components(type), value.value), //TODO return multiple results (not a combined primitive)
+                    }))
+                ),
+            }))
         )
     )
 }
 
-const union3d: Operation<Instance> = boolean3DOp.bind(null, "union")
-const intersect3d: Operation<Instance> = boolean3DOp.bind(null, "intersect")
-const subtract3d: Operation<Instance> = boolean3DOp.bind(null, "subtract")
-
-const union2d: Operation<Instance> = boolean2DOp.bind(null, "union")
-const intersect2d: Operation<Instance> = boolean2DOp.bind(null, "intersect")
-const subtract2d: Operation<Instance> = boolean2DOp.bind(null, "subtract")
-
-const expand2d: Operation<Instance> = (...values: Array<any>) => {
-    const input = splitValues<[Instance, number]>(values, 2)
-    return input.map(([instance, delta]) =>
-        instanceChangePrimitive(expand(instance.primitive, new Plane(YAXIS), delta), instance)
-    )
-}
-
-const points: Operation<Instance> = (...values: Array<Instance>) =>
-    values.map((value) => instanceChangePrimitive(value.primitive.components(ComponentType.Point), value))
-const lines: Operation<Instance> = (...values: Array<Instance>) =>
-    values.map((value) => instanceChangePrimitive(value.primitive.components(ComponentType.Line), value))
-const faces: Operation<Instance> = (...values: Array<Instance>) =>
-    values.map((value) => instanceChangePrimitive(value.primitive.components(ComponentType.Face), value))
-
-const translate: Operation<Instance> = (...values) => {
-    const input = splitValues<[Instance, number, number, number]>(values, 4)
-    return input.map(([instance, x, y, z]) =>
-        instanceChangePrimitive(instance.primitive.applyMatrix(makeTranslationMatrix(x, y, z)), instance)
-    )
-}
-const rotate: Operation<Instance> = (...values) => {
-    const input = splitValues<[Instance, number, number, number]>(values, 4)
-    return input.map(([instance, ...euler]) =>
-        instanceChangePrimitive(
-            instance.primitive.applyMatrix(
-                makeRotationMatrix(...(euler.map((a) => (a / 180) * Math.PI) as [number, number, number]))
+const computeTranslate: OperationComputation<InterpretionValue<any>, InterpretionValue<Instance>> = (values) => {
+    const eventDepthMap = parameterMaxDepthMap(values)
+    const [instance, x, y, z] = values
+    return of(
+        staticMatrix({
+            value: instanceChangePrimitive(
+                instance.value.primitive.applyMatrix(makeTranslationMatrix(x.value, y.value, z.value)),
+                instance.value
             ),
-            instance
-        )
+            eventDepthMap,
+        })
+    )
+}
+const computeRotate: OperationComputation<InterpretionValue<any>, InterpretionValue<Instance>> = (values) => {
+    const eventDepthMap = parameterMaxDepthMap(values)
+    const [instance, ...euler] = values
+    return of(
+        staticMatrix({
+            eventDepthMap,
+            value: instanceChangePrimitive(
+                instance.value.primitive.applyMatrix(
+                    makeRotationMatrix(...(euler.map((a) => (a.value / 180) * Math.PI) as [number, number, number]))
+                ),
+                instance.value
+            ),
+        })
     )
 }
 
-const scale: Operation<Instance> = (...values) => {
-    const input = splitValues<[Instance, number, number, number]>(values, 4)
-    return input.map(([instance, x, y, z]) =>
-        instanceChangePrimitive(instance.primitive.applyMatrix(makeScaleMatrix(x, y, z)), instance)
+const computeScale: OperationComputation<InterpretionValue<any>, InterpretionValue<Instance>> = (values) => {
+    const eventDepthMap = parameterMaxDepthMap(values)
+    const [instance, x, y, z] = values
+    return of(
+        staticMatrix({
+            eventDepthMap,
+            value: instanceChangePrimitive(
+                instance.value.primitive.applyMatrix(makeScaleMatrix(x.value, y.value, z.value)),
+                instance.value
+            ),
+        })
     )
 }
 
 function instanceChangePrimitive(primitive: Primitive, instance: Instance): Instance {
     instance.primitive = primitive
     return instance
-}
-
-function splitValues<T extends Array<any>>(array: Array<any>, splits: number): Array<T> {
-    if (array.length % splits !== 0) {
-        throw new Error(
-            `operation input has length ${array.length} and is not devidable by the amount of parameters expected for the operation (${splits})`
-        )
-    }
-    const splitSize = array.length / splits
-    return new Array(splitSize)
-        .fill(null)
-        .map((_, i) => new Array(splits).fill(null).map((_, ii) => array[ii * splitSize + i]) as T)
-}
-*/
-
-function instanceChangePrimitive(primitive: Primitive, instance: Instance): Instance {
-    instance.primitive = primitive
-    return instance
-}
-
-const cacheMap = new Map<string, Observable<any>>()
-function cache<T>(id: string, observable: Observable<T>): Observable<T> {
-    let entry = cacheMap.get(id)
-    if (entry == null) {
-        entry = observable.pipe(shareReplay(1))
-        cacheMap.set(id, entry)
-    }
-    return entry
 }
 
 const loader = new GLTFLoader()
 loader.setDRACOLoader(new DRACOLoader())
 
-//TODO: fix draco loader wasm error
-const load: Operation<Instance> = (changes) =>
-    nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
-        map((outerChanges) =>
-            outerChanges.map((outerChange) => ({
-                index: outerChange.index,
-                value: toArray(outerChange.value, 100).pipe(
-                    filter((values) => values.length === 2),
-                    switchMap(([instance, url]) =>
-                        cache(url.value as any, from(loader.loadAsync(url.value as any))).pipe(
-                            map((gltf) => {
-                                const clone = gltf.scene.clone(true)
-                                instance.value.primitive.getPoint(0, clone.position)
-                                clone.scale.set(500, 500, 500) //TODO: remove - just for testing
-                                return {
-                                    eventDepthMap: maxEventDepth({ ...url.eventDepthMap }, instance.eventDepthMap),
-                                    value: instanceChangePrimitive(new ObjectPrimitive(clone), instance.value),
-                                }
-                            })
-                        )
-                    )
-                ),
+function computeLoad(url: string): Observable<GLTF> {
+    return from(loader.loadAsync(url))
+}
+
+//TODO: currently not good, since the we can't rotate/scale the object at it's origin because the object's position is changed here
+function computeReplace([instance, url]: Array<InterpretionValue<any>>) {
+    return of(url.value).pipe(
+        cache((url) => [url], computeLoad),
+        map((gltf) => {
+            const clone = gltf.scene.clone(true)
+            instance.value.primitive.getPoint(0, clone.position)
+            clone.scale.set(500, 500, 500) //TODO: remove - just for testing
+            return staticMatrix({
+                eventDepthMap: maxEventDepth(url.eventDepthMap, instance.eventDepthMap),
+                value: instanceChangePrimitive(new ObjectPrimitive(clone), instance.value),
+            })
+        })
+    )
+}
+
+function parameterMaxDepthMap(values: Array<InterpretionValue<any>>): EventDepthMap {
+    return maxEventDepth(...values.map(({ eventDepthMap }) => eventDepthMap))
+}
+
+function computeSample2d([instance, amount]: Array<InterpretionValue<any>>) {
+    const eventDepthMap = maxEventDepth(instance.eventDepthMap, amount.eventDepthMap)
+    return of(
+        staticMatrix<InterpretionValue<Instance>>(
+            new Array(amount.value as any).fill(null).map(() => ({
+                eventDepthMap,
+                value: {
+                    //TODO
+                    id: "",
+                    attributes: instance.value.attributes,
+                    children: [],
+                    parameters: {},
+                    primitive: sample2d3Gen(instance.value.primitive),
+                },
             }))
         )
     )
+}
 
-const sample2d: Operation<Instance> = (changes) =>
-    nestChanges(changes, (index) => [index.slice(1), index.slice(0, 1)], 100).pipe(
-        map((outerChanges) => {
-            return outerChanges.map((outerChange) => ({
-                index: outerChange.index,
-                value: toArray(outerChange.value, 100).pipe(
-                    filter((values) => values.length === 2),
-                    map(([instance, amount]) => ({
-                        eventDepthMap: maxEventDepth({ ...instance.eventDepthMap }, amount.eventDepthMap),
-                        value: instanceChangePrimitive(
-                            new CombinedPrimitive(
-                                new Matrix4(),
-                                new Array(amount.value as any)
-                                    .fill(null)
-                                    .map(() => sample2d3Gen(instance.value.primitive))
-                            ),
-                            instance.value
-                        ),
-                    }))
-                ),
-            }))
-        })
-    )
+//TODO: fix draco loader wasm error (=> redo push with .gitattributes fixed)
 
-export const operations = {
-    sample2d,
-    load,
-    /*connect,
-    points,
-    faces,
-    lines,
-    union3d,
-    subtract3d,
-    intersect3d,
-    union2d,
-    subtract2d,
-    intersect2d,
-    translate,
-    rotate,
-    scale,
-    attribute,
-    expand2d,
-    filter,
-    isRoad,
-    isBuilding,*/
+export const operations: Operations<Instance> = {
+    sample2d: (changes) =>
+        changes.pipe(operation(computeSample2d, ([instance, amount]) => [instance.value, amount.value], undefined, 2)),
+    replace: (changes) =>
+        changes.pipe(operation(computeReplace, ([instance, url]) => [instance.value, url.value], undefined, 2)),
+    connect: (changes) => changes.pipe(operation(computeConnect, ([i1, i2]) => [i1.value, i2.value], undefined, 2)),
+    points: components.bind(null, ComponentType.Point),
+    lines: components.bind(null, ComponentType.Line),
+    faces: components.bind(null, ComponentType.Face),
+    union3d: (changes) => changes.pipe(operation(computeUnion3d, (values) => values.map(({ value }) => value))),
+    subtract3d: (changes) => changes.pipe(operation(computeSubtract3d, (values) => values.map(({ value }) => value))),
+    intersect3d: (changes) => changes.pipe(operation(computeIntersect3d, (values) => values.map(({ value }) => value))),
+    union2d: (changes) => changes.pipe(operation(computeUnion2d, (values) => values.map(({ value }) => value))),
+    subtract2d: (changes) => changes.pipe(operation(computeSubtract2d, (values) => values.map(({ value }) => value))),
+    intersect2d: (changes) => changes.pipe(operation(computeIntersect2d, (values) => values.map(({ value }) => value))),
+    translate: (changes) =>
+        changes.pipe(
+            operation(
+                computeTranslate,
+                ([instance, x, y, z]) => [instance.value, x.value, y.value, z.value],
+                undefined,
+                4
+            )
+        ),
+    rotate: (changes) =>
+        changes.pipe(
+            operation(computeRotate, ([instance, x, y, z]) => [instance.value, x.value, y.value, z.value], undefined, 4)
+        ),
+    scale: (changes) =>
+        changes.pipe(
+            operation(computeScale, ([instance, x, y, z]) => [instance.value, x.value, y.value, z.value], undefined, 4)
+        ),
+    attribute: (changes) =>
+        changes.pipe(
+            operation(
+                computeAttribute,
+                ([instance, name, min, max, type]) => [instance.value, name.value, min.value, max.value, type.value],
+                undefined,
+                5
+            )
+        ),
+    expand2d: (changes) =>
+        changes.pipe(operation(computeExpand2d, ([instance, delta]) => [instance.value, delta.value], undefined, 2)),
+    switchType,
 }

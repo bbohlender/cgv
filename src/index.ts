@@ -1,5 +1,6 @@
 export * from "./util"
 export * from "./parser"
 export * from "./matrix"
+export * from "./operations"
 export * from "./event"
 export * from "./interprete"

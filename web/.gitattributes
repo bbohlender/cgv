@@ -24,3 +24,5 @@
 *.glb binary
 *.gltf binary
 *.mvt binary
+*.wasm binary
+*.mvt binary

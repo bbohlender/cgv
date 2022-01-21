@@ -14,7 +14,7 @@ import {
 } from "rxjs"
 import { bufferDebounceTime } from "."
 
-export type MatrixEntry<T, I = Array<number>> = { index: I; value: T }
+export type MatrixEntry<T> = { index: Array<number>; value: T }
 
 export type Matrix<T> = undefined | T | Array<Matrix<T>>
 
@@ -134,7 +134,7 @@ export function nestChanges<T>(
             ([prev], cur) => {
                 const changes = cur.reduce((v1, v2) => v1.concat(v2))
                 const groupedChanges = changes.reduce<
-                    Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T>, Array<number>>>]>
+                    Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T>>>]>
                 >((prev, change) => {
                     const [outer, inner] = getIndex(change.index)
                     let entry = prev.find(([index]) => compareIndex(index, outer))
@@ -222,14 +222,10 @@ export function mergeMatrices<T>(changesObservables: Array<MatrixEntriesObservab
     )
 }
 
-export function staticMatrix<T>(matrix: Matrix<T>): MatrixEntriesObservable<T> {
-    return of(getInitialChanges(matrix))
-}
-
-function getInitialChanges<T>(matrix: Matrix<T>, index: Array<number> = []): Array<MatrixEntry<Observable<T>>> {
+export function staticMatrix<T>(matrix: Matrix<T>, index: Array<number> = []): Array<MatrixEntry<Observable<T>>> {
     if (Array.isArray(matrix)) {
         return matrix.reduce<Array<MatrixEntry<Observable<T>>>>(
-            (prev, cur, i) => prev.concat(getInitialChanges(cur, [i, ...index])),
+            (prev, cur, i) => prev.concat(staticMatrix(cur, [i, ...index])),
             []
         )
     } else if (matrix == null) {

@@ -1,19 +1,23 @@
 import { buffer, debounceTime, OperatorFunction, shareReplay } from "rxjs"
 import { EventDepthMap } from "."
 
-export function maxEventDepth(target: EventDepthMap, map: EventDepthMap): EventDepthMap {
-    const entries = Object.entries(map)
-    for (const entry of entries) {
-        const [eventName, eventDepth] = entry
-        if (eventDepth == null) {
-            continue
-        }
-        const currentEventDepth = target[eventName]
-        if (currentEventDepth == null || eventDepth > currentEventDepth) {
-            target[entry[0]] = entry[1]
+export function maxEventDepth(...maps: Array<EventDepthMap>): EventDepthMap {
+    const prev: EventDepthMap = {}
+    for (const map of maps) {
+        const entries = Object.entries(map)
+        for (const entry of entries) {
+            const [eventName, eventDepth] = entry
+            if (eventDepth == null) {
+                continue
+            }
+            const currentEventDepth = prev[eventName]
+            if (currentEventDepth == null || eventDepth > currentEventDepth) {
+                prev[entry[0]] = entry[1]
+            }
         }
     }
-    return target
+
+    return prev
 }
 
 export function bufferDebounceTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
