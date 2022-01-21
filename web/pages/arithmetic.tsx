@@ -12,13 +12,20 @@ export default function Index() {
         try {
             const grammar = parse(text)
             setState([undefined, undefined])
-            const subscription = toArray(
-                interprete(toChanges(interval(1000).pipe(map((v) => [v]))), grammar, operations, (v) => v),
-                10
-            ).subscribe({
-                next: (results) => setState([JSON.stringify(results), undefined]),
-                error: (error) => setState([undefined, error.message]),
-            })
+            const subscription = interprete(
+                interval(1000).pipe(
+                    map((v) => [v]),
+                    toChanges()
+                ),
+                grammar,
+                operations,
+                (v) => v
+            )
+                .pipe(toArray(10))
+                .subscribe({
+                    next: (results) => setState([JSON.stringify(results), undefined]),
+                    error: (error) => setState([undefined, error.message]),
+                })
             return () => subscription.unsubscribe()
         } catch (error: any) {
             setState([undefined, error.message])

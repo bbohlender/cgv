@@ -120,6 +120,7 @@ export function interpreteStep<T>(
         case "sequential":
             let current = input
             for (const stepOfSteps of step.steps) {
+                //TODO: premature termination
                 current = interpreteStep(current, stepOfSteps, grammar, operations, clone, eventScheduler)
             }
             return current

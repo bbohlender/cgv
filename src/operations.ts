@@ -18,11 +18,13 @@ export function operation<Input, Output>(
     debounceTime: number = 10
 ): OperatorFunction<Array<MatrixEntry<Observable<Input>>>, Array<MatrixEntry<Observable<Output>>>> {
     return (changes: Observable<Array<MatrixEntry<Observable<Input>>>>) =>
-        nestChanges(changes, getParameterIndex, debounceTime).pipe(
+        changes.pipe(
+            nestChanges(getParameterIndex, debounceTime),
             mergeMap((outerChanges) =>
                 merge(
                     ...outerChanges.map((outerChange) =>
-                        toArray(outerChange.value, debounceTime).pipe(
+                        outerChange.value.pipe(
+                            toArray(debounceTime),
                             filter((array) => inputAmount == null || array.length === inputAmount),
                             cache(getDependencies, compute),
                             distinctUntilChanged(),
