@@ -1,4 +1,4 @@
-import { distinctUntilChanged, map, mergeMap, Observable, OperatorFunction, merge, mergeAll, filter } from "rxjs"
+import { distinctUntilChanged, map, mergeMap, Observable, OperatorFunction, merge, filter } from "rxjs"
 import { MatrixEntry, nestChanges, toArray } from "."
 import { cache } from "./cache"
 

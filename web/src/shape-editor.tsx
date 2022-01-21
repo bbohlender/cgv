@@ -3,7 +3,7 @@ import { Canvas } from "@react-three/fiber"
 import { indexEqual, indexSmallerEqual, MatrixEntriesObservable, MatrixEntry } from "cgv"
 import { Instance } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
-import { BehaviorSubject, Observable, Subject, tap } from "rxjs"
+import { BehaviorSubject, Observable } from "rxjs"
 import { Object3D } from "three"
 
 export function ShapeEditor({

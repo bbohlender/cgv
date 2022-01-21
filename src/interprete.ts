@@ -1,4 +1,4 @@
-import { map, Observable, of, shareReplay, tap, throwError } from "rxjs"
+import { map, Observable, of, shareReplay, throwError } from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -19,8 +19,6 @@ export type Operations<T> = {
     [name in string]: Operation<T>
 }
 
-//TODO: event syntax can be replaced with a operation
-
 export type InterpretionValue<T> = {
     value: T
     eventDepthMap: EventDepthMap
@@ -34,7 +32,7 @@ export function interprete<T>(
     operations: Operations<T>,
     clone: (value: T, index: number) => T
 ): MatrixEntriesObservable<T> {
-    const rules = Object.values(grammar.rules)
+    const rules = Object.values(grammar)
     if (rules.length === 0) {
         return input
     }
@@ -73,12 +71,6 @@ export function interpreteStep<T>(
     ) => MatrixEntriesObservable<InterpretionValue<T>>
 ): MatrixEntriesObservable<InterpretionValue<T>> {
     switch (step.type) {
-        case "event":
-            const event = grammar.events[step.identifier]
-            if (event == null) {
-                return throwError(() => new Error(`unknown event "${step.identifier}"`))
-            }
-            return eventScheduler(step.identifier, event, input)
         case "operation":
             const operation = operations[step.identifier]
             if (operation == null) {
@@ -134,7 +126,7 @@ export function interpreteStep<T>(
         case "this":
             return input
         case "symbol":
-            const rule = grammar.rules[step.identifier]
+            const rule = grammar[step.identifier]
             if (rule == null) {
                 return throwError(() => new Error(`unknown rule "${step.identifier}"`))
             }

@@ -19,7 +19,6 @@ export type ParsedStep =
     | ParsedSequantialValues
     | ParsedOperation
     | ParsedSymbol
-    | ParsedEvent
     | ParsedRaw
     | ParsedThis
 
@@ -42,10 +41,6 @@ export type ParsedSymbol = {
     type: "symbol"
     identifier: string
 }
-export type ParsedEvent = {
-    type: "event"
-    identifier: string
-}
 export type ParsedRaw = {
     type: "raw"
     value: any
@@ -54,14 +49,6 @@ export type ParsedThis = {
     type: "this"
 }
 
-export type ParsedEventDefinitions = {
-    [EventId in string]: ParsedEventDefintion
-}
-export type ParsedRuleDefinitions = {
-    [Symbol in string]: ParsedStep
-}
-
 export type ParsedGrammarDefinition = {
-    rules: ParsedRuleDefinitions
-    events: ParsedEventDefinitions
+    [Symbol in string]: ParsedStep
 }

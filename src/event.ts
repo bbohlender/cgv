@@ -55,7 +55,7 @@ export function generateEventScheduler<T>(): (
         let entry = map.get(identifier)
         if (entry == null) {
             const subject = new Subject<MatrixEntriesObservable<InterpretionValue<T>>>()
-            entry = [subject, subject.pipe(mergeMap((changes) => toArray(changes, 100))).pipe((values) => event)]
+            entry = [subject, subject.pipe(mergeMap((changes) => toArray(changes, 10))).pipe((values) => event)]
         }
         return entry[1]
     }
