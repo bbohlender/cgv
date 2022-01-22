@@ -2,7 +2,7 @@ import Head from "next/head"
 import React, { useEffect, useState } from "react"
 import { parse, interprete, toArray, toChanges } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { interval, map } from "rxjs"
+import { interval, map, tap } from "rxjs"
 
 export default function Index() {
     const [text, setText] = useState("")

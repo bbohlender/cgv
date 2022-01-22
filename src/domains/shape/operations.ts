@@ -11,7 +11,7 @@ import {
     YAXIS,
     boolean2d,
 } from "co-3gen"
-import { from, map, Observable, of } from "rxjs"
+import { from, map, Observable, of, tap } from "rxjs"
 import { Plane } from "three"
 import { GLTFLoader, DRACOLoader, GLTF } from "three-stdlib"
 import { Attribute, AttributeType, Instance } from "."
@@ -78,7 +78,7 @@ function setAttribute(instance: Instance, name: string, attribute: Attribute): v
 function boolean3DOp(
     op: "union" | "intersect" | "subtract",
     input: Array<InterpretionValue<Instance>>
-): Observable<Array<MatrixEntry<Observable<InterpretionValue<Instance>>>>> {
+): Observable<Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>> {
     if (input.length === 0) {
         return of(staticMatrix<InterpretionValue<Instance>>(undefined))
     }
@@ -100,7 +100,7 @@ function boolean3DOp(
 function boolean2DOp(
     op: "union" | "intersect" | "subtract",
     input: Array<InterpretionValue<Instance>>
-): Observable<Array<MatrixEntry<Observable<InterpretionValue<Instance>>>>> {
+): Observable<Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>> {
     if (input.length === 0) {
         return of(staticMatrix<InterpretionValue<Instance>>(undefined))
     }
@@ -181,11 +181,15 @@ function components(
             changes.map((change) => ({
                 index: change.index,
                 value: change.value.pipe(
-                    map((value) => ({
-                        terminated: value.terminated,
-                        eventDepthMap: value.eventDepthMap,
-                        value: instanceChangePrimitive(value.value.primitive.components(type), value.value), //TODO return multiple results (not a combined primitive)
-                    }))
+                    map((value) =>
+                        value == null
+                            ? undefined
+                            : {
+                                  terminated: value.terminated,
+                                  eventDepthMap: value.eventDepthMap,
+                                  value: instanceChangePrimitive(value.value.primitive.components(type), value.value), //TODO return multiple results (not a combined primitive)
+                              }
+                    )
                 ),
             }))
         )
@@ -197,14 +201,21 @@ export function terminateRandomly(
 ): MatrixEntriesObservable<InterpretionValue<Instance>> {
     //TODO: cache, distinctUntilChanged, toChanges?
     return changes.pipe(
+        tap<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>[]>(console.log),
         map((changes) =>
             changes.map((change) => ({
                 index: change.index,
                 value: change.value.pipe(
-                    map((value) => ({
-                        ...value,
-                        terminated: Math.random() > 0.5,
-                    }))
+                    map((value) => {
+                        const terminated = Math.random() > 0.5
+                        console.log(...change.index, terminated)
+                        return value == null
+                            ? undefined
+                            : {
+                                  ...value,
+                                  terminated,
+                              }
+                    })
                 ),
             }))
         )

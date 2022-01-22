@@ -1,4 +1,16 @@
-import { filter, map, mergeWith, MonoTypeOperatorFunction, NEVER, Observable, of, shareReplay, throwError } from "rxjs"
+import {
+    defer,
+    distinctUntilChanged,
+    filter,
+    map,
+    mergeWith,
+    MonoTypeOperatorFunction,
+    NEVER,
+    Observable,
+    of,
+    shareReplay,
+    tap,
+} from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -12,8 +24,8 @@ import {
 export type EventDepthMap = { [identifier in string]?: number }
 
 export type Operation<T> = (
-    values: MatrixEntriesObservable<InterpretionValue<T>>
-) => MatrixEntriesObservable<InterpretionValue<T>>
+    values: MatrixEntriesObservable<InterpretionValue<T> | undefined>
+) => MatrixEntriesObservable<InterpretionValue<T> | undefined>
 
 export type Operations<T> = {
     [name in string]: Operation<T>
@@ -40,9 +52,11 @@ export function interprete<T>(
     return interpreteStep(
         input.pipe(
             map((changes) =>
-                changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
+                changes.map<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>((change) => ({
                     ...change,
-                    value: change.value.pipe(map((value) => ({ value, eventDepthMap: {}, terminated: false }))),
+                    value: change.value.pipe(
+                        map((value) => (value != null ? { value, eventDepthMap: {}, terminated: false } : undefined))
+                    ),
                 }))
             )
         ),
@@ -52,11 +66,13 @@ export function interprete<T>(
         clone,
         eventScheduler
     ).pipe(
-        map((changes) => changes.map((change) => ({ ...change, value: change.value.pipe(map(({ value }) => value)) })))
+        map((changes) => changes.map((change) => ({ ...change, value: change.value.pipe(map((val) => val?.value)) })))
     )
 }
 
 //TODO: combine clone, with clone from cache
+
+//TODO: every time we use shareReplay (we only share the ouside observable but not the inside!!! => either prevent resubscribing to the inner observable or use another async data structure?)
 
 export function interpreteStep<T>(
     input: MatrixEntriesObservable<InterpretionValue<T>>,
@@ -74,10 +90,11 @@ export function interpreteStep<T>(
         case "operation":
             const operation = operations[step.identifier]
             if (operation == null) {
-                return throwError(() => new Error(`unknown operation "${step.identifier}"`))
+                throw new Error(`unknown operation "${step.identifier}"`)
             }
-            //TODO: async interpretation of parameters (to allow recursion)
-            return operation(interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
+            return operation(
+                defer(() => interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
+            )
         case "parallel":
             const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
             return mergeMatrices(
@@ -88,11 +105,14 @@ export function interpreteStep<T>(
                                 changes.map((change) => ({
                                     index: change.index,
                                     value: change.value.pipe(
-                                        map(({ value, eventDepthMap, terminated }) => ({
-                                            eventDepthMap,
-                                            terminated,
-                                            value: clone(value, i),
-                                        }))
+                                        map((val) =>
+                                            val != null
+                                                ? {
+                                                      ...val,
+                                                      value: clone(val.value, i),
+                                                  }
+                                                : undefined
+                                        )
                                     ),
                                 }))
                             )
@@ -121,44 +141,49 @@ export function interpreteStep<T>(
             )
         case "sequential":
             let current = input
-            let result: MatrixEntriesObservable<InterpretionValue<T>> = NEVER
+            let terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
             for (const stepOfSteps of step.steps) {
-                const stepResult = interpreteStep(
-                    current,
+                const sharedCurrent = current.pipe(
+                    shareReplay({
+                        refCount: true,
+                        //TODO: need an alternative to shareReplay since currently we buffer everything (bad) but bufferSize: 1 is also not working
+                        //bufferSize: 0,
+                    })
+                )
+                terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))
+                current = interpreteStep(
+                    sharedCurrent.pipe(useWhenTerminatedIs(false)),
                     stepOfSteps,
                     grammar,
                     operations,
                     clone,
                     eventScheduler
-                ).pipe(
-                    shareReplay({
-                        refCount: true,
-                        //TODO: need an alternative to shareReplay since currently we buffer everything (bad) but bufferSize: 1 is also not working
-                        //bufferSize: 1,
-                    })
                 )
-                current = stepResult.pipe(filterTerminated(false))
-                result = stepResult.pipe(filterTerminated(true), mergeWith(result))
+                //TODO: think of ways to reduce the amount of "doubles" through splitting
             }
-            return current.pipe(mergeWith(result))
+
+            return mergeMatrices([current, ...terminated])
         case "this":
             return input
         case "symbol":
             const rule = grammar[step.identifier]
             if (rule == null) {
-                return throwError(() => new Error(`unknown rule "${step.identifier}"`))
+                throw new Error(`unknown rule "${step.identifier}"`)
             }
             return interpreteStep(input, rule, grammar, operations, clone, eventScheduler)
     }
 }
 
-function filterTerminated<T>(
+function useWhenTerminatedIs<T>(
     terminated: boolean
-): MonoTypeOperatorFunction<Array<MatrixEntry<Observable<InterpretionValue<T>>>>> {
+): MonoTypeOperatorFunction<Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>> {
     return map((changes) =>
         changes.map((change) => ({
             index: change.index,
-            value: change.value.pipe(filter(({ terminated: t }) => t === terminated)),
+            value: change.value.pipe(
+                map((value) => (value?.terminated === terminated ? value : undefined)),
+                distinctUntilChanged()
+            ),
         }))
     )
 }

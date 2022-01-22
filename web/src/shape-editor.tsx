@@ -1,9 +1,9 @@
 import { OrbitControls } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import { indexEqual, indexSmallerEqual, MatrixEntriesObservable, MatrixEntry } from "cgv"
+import { compareIndices, MatrixEntriesObservable, MatrixEntry } from "cgv"
 import { Instance } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
-import { BehaviorSubject, Observable } from "rxjs"
+import { BehaviorSubject, Observable, tap } from "rxjs"
 import { Object3D } from "three"
 
 export function ShapeEditor({
@@ -14,23 +14,24 @@ export function ShapeEditor({
     changes: MatrixEntriesObservable<Instance> | undefined
 }) {
     const [[entries, error], setState] = useState<
-        [entries: Array<MatrixEntry<Observable<Instance>>> | undefined, error: string | undefined]
+        [entries: Array<MatrixEntry<Observable<Instance | undefined>>> | undefined, error: string | undefined]
     >([undefined, undefined])
     useEffect(() => {
         if (changes == null) {
             return
         }
+        let previous: MatrixEntry<Observable<Instance | undefined>>[] = []
         const subscription = changes.subscribe({
-            next: (changes) =>
-                setState(([entries]) => [
-                    [
-                        ...(entries?.filter(
-                            ({ index }) => changes.find((change) => indexEqual(change.index, index)) == null
-                        ) ?? []),
-                        ...changes,
-                    ].sort((e1, e2) => indexSmallerEqual(e1.index, e2.index)),
-                    undefined,
-                ]),
+            next: (changes) => {
+                const current = [
+                    ...previous.filter(
+                        ({ index }) => changes.find((change) => compareIndices(change.index, index) === 0) == null
+                    ),
+                    ...changes,
+                ].sort((e1, e2) => compareIndices(e1.index, e2.index))
+                setState([current, undefined])
+                previous = current
+            },
             error: (error) => setState([undefined, error.message]),
         })
         return () => subscription.unsubscribe()
@@ -48,7 +49,7 @@ export function ShapeEditor({
                     {entries != null && (
                         <group scale={0.01}>
                             {entries.map((entry) => (
-                                <AsyncInstance key={entry.index.join(",")} value={entry.value} />
+                                <AsyncInstance index={entry.index} key={entry.index.join(",")} value={entry.value} />
                             ))}
                         </group>
                     )}
@@ -57,6 +58,15 @@ export function ShapeEditor({
             <div
                 className="overflow-auto mb-0 border-top flex-basis-0 h5 bg-light flex-grow-1"
                 style={{ whiteSpace: "pre-line", maxHeight: 300, height: 300 }}>
+                {error == null ? (
+                    changes == null ? (
+                        <div className="text-primary p-3">waiting ...</div>
+                    ) : (
+                        <div className="text-success p-3">ok</div>
+                    )
+                ) : (
+                    <div className="text-danger p-3">{error}</div>
+                )}
                 {/*error != null && (
                     <Explorer
                         selectedInstance={selectedInstance}
@@ -71,13 +81,15 @@ export function ShapeEditor({
     )
 }
 
-export function AsyncInstance({ value }: { value: Observable<Instance> }) {
+export function AsyncInstance({ index, value }: { index: Array<number>; value: Observable<Instance | undefined> }) {
     const [object, setObject] = useState<Object3D | undefined>(undefined)
     useEffect(() => {
-        const subscription = value.subscribe({
-            next: (instance) => setObject(instance.primitive.getObject3D(false)),
+        setObject(undefined)
+        const subscription = value/*.pipe(tap((v) => console.log(...index, v)))*/.subscribe({
+            next: (instance) => setObject(instance?.primitive.getObject3D(false)),
             //TODO: error: () => ...
         })
+        console.log("subscribe", ...index)
         return () => subscription.unsubscribe()
     }, [value])
     if (object == null) {

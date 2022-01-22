@@ -1,3 +1,4 @@
+import { filterNull } from "co-3gen"
 import {
     map,
     merge,
@@ -12,6 +13,7 @@ import {
     of,
     OperatorFunction,
     debounceTime,
+    tap,
 } from "rxjs"
 import { bufferDebounceTime } from "."
 
@@ -75,19 +77,19 @@ function matrixEmpty<T>(matrix: Matrix<T>): boolean {
     return matrix === undefined || (Array.isArray(matrix) && matrix.length === 0)
 }
 
-export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T>>>>
+export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T | undefined>>>>
 
 /**
- * @returns a negative value if i1 is smaller or equal to i2 and a positive value of i1 is bigger then i2
+ * @returns a negative value if i1 is smaller to i2 and a positive value of i1 is bigger then i2 (0 when they are equal)
  */
-export function indexSmallerEqual(i1: Array<number>, i2: Array<number>): number {
+export function compareIndices(i1: Array<number>, i2: Array<number>): number {
     const length = Math.min(i1.length, i2.length)
     for (let i = 0; i < length; i++) {
         if (i1[i] != i2[i]) {
             return i1[i] - i2[i]
         }
     }
-    return -1
+    return 0
 }
 
 export function indexEqual(i1: Array<number>, i2: Array<number>): boolean {
@@ -106,25 +108,26 @@ export function nestChanges<T>(
     getIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>],
     debounceTime: number
 ): OperatorFunction<
-    Array<MatrixEntry<Observable<T>>>,
-    Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>>
+    Array<MatrixEntry<Observable<T | undefined>>>,
+    Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>>
 > {
     return (changes) =>
         changes.pipe(
             bufferDebounceTime(debounceTime),
             scan<
-                Array<Array<MatrixEntry<Observable<T>>>>,
+                Array<Array<MatrixEntry<Observable<T | undefined>>>>,
                 [
                     Matrix<
-                        { activeInnerValues: number; value: Subject<Array<MatrixEntry<Observable<T>>>> } | undefined
+                        | { activeInnerValues: number; value: Subject<Array<MatrixEntry<Observable<T | undefined>>>> }
+                        | undefined
                     >,
-                    Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>>
+                    Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>>
                 ]
             >(
                 ([prev], cur) => {
                     const changes = cur.reduce((v1, v2) => v1.concat(v2))
                     const groupedChanges = changes.reduce<
-                        Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T>>>]>
+                        Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T | undefined>>>]>
                     >((prev, change) => {
                         const [outer, inner] = getIndex(change.index)
                         let entry = prev.find(([index]) => indexEqual(index, outer))
@@ -138,12 +141,14 @@ export function nestChanges<T>(
                         })
                         return prev
                     }, [])
-                    const outerChanges: Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T>>>>>> = []
+                    const outerChanges: Array<
+                        MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>
+                    > = []
                     for (const [index, changes] of groupedChanges) {
                         let subject = getMatrixEntry(prev, index)
                         if (subject == null) {
                             subject = {
-                                value: new ReplaySubject<Array<MatrixEntry<Observable<T>>>>(),
+                                value: new ReplaySubject<Array<MatrixEntry<Observable<T | undefined>>>>(),
                                 activeInnerValues: 0,
                             }
                             prev = setMatrixEntry(prev, index, subject)
@@ -177,7 +182,9 @@ export function nestChanges<T>(
         )
 }
 
-export function toOuterArray<T>(dueTime: number): OperatorFunction<Array<MatrixEntry<T | undefined>>, Array<T>> {
+export function toOuterArray<T>(
+    dueTime: number
+): OperatorFunction<Array<MatrixEntry<T | undefined>> | undefined, Array<T>> {
     return (changes) =>
         changes.pipe(
             toOuterMatrix(),
@@ -186,17 +193,22 @@ export function toOuterArray<T>(dueTime: number): OperatorFunction<Array<MatrixE
         )
 }
 
-export function toOuterMatrix<T>(): OperatorFunction<Array<MatrixEntry<T | undefined>>, Matrix<T>> {
+export function toOuterMatrix<T>(): OperatorFunction<Array<MatrixEntry<T | undefined>> | undefined, Matrix<T>> {
     return (changes) =>
         changes.pipe(
-            scan<Array<MatrixEntry<T | undefined>>, Matrix<T>>(
-                (prev, cur) => cur.reduce((p, entry) => setMatrixEntry(p, entry.index, entry.value), prev),
+            scan<Array<MatrixEntry<T | undefined>> | undefined, Matrix<T>>(
+                (prev, cur) =>
+                    cur == null
+                        ? undefined
+                        : cur.reduce((p, entry) => setMatrixEntry(p, entry.index, entry.value), prev),
                 undefined
             )
         )
 }
 
-export function toArray<T>(dueTime: number): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Array<T>> {
+export function toArray<T>(
+    dueTime: number
+): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>> | undefined, Array<T>> {
     return (changes) =>
         changes.pipe(
             toMatrix(),
@@ -205,15 +217,17 @@ export function toArray<T>(dueTime: number): OperatorFunction<Array<MatrixEntry<
         )
 }
 
-export function toMatrix<T>(): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Matrix<T>> {
+export function toMatrix<T>(): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>> | undefined, Matrix<T>> {
     return (changes) =>
         changes.pipe(
             mergeMap((changes) =>
-                merge(
-                    ...changes.map<Observable<Array<MatrixEntry<T | undefined>>>>((change) =>
-                        change.value.pipe(map((value) => [{ index: change.index, value }]))
-                    )
-                )
+                changes == null
+                    ? of(undefined)
+                    : merge(
+                          ...changes.map<Observable<Array<MatrixEntry<T | undefined>>>>((change) =>
+                              change.value.pipe(map((value) => [{ index: change.index, value }]))
+                          )
+                      )
             ),
             toOuterMatrix()
         )
@@ -224,7 +238,7 @@ export function mergeMatrices<T>(changesObservables: Array<MatrixEntriesObservab
         ...changesObservables.map((changesObservable, i) =>
             changesObservable.pipe(
                 map((changes) =>
-                    changes.map<MatrixEntry<Observable<T>>>((change) => ({
+                    changes.map<MatrixEntry<Observable<T | undefined>>>((change) => ({
                         ...change,
                         index: [i, ...change.index],
                     }))
@@ -234,9 +248,12 @@ export function mergeMatrices<T>(changesObservables: Array<MatrixEntriesObservab
     )
 }
 
-export function staticMatrix<T>(matrix: Matrix<T>, index: Array<number> = []): Array<MatrixEntry<Observable<T>>> {
+export function staticMatrix<T>(
+    matrix: Matrix<T>,
+    index: Array<number> = []
+): Array<MatrixEntry<Observable<T | undefined>>> {
     if (Array.isArray(matrix)) {
-        return matrix.reduce<Array<MatrixEntry<Observable<T>>>>(
+        return matrix.reduce<Array<MatrixEntry<Observable<T | undefined>>>>(
             (prev, cur, i) => prev.concat(staticMatrix(cur, [i, ...index])),
             []
         )
@@ -252,7 +269,7 @@ export function staticMatrix<T>(matrix: Matrix<T>, index: Array<number> = []): A
     }
 }
 
-export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T>>>> {
+export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T | undefined>>>> {
     return (array) =>
         array.pipe(
             scan<Array<T>, [array: Array<BehaviorSubject<T>>, added: Array<MatrixEntry<Observable<T>>>]>(
