@@ -1,4 +1,4 @@
-import { connectable, mergeMap, Observable, OperatorFunction, ReplaySubject } from "rxjs"
+import { connectable, Observable, OperatorFunction, ReplaySubject, switchMap } from "rxjs"
 
 export type ComputeFunction<Input, Output> = (input: Input) => Observable<Output>
 
@@ -19,7 +19,7 @@ export function cache<Input, Output>(
     const cacheEntries = entries
     return (input) =>
         input.pipe(
-            mergeMap((input) => {
+            switchMap((input) => {
                 const dependencies = getDependencies(input)
                 let cacheEntry = cacheEntries.find(([dep]) => shallowEqual(dep, dependencies))
                 if (cacheEntry == null) {

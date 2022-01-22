@@ -1,4 +1,3 @@
-import { filterNull } from "co-3gen"
 import {
     map,
     merge,
@@ -12,6 +11,7 @@ import {
     finalize,
     of,
     OperatorFunction,
+    debounceTime,
 } from "rxjs"
 import { bufferDebounceTime } from "."
 
@@ -19,7 +19,6 @@ export type MatrixEntry<T> = { index: Array<number>; value: T }
 
 export type Matrix<T> = undefined | T | Array<Matrix<T>>
 
-//TODO: optimize
 export function matrixToArray<T>(matrix: Matrix<T>): Array<T> {
     if (Array.isArray(matrix)) {
         return matrix.reduce<Array<T>>((prev, cur) => prev.concat(matrixToArray(cur)), [])
@@ -77,14 +76,6 @@ function matrixEmpty<T>(matrix: Matrix<T>): boolean {
 }
 
 export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T>>>>
-
-export function toArray<T>(debounceTime: number): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Array<T>> {
-    return (changes) =>
-        changes.pipe(
-            toMatrix(debounceTime),
-            map((matrix) => matrixToArray(matrix).filter(filterNull))
-        )
-}
 
 /**
  * @returns a negative value if i1 is smaller or equal to i2 and a positive value of i1 is bigger then i2
@@ -186,48 +177,45 @@ export function nestChanges<T>(
         )
 }
 
-export function toOuterArray<T>(
-    debounceTime: number
-): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Array<Observable<T>>> {
+export function toOuterArray<T>(dueTime: number): OperatorFunction<Array<MatrixEntry<T | undefined>>, Array<T>> {
     return (changes) =>
         changes.pipe(
-            toOuterMatrix(debounceTime),
+            toOuterMatrix(),
+            debounceTime(dueTime),
             map((matrix) => matrixToArray(matrix))
         )
 }
 
-export function toOuterMatrix<T>(
-    debounceTime: number
-): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Matrix<Observable<T>>> {
+export function toOuterMatrix<T>(): OperatorFunction<Array<MatrixEntry<T | undefined>>, Matrix<T>> {
     return (changes) =>
         changes.pipe(
-            bufferDebounceTime(debounceTime),
-            scan<Array<Array<MatrixEntry<Observable<T>>>>, Matrix<Observable<T>>>(
-                (prev, cur) =>
-                    cur.reduce(
-                        (p, entries) => entries.reduce((p, entry) => setMatrixEntry(p, entry.index, entry.value), p),
-                        prev
-                    ),
+            scan<Array<MatrixEntry<T | undefined>>, Matrix<T>>(
+                (prev, cur) => cur.reduce((p, entry) => setMatrixEntry(p, entry.index, entry.value), prev),
                 undefined
             )
         )
 }
 
-export function toMatrix<T>(debounceTime: number): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Matrix<T>> {
+export function toArray<T>(dueTime: number): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Array<T>> {
+    return (changes) =>
+        changes.pipe(
+            toMatrix(),
+            debounceTime(dueTime),
+            map((matrix) => matrixToArray(matrix))
+        )
+}
+
+export function toMatrix<T>(): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Matrix<T>> {
     return (changes) =>
         changes.pipe(
             mergeMap((changes) =>
                 merge(
-                    ...changes.map<Observable<MatrixEntry<T | undefined>>>((change) =>
-                        change.value.pipe(map((value) => ({ index: change.index, value })))
+                    ...changes.map<Observable<Array<MatrixEntry<T | undefined>>>>((change) =>
+                        change.value.pipe(map((value) => [{ index: change.index, value }]))
                     )
                 )
             ),
-            bufferDebounceTime(debounceTime),
-            scan<Array<MatrixEntry<T | undefined>>, Matrix<T>>(
-                (prev, cur) => cur.reduce((p, c) => setMatrixEntry(p, c.index, c.value), prev),
-                undefined
-            )
+            toOuterMatrix()
         )
 }
 
