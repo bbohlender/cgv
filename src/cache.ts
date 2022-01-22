@@ -16,6 +16,7 @@ export function cache<Input, Output>(
         entries = []
         cacheMap.set(compute, entries)
     }
+    //TODO: use partion
     const cacheEntries = entries
     return (input) =>
         input.pipe(
