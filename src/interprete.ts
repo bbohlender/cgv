@@ -140,7 +140,6 @@ export function interpreteStep<T>(
                 )
             )
         case "sequential":
-            //use partion
             let current = input
             let terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
             for (const stepOfSteps of step.steps) {

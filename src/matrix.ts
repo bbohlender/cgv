@@ -1,4 +1,3 @@
-import { filterNull } from "co-3gen"
 import {
     map,
     merge,
@@ -7,15 +6,12 @@ import {
     mergeMap,
     BehaviorSubject,
     filter,
-    Subject,
-    ReplaySubject,
-    finalize,
     of,
     OperatorFunction,
     debounceTime,
-    tap,
+    groupBy,
+    bufferTime,
 } from "rxjs"
-import { bufferDebounceTime } from "."
 
 export type MatrixEntry<T> = { index: Array<number>; value: T }
 
@@ -106,79 +102,27 @@ export function indexEqual(i1: Array<number>, i2: Array<number>): boolean {
 
 export function nestChanges<T>(
     getIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>],
-    debounceTime: number
+    bufferTimeSpan: number
 ): OperatorFunction<
     Array<MatrixEntry<Observable<T | undefined>>>,
     Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>>
 > {
     return (changes) =>
         changes.pipe(
-            bufferDebounceTime(debounceTime),
-            scan<
-                Array<Array<MatrixEntry<Observable<T | undefined>>>>,
-                [
-                    Matrix<
-                        | { activeInnerValues: number; value: Subject<Array<MatrixEntry<Observable<T | undefined>>>> }
-                        | undefined
-                    >,
-                    Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>>
-                ]
-            >(
-                ([prev], cur) => {
-                    const changes = cur.reduce((v1, v2) => v1.concat(v2))
-                    const groupedChanges = changes.reduce<
-                        Array<[index: Array<number>, changes: Array<MatrixEntry<Observable<T | undefined>>>]>
-                    >((prev, change) => {
+            mergeMap((changes) =>
+                of(
+                    ...changes.map((change) => {
                         const [outer, inner] = getIndex(change.index)
-                        let entry = prev.find(([index]) => indexEqual(index, outer))
-                        if (entry == null) {
-                            entry = [outer, []]
-                            prev.push(entry)
-                        }
-                        entry[1].push({
-                            index: inner,
-                            value: change.value,
-                        })
-                        return prev
-                    }, [])
-                    const outerChanges: Array<
-                        MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>
-                    > = []
-                    for (const [index, changes] of groupedChanges) {
-                        let subject = getMatrixEntry(prev, index)
-                        if (subject == null) {
-                            subject = {
-                                value: new ReplaySubject<Array<MatrixEntry<Observable<T | undefined>>>>(),
-                                activeInnerValues: 0,
-                            }
-                            prev = setMatrixEntry(prev, index, subject)
-                            outerChanges.push({
-                                index,
-                                value: subject.value,
-                            })
-                        }
-                        const s = subject
-                        subject.activeInnerValues += changes.length
-                        subject.value.next(
-                            changes.map((change) => ({
-                                index: change.index,
-                                value: change.value.pipe(
-                                    finalize(() => {
-                                        --s.activeInnerValues
-                                        if (s.activeInnerValues === 0) {
-                                            s.value.complete()
-                                        }
-                                    })
-                                ),
-                            }))
-                        )
-                    }
-                    return [prev, outerChanges]
-                },
-                [undefined, []]
+                        return { value: change.value, index: inner, outer }
+                    })
+                )
             ),
-            map(([, changes]) => changes),
-            filter((changes) => changes.length > 0)
+            groupBy(({ outer }) => outer.join(",")),
+            map((group) => ({
+                index: group.key.split(",").map(Number.parseInt),
+                value: group.pipe(bufferTime(bufferTimeSpan)),
+            })),
+            bufferTime(bufferTimeSpan)
         )
 }
 
@@ -269,7 +213,7 @@ export function staticMatrix<T>(
     }
 }
 
-export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T | undefined>>>> {
+/*export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T | undefined>>>> {
     return (array) =>
         array.pipe(
             scan<Array<T>, [array: Array<BehaviorSubject<T>>, added: Array<MatrixEntry<Observable<T>>>]>(
@@ -296,4 +240,4 @@ export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Obs
             map(([, added]) => added),
             filter((added) => added.length > 0)
         )
-}
+}*/

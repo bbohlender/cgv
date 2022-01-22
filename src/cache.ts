@@ -1,26 +1,23 @@
-import { connectable, Observable, OperatorFunction, ReplaySubject, switchMap } from "rxjs"
+import { connectable, distinctUntilChanged, map, Observable, OperatorFunction, ReplaySubject, switchAll } from "rxjs"
 
-export type ComputeFunction<Input, Output> = (input: Input) => Observable<Output>
-
-const cacheMap = new Map<ComputeFunction<any, any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
+const cacheMap = new Map<OperatorFunction<any, any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
 
 //TODO: clear the cache after certain amount of unused time (and unsubscribe connected observable)
 //TODO: clone when caching
 
 export function cache<Input, Output>(
     getDependencies: (input: Input) => Array<any>,
-    compute: ComputeFunction<Input, Output>
+    compute: OperatorFunction<Input, Output>
 ): OperatorFunction<Input, Output> {
     let entries = cacheMap.get(compute)
     if (entries == null) {
         entries = []
         cacheMap.set(compute, entries)
     }
-    //TODO: use partion
     const cacheEntries = entries
     return (input) =>
         input.pipe(
-            switchMap((input) => {
+            map((input) => {
                 const dependencies = getDependencies(input)
                 let cacheEntry = cacheEntries.find(([dep]) => shallowEqual(dep, dependencies))
                 if (cacheEntry == null) {
@@ -33,7 +30,9 @@ export function cache<Input, Output>(
                     cacheEntries.push(cacheEntry)
                 }
                 return cacheEntry[1]
-            })
+            }),
+            distinctUntilChanged(),
+            switchAll()
         )
 }
 
