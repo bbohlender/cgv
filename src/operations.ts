@@ -10,6 +10,8 @@ export type OperationComputation<Input, Output> = (
     input: Array<Input>
 ) => Observable<Array<MatrixEntry<Observable<Output>>>>
 
+//TODO: use toChanges (only emit changes compared to the previous result)
+
 export function operation<Input, Output>(
     compute: OperationComputation<Input, Output>,
     getDependencies: (input: Array<Input>) => Array<any>,

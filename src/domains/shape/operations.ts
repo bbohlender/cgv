@@ -86,6 +86,7 @@ function boolean3DOp(
     return of(
         staticMatrix({
             eventDepthMap,
+            terminated: false,
             value: instanceChangePrimitive(
                 input
                     .slice(1)
@@ -106,6 +107,7 @@ function boolean2DOp(
     const eventDepthMap = parameterMaxDepthMap(input)
     return of(
         staticMatrix({
+            terminated: false,
             value: instanceChangePrimitive(
                 boolean2d(op, input[0].value.primitive, ...input.slice(1).map((value) => value.value.primitive)),
                 input[0].value
@@ -121,6 +123,7 @@ const computeConnect: OperationComputation<InterpretionValue<Instance>, Interpre
     const value = instanceChangePrimitive(connect3Gen(i1.value.primitive, i2.value.primitive), i1.value)
     return of(
         staticMatrix({
+            terminated: false,
             eventDepthMap,
             value,
         })
@@ -158,6 +161,7 @@ const computeExpand2d: OperationComputation<InterpretionValue<any>, Interpretion
     const [instance, delta] = values
     return of(
         staticMatrix({
+            terminated: false,
             eventDepthMap,
             value: instanceChangePrimitive(
                 expand(instance.value.primitive, new Plane(YAXIS), delta.value),
@@ -171,15 +175,35 @@ function components(
     type: number,
     changes: MatrixEntriesObservable<InterpretionValue<Instance>>
 ): MatrixEntriesObservable<InterpretionValue<Instance>> {
-    //TODO: cache, distinctUntilChanged
+    //TODO: cache, distinctUntilChanged, toChanges?
     return changes.pipe(
         map((changes) =>
             changes.map((change) => ({
                 index: change.index,
                 value: change.value.pipe(
                     map((value) => ({
+                        terminated: value.terminated,
                         eventDepthMap: value.eventDepthMap,
                         value: instanceChangePrimitive(value.value.primitive.components(type), value.value), //TODO return multiple results (not a combined primitive)
+                    }))
+                ),
+            }))
+        )
+    )
+}
+
+export function terminateRandomly(
+    changes: MatrixEntriesObservable<InterpretionValue<Instance>>
+): MatrixEntriesObservable<InterpretionValue<Instance>> {
+    //TODO: cache, distinctUntilChanged, toChanges?
+    return changes.pipe(
+        map((changes) =>
+            changes.map((change) => ({
+                index: change.index,
+                value: change.value.pipe(
+                    map((value) => ({
+                        ...value,
+                        terminated: Math.random() > 0.5,
                     }))
                 ),
             }))
@@ -192,6 +216,7 @@ const computeTranslate: OperationComputation<InterpretionValue<any>, Interpretio
     const [instance, x, y, z] = values
     return of(
         staticMatrix({
+            terminated: false,
             value: instanceChangePrimitive(
                 instance.value.primitive.applyMatrix(makeTranslationMatrix(x.value, y.value, z.value)),
                 instance.value
@@ -205,6 +230,7 @@ const computeRotate: OperationComputation<InterpretionValue<any>, InterpretionVa
     const [instance, ...euler] = values
     return of(
         staticMatrix({
+            terminated: false,
             eventDepthMap,
             value: instanceChangePrimitive(
                 instance.value.primitive.applyMatrix(
@@ -221,6 +247,7 @@ const computeScale: OperationComputation<InterpretionValue<any>, InterpretionVal
     const [instance, x, y, z] = values
     return of(
         staticMatrix({
+            terminated: false,
             eventDepthMap,
             value: instanceChangePrimitive(
                 instance.value.primitive.applyMatrix(makeScaleMatrix(x.value, y.value, z.value)),
@@ -251,6 +278,7 @@ function computeReplace([instance, url]: Array<InterpretionValue<any>>) {
             instance.value.primitive.getPoint(0, clone.position)
             clone.scale.set(500, 500, 500) //TODO: remove - just for testing
             return staticMatrix({
+                terminated: false,
                 eventDepthMap: maxEventDepth(url.eventDepthMap, instance.eventDepthMap),
                 value: instanceChangePrimitive(new ObjectPrimitive(clone), instance.value),
             })
@@ -267,6 +295,7 @@ function computeSample2d([instance, amount]: Array<InterpretionValue<any>>) {
     return of(
         staticMatrix<InterpretionValue<Instance>>(
             new Array(amount.value as any).fill(null).map(() => ({
+                terminated: false,
                 eventDepthMap,
                 value: {
                     //TODO
@@ -327,4 +356,5 @@ export const operations: Operations<Instance> = {
     expand2d: (changes) =>
         changes.pipe(operation(computeExpand2d, ([instance, delta]) => [instance.value, delta.value], undefined, 2)),
     switchType,
+    terminateRandomly,
 }

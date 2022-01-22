@@ -6,6 +6,7 @@ function computeSum(values: Array<InterpretionValue<number>>) {
         staticMatrix({
             eventDepthMap: maxEventDepth(...values.map(({ eventDepthMap }) => eventDepthMap)),
             value: values.reduce<number>((prev, cur) => prev + cur.value, 0),
+            terminated: false,
         })
     )
 }
