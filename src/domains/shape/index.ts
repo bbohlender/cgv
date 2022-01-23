@@ -28,3 +28,4 @@ export function cloneInstance(instance: Instance, i: number) {
 
 export * from "./attribute"
 export * from "./operations"
+export * from "./to-object3d"

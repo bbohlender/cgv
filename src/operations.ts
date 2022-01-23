@@ -3,7 +3,7 @@ import { getIndexKey, MatrixEntry, nestChanges, switchGroupMap, toArray, toChang
 import { cache } from "./cache"
 
 function defaultParameterIndex(index: Array<number>): [outer: Array<number>, inner: Array<number>] {
-    return [index.slice(1, 2), [...index.slice(0, 1), ...index.slice(2)]
+    return [index.slice(1, 2), [...index.slice(0, 1), ...index.slice(2)]]
 }
 
 export function operation<Input, Output>(

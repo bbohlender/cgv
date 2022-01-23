@@ -1,7 +1,7 @@
 import { OrbitControls } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import { compareIndices, MatrixEntriesObservable, MatrixEntry } from "cgv"
-import { Instance } from "cgv/domains/shape"
+import { MatrixEntriesObservable } from "cgv"
+import { Instance, toObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
 import { BehaviorSubject, Observable, tap } from "rxjs"
 import { Object3D } from "three"
@@ -13,27 +13,20 @@ export function ShapeEditor({
     parameters: BehaviorSubject<any>[] | undefined
     changes: MatrixEntriesObservable<Instance> | undefined
 }) {
-    const [[entries, error], setState] = useState<
-        [entries: Array<MatrixEntry<Observable<Instance | undefined>>> | undefined, error: string | undefined]
-    >([undefined, undefined])
+    const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     useEffect(() => {
         if (changes == null) {
             return
         }
-        let previous: MatrixEntry<Observable<Instance | undefined>>[] = []
-        const subscription = changes.subscribe({
-            next: (changes) => {
-                const current = [
-                    ...previous.filter(
-                        ({ index }) => changes.find((change) => compareIndices(change.index, index) === 0) == null
-                    ),
-                    ...changes,
-                ].sort((e1, e2) => compareIndices(e1.index, e2.index))
-                setState([current, undefined])
-                previous = current
-            },
-            error: (error) => setState([undefined, error.message]),
-        })
+        const subscription = changes
+            .pipe(
+                toObject3D((value) => value.primitive.getObject3D(false)),
+                tap({
+                    next: (object) => setState([object, undefined]),
+                    error: (error) => setState([undefined, error.message]),
+                })
+            )
+            .subscribe()
         return () => subscription.unsubscribe()
     }, [changes])
     return (
@@ -46,13 +39,7 @@ export function ShapeEditor({
                     <gridHelper />
                     <pointLight position={[3, 3, 3]} />
                     <ambientLight />
-                    {entries != null && (
-                        <group scale={0.01}>
-                            {entries.map((entry) => (
-                                <AsyncInstance index={entry.index} key={entry.index.join(",")} value={entry.value} />
-                            ))}
-                        </group>
-                    )}
+                    <group scale={0.01}>{object != null && <primitive object={object} />}</group>
                 </Canvas>
             </div>
             <div
@@ -79,22 +66,6 @@ export function ShapeEditor({
             </div>
         </div>
     )
-}
-
-export function AsyncInstance({ index, value }: { index: Array<number>; value: Observable<Instance | undefined> }) {
-    const [object, setObject] = useState<Object3D | undefined>(undefined)
-    useEffect(() => {
-        setObject(undefined)
-        const subscription = value.subscribe({
-            next: (instance) => setObject(instance?.primitive.getObject3D(false)),
-            //TODO: error: () => ...
-        })
-        return () => subscription.unsubscribe()
-    }, [value])
-    if (object == null) {
-        return null
-    }
-    return <primitive object={object} />
 }
 
 /*function Explorer({
