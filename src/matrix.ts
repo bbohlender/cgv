@@ -17,6 +17,8 @@ import {
     Subject,
     buffer,
     finalize,
+    take,
+    startWith,
 } from "rxjs"
 
 export type MatrixEntry<T> = { index: Array<number>; value: T }
@@ -108,14 +110,14 @@ export function indexEqual(i1: Array<number>, i2: Array<number>): boolean {
 
 export function nestChanges<T>(
     getIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>],
-    bufferTimeSpan: number,
-    log: boolean
+    bufferTimeSpan: number
 ): OperatorFunction<
     Array<MatrixEntry<Observable<T | undefined>>>,
     MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>
 > {
-    return (changes) =>
-        changes.pipe(
+    return (changes) => {
+        const keyMap = new Map<string, Array<number>>()
+        return changes.pipe(
             //mergeMap is okay here, since it's not async when using "of"
             mergeMap((changes) =>
                 of(
@@ -125,12 +127,19 @@ export function nestChanges<T>(
                     })
                 )
             ),
-            groupBy(({ outer }) => outer.join(",")),
+            groupBy(({ outer }) => {
+                const key = getIndexKey(outer)
+                if (!keyMap.has(key)) {
+                    keyMap.set(key, outer)
+                }
+                return key
+            }),
             map((group) => ({
-                index: group.key.split(",").map(Number.parseInt).filter(Number.isInteger),
+                index: keyMap.get(group.key)!,
                 value: group.pipe(debounceBufferTime(bufferTimeSpan)),
             }))
         )
+    }
 }
 
 export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
@@ -185,7 +194,7 @@ export function toMatrix<T>(): OperatorFunction<Array<MatrixEntry<Observable<T |
             mergeMap((changes) => of(...changes)), //like above okay here, since the inner observable directly completes
             switchGroupMap<MatrixEntry<Observable<T | undefined>>, Array<MatrixEntry<T | undefined>>, string>(
                 (change) => change.value.pipe(map((value) => [{ index: change.index, value }])),
-                getIndexKey
+                getMatrixEntryIndexKey
             ),
             toOuterMatrix()
         )
@@ -256,9 +265,9 @@ export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Obs
         )
 }
 
-export function deepShareReplay(
+export function deepShareReplay<T>(
     config: ShareReplayConfig
-): OperatorFunction<Array<MatrixEntry<Observable<any>>>, Array<MatrixEntry<Observable<any>>>> {
+): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Array<MatrixEntry<Observable<T>>>> {
     return (value) =>
         value.pipe(
             map((changes) =>
@@ -268,8 +277,17 @@ export function deepShareReplay(
         )
 }
 
-export function getIndexKey(entry: MatrixEntry<any>) {
-    return entry.index.join(",")
+export function getMatrixEntryIndexKey(entry: MatrixEntry<any>): string {
+    return getIndexKey(entry.index)
+}
+
+export function getIndexKey(index: Array<number>) {
+    for (let i = index.length - 1; i >= 0; i--) {
+        if (index[i] !== 0) {
+            return index.slice(0, i + 1).join(",") //+1 since slice end is exclusive
+        }
+    }
+    return ""
 }
 
 export function switchGroupMap<Input, Output, Key>(

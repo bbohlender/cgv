@@ -53,7 +53,7 @@ max = "a => {
 `Forest`
 
 ```
-Forest -> sample2d(this | "1") load(this | "'/tree.gltf'")
+Forest -> sample2d(this | "1") replace(this | "'/tree.gltf'")
 ```
 
 `City 1`
@@ -67,7 +67,7 @@ building -> filter(this | isBuilding(this)) translate(this | "0" | "20" | "0") l
 ```
 
 ```
-City ->  translate(this | "0" | attribute(this | "'height'" | "10" | "100" | "'float'") | "0") | lines(this) connect(translate(this | "0" | "20" | "0") | this)
+City ->  translate(this | "0" | "100" | "0") | lines(this) connect(translate(this | "0" | "100" | "0") | this)
 ```
 
 `City 2`

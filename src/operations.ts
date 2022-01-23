@@ -1,9 +1,9 @@
-import { map, Observable, OperatorFunction, filter, tap } from "rxjs"
-import { getIndexKey, MatrixEntry, nestChanges, switchGroupMap, toArray, toChanges } from "."
+import { map, Observable, OperatorFunction, filter } from "rxjs"
+import { getMatrixEntryIndexKey, MatrixEntry, nestChanges, switchGroupMap, toArray, toChanges } from "."
 import { cache } from "./cache"
 
 function defaultParameterIndex(index: Array<number>): [outer: Array<number>, inner: Array<number>] {
-    return [index.slice(1, 2), [...index.slice(0, 1), ...index.slice(2)]]
+    return [index.slice(1), [index[0]]]
 }
 
 export function operation<Input, Output>(
@@ -11,15 +11,14 @@ export function operation<Input, Output>(
     getDependencies: (input: Array<Input>) => Array<any>,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     inputAmount?: number,
-    debounceTime: number = 10,
-    log?: boolean
+    debounceTime: number = 10
 ): OperatorFunction<
     Array<MatrixEntry<Observable<Input | undefined>>>,
     Array<MatrixEntry<Observable<Output | undefined>>>
 > {
     return (changes: Observable<Array<MatrixEntry<Observable<Input | undefined>>>>) =>
         changes.pipe(
-            nestChanges(getParameterIndex, debounceTime, log ?? false),
+            nestChanges(getParameterIndex, debounceTime),
             switchGroupMap<
                 MatrixEntry<Observable<Array<MatrixEntry<Observable<Input | undefined>>> | undefined>>,
                 Array<MatrixEntry<Observable<Output | undefined>>>,
@@ -38,7 +37,7 @@ export function operation<Input, Output>(
                             }))
                         )
                     ),
-                getIndexKey
+                getMatrixEntryIndexKey
             )
         )
 }
