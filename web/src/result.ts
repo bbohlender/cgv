@@ -19,7 +19,7 @@ export function useResult(text: string) {
     const changes = useMemo(
         () =>
             from(loadLayers()).pipe(
-                shareReplay({ bufferSize: 1, refCount: false }), //TODO: unsubscribe when the component is destroyed
+                shareReplay({ bufferSize: 1, refCount: true }),
                 map((layers) => {
                     const primitives = layersToPrimitives(layers)
                     const parameterSubjects = primitives.map(() => new BehaviorSubject<any>({}))
