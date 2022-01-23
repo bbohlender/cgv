@@ -1,14 +1,14 @@
 import { of } from "rxjs"
-import { Operation, InterpretionValue, maxEventDepth, operation, staticMatrix } from "../.."
+import { Operation, InterpretionValue, maxEventDepth, operation } from "../.."
 
 function computeSum(values: Array<InterpretionValue<number>>) {
-    return of(
-        staticMatrix({
+    return of([
+        {
             eventDepthMap: maxEventDepth(...values.map(({ eventDepthMap }) => eventDepthMap)),
             value: values.reduce<number>((prev, cur) => prev + cur.value, 0),
             terminated: false,
-        })
-    )
+        },
+    ])
 }
 
 const sum: Operation<number> = (changes) =>

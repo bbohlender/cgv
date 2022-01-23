@@ -10,7 +10,13 @@ import {
     OperatorFunction,
     debounceTime,
     groupBy,
-    bufferTime,
+    switchMap,
+    ShareReplayConfig,
+    shareReplay,
+    tap,
+    Subject,
+    buffer,
+    finalize,
 } from "rxjs"
 
 export type MatrixEntry<T> = { index: Array<number>; value: T }
@@ -102,13 +108,15 @@ export function indexEqual(i1: Array<number>, i2: Array<number>): boolean {
 
 export function nestChanges<T>(
     getIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>],
-    bufferTimeSpan: number
+    bufferTimeSpan: number,
+    log: boolean
 ): OperatorFunction<
     Array<MatrixEntry<Observable<T | undefined>>>,
-    Array<MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>>
+    MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>
 > {
     return (changes) =>
         changes.pipe(
+            //mergeMap is okay here, since it's not async when using "of"
             mergeMap((changes) =>
                 of(
                     ...changes.map((change) => {
@@ -119,11 +127,21 @@ export function nestChanges<T>(
             ),
             groupBy(({ outer }) => outer.join(",")),
             map((group) => ({
-                index: group.key.split(",").map(Number.parseInt),
-                value: group.pipe(bufferTime(bufferTimeSpan)),
-            })),
-            bufferTime(bufferTimeSpan)
+                index: group.key.split(",").map(Number.parseInt).filter(Number.isInteger),
+                value: group.pipe(debounceBufferTime(bufferTimeSpan)),
+            }))
         )
+}
+
+export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
+    return (observable) => {
+        const subject = new Subject<void>()
+        return observable.pipe(
+            tap(() => subject.next()),
+            buffer(subject.pipe(debounceTime(dueTime))),
+            finalize(() => subject.complete())
+        )
+    }
 }
 
 export function toOuterArray<T>(
@@ -164,14 +182,10 @@ export function toArray<T>(
 export function toMatrix<T>(): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>> | undefined, Matrix<T>> {
     return (changes) =>
         changes.pipe(
-            mergeMap((changes) =>
-                changes == null
-                    ? of(undefined)
-                    : merge(
-                          ...changes.map<Observable<Array<MatrixEntry<T | undefined>>>>((change) =>
-                              change.value.pipe(map((value) => [{ index: change.index, value }]))
-                          )
-                      )
+            mergeMap((changes) => of(...changes)), //like above okay here, since the inner observable directly completes
+            switchGroupMap<MatrixEntry<Observable<T | undefined>>, Array<MatrixEntry<T | undefined>>, string>(
+                (change) => change.value.pipe(map((value) => [{ index: change.index, value }])),
+                getIndexKey
             ),
             toOuterMatrix()
         )
@@ -213,31 +227,58 @@ export function staticMatrix<T>(
     }
 }
 
-/*export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T | undefined>>>> {
+export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T | undefined>>>> {
     return (array) =>
         array.pipe(
             scan<Array<T>, [array: Array<BehaviorSubject<T>>, added: Array<MatrixEntry<Observable<T>>>]>(
-                ([prev], current) => {
-                    const length = Math.max(prev.length, current.length)
+                ([subjectArray], valueArray) => {
+                    const length = Math.max(subjectArray.length, valueArray.length)
                     const added: Array<MatrixEntry<Observable<T>>> = []
                     for (let i = 0; i < length; i++) {
-                        if (prev[i]?.value != current[i]) {
-                            if (prev[i] != null) {
-                                prev[i].next(current[i])
+                        if (subjectArray[i]?.value != valueArray[i]) {
+                            if (subjectArray[i] != null) {
+                                subjectArray[i].next(valueArray[i])
                             } else {
-                                prev[i] = new BehaviorSubject(current[i])
+                                subjectArray[i] = new BehaviorSubject(valueArray[i])
                                 added.push({
                                     index: [i],
-                                    value: prev[i],
+                                    value: subjectArray[i],
                                 })
                             }
                         }
                     }
-                    return [prev, added]
+                    return [subjectArray, added]
                 },
                 [[], []]
             ),
             map(([, added]) => added),
             filter((added) => added.length > 0)
         )
-}*/
+}
+
+export function deepShareReplay(
+    config: ShareReplayConfig
+): OperatorFunction<Array<MatrixEntry<Observable<any>>>, Array<MatrixEntry<Observable<any>>>> {
+    return (value) =>
+        value.pipe(
+            map((changes) =>
+                changes.map((change) => ({ index: change.index, value: change.value.pipe(shareReplay(config)) }))
+            ),
+            shareReplay(config)
+        )
+}
+
+export function getIndexKey(entry: MatrixEntry<any>) {
+    return entry.index.join(",")
+}
+
+export function switchGroupMap<Input, Output, Key>(
+    project: (input: Input) => Observable<Output>,
+    key: (input: Input) => Key
+): OperatorFunction<Input, Output> {
+    return (values) =>
+        values.pipe(
+            groupBy(key),
+            mergeMap((group) => group.pipe(switchMap(project)))
+        )
+}

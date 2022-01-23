@@ -1,13 +1,13 @@
-import { connectable, distinctUntilChanged, map, Observable, OperatorFunction, ReplaySubject, switchAll } from "rxjs"
+import { distinctUntilChanged, map, Observable, OperatorFunction, shareReplay, switchAll, tap } from "rxjs"
 
-const cacheMap = new Map<OperatorFunction<any, any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
+const cacheMap = new Map<(input: any) => Observable<any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
 
 //TODO: clear the cache after certain amount of unused time (and unsubscribe connected observable)
 //TODO: clone when caching
 
 export function cache<Input, Output>(
     getDependencies: (input: Input) => Array<any>,
-    compute: OperatorFunction<Input, Output>
+    compute: (input: Input) => Observable<Output>
 ): OperatorFunction<Input, Output> {
     let entries = cacheMap.get(compute)
     if (entries == null) {
@@ -21,11 +21,12 @@ export function cache<Input, Output>(
                 const dependencies = getDependencies(input)
                 let cacheEntry = cacheEntries.find(([dep]) => shallowEqual(dep, dependencies))
                 if (cacheEntry == null) {
-                    const obs = connectable(compute(input), {
-                        connector: () => new ReplaySubject(1),
-                        resetOnDisconnect: false,
-                    })
-                    obs.connect()
+                    const obs = compute(input).pipe(
+                        shareReplay({
+                            refCount: false,
+                            bufferSize: 1,
+                        })
+                    )
                     cacheEntry = [dependencies, obs]
                     cacheEntries.push(cacheEntry)
                 }

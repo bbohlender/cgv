@@ -1,48 +1,44 @@
-import { filterNull } from "co-3gen"
-import { distinctUntilChanged, map, mergeMap, Observable, OperatorFunction, merge, filter } from "rxjs"
-import { MatrixEntry, nestChanges, toArray } from "."
+import { map, Observable, OperatorFunction, filter, tap } from "rxjs"
+import { getIndexKey, MatrixEntry, nestChanges, switchGroupMap, toArray, toChanges } from "."
 import { cache } from "./cache"
 
 function defaultParameterIndex(index: Array<number>): [outer: Array<number>, inner: Array<number>] {
-    return [index.slice(1), index.slice(0, 1)]
+    return [index.slice(1, 2), [...index.slice(0, 1), ...index.slice(2)]
 }
 
-export type OperationComputation<Input, Output> = (
-    input: Array<Input>
-) => Observable<Array<MatrixEntry<Observable<Output | undefined>>>>
-
-//TODO: use toChanges (only emit changes compared to the previous result)
-
 export function operation<Input, Output>(
-    compute: OperationComputation<Input, Output>,
+    compute: (input: Array<Input>) => Observable<Array<Output>>,
     getDependencies: (input: Array<Input>) => Array<any>,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     inputAmount?: number,
-    debounceTime: number = 10
+    debounceTime: number = 10,
+    log?: boolean
 ): OperatorFunction<
     Array<MatrixEntry<Observable<Input | undefined>>>,
     Array<MatrixEntry<Observable<Output | undefined>>>
 > {
     return (changes: Observable<Array<MatrixEntry<Observable<Input | undefined>>>>) =>
         changes.pipe(
-            nestChanges(getParameterIndex, debounceTime),
-            mergeMap((outerChanges) =>
-                merge(
-                    ...outerChanges.map((outerChange) =>
-                        outerChange.value.pipe(
-                            toArray(debounceTime),
-                            filter((array) => inputAmount == null || array.length === inputAmount),
-                            cache(getDependencies, compute),
-                            distinctUntilChanged(),
-                            map((changes) =>
-                                changes.map((change) => ({
-                                    index: [...outerChange.index, ...change.index],
-                                    value: change.value,
-                                }))
-                            )
+            nestChanges(getParameterIndex, debounceTime, log ?? false),
+            switchGroupMap<
+                MatrixEntry<Observable<Array<MatrixEntry<Observable<Input | undefined>>> | undefined>>,
+                Array<MatrixEntry<Observable<Output | undefined>>>,
+                string
+            >(
+                (change) =>
+                    change.value.pipe(
+                        toArray(debounceTime),
+                        filter((array) => inputAmount == null || array.length === inputAmount),
+                        cache(getDependencies, compute),
+                        toChanges(),
+                        map((entries) =>
+                            entries.map((result) => ({
+                                index: [...change.index, ...result.index],
+                                value: result.value,
+                            }))
                         )
-                    )
-                )
+                    ),
+                getIndexKey
             )
         )
 }

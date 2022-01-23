@@ -85,11 +85,10 @@ export function AsyncInstance({ index, value }: { index: Array<number>; value: O
     const [object, setObject] = useState<Object3D | undefined>(undefined)
     useEffect(() => {
         setObject(undefined)
-        const subscription = value/*.pipe(tap((v) => console.log(...index, v)))*/.subscribe({
+        const subscription = value.subscribe({
             next: (instance) => setObject(instance?.primitive.getObject3D(false)),
             //TODO: error: () => ...
         })
-        console.log("subscribe", ...index)
         return () => subscription.unsubscribe()
     }, [value])
     if (object == null) {

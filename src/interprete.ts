@@ -1,16 +1,4 @@
-import {
-    defer,
-    distinctUntilChanged,
-    filter,
-    map,
-    mergeWith,
-    MonoTypeOperatorFunction,
-    NEVER,
-    Observable,
-    of,
-    shareReplay,
-    tap,
-} from "rxjs"
+import { defer, distinctUntilChanged, map, MonoTypeOperatorFunction, Observable, of, tap } from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -19,6 +7,7 @@ import {
     ParsedGrammarDefinition,
     ParsedStep,
     generateEventScheduler,
+    deepShareReplay,
 } from "."
 
 export type EventDepthMap = { [identifier in string]?: number }
@@ -66,13 +55,16 @@ export function interprete<T>(
         clone,
         eventScheduler
     ).pipe(
-        map((changes) => changes.map((change) => ({ ...change, value: change.value.pipe(map((val) => val?.value)) })))
+        map((changes) =>
+            changes.map((change) => ({
+                ...change,
+                value: change.value.pipe(map((val) => val?.value)),
+            }))
+        )
     )
 }
 
 //TODO: combine clone, with clone from cache
-
-//TODO: every time we use shareReplay (we only share the ouside observable but not the inside!!! => either prevent resubscribing to the inner observable or use another async data structure?)
 
 export function interpreteStep<T>(
     input: MatrixEntriesObservable<InterpretionValue<T>>,
@@ -96,7 +88,7 @@ export function interpreteStep<T>(
                 defer(() => interpreteStep(input, step.parameters, grammar, operations, clone, eventScheduler))
             )
         case "parallel":
-            const sharedInput = input.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
+            const sharedInput = input.pipe(deepShareReplay({ refCount: true, bufferSize: 1 }))
             return mergeMatrices(
                 step.steps.map((stepOfSteps, i) =>
                     interpreteStep(
@@ -144,10 +136,9 @@ export function interpreteStep<T>(
             let terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
             for (const stepOfSteps of step.steps) {
                 const sharedCurrent = current.pipe(
-                    shareReplay({
+                    deepShareReplay({
                         refCount: true,
-                        //TODO: need an alternative to shareReplay since currently we buffer everything (bad) but bufferSize: 1 is also not working
-                        //bufferSize: 0,
+                        bufferSize: 1,
                     })
                 )
                 terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))

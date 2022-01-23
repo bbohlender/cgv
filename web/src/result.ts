@@ -1,10 +1,10 @@
-import { parse, interprete, MatrixEntry } from "cgv"
+import { parse, interprete, MatrixEntry, deepShareReplay } from "cgv"
 import { FacePrimitive, Primitive } from "co-3gen"
 import { useMemo, useState } from "react"
 import { Matrix4, Plane, Vector3 } from "three"
 import { Layers, loadLayers } from "./api"
 import { cloneInstance, Instance, operations } from "cgv/domains/shape"
-import { BehaviorSubject, from, map, Observable, shareReplay } from "rxjs"
+import { BehaviorSubject, from, map, Observable, shareReplay, tap } from "rxjs"
 
 const roadParameters = {
     layer: "road",
@@ -19,6 +19,7 @@ export function useResult(text: string) {
     const changes = useMemo(
         () =>
             from(loadLayers()).pipe(
+                shareReplay({ bufferSize: 1, refCount: false }), //TODO: unsubscribe when the component is destroyed
                 map((layers) => {
                     const primitives = layersToPrimitives(layers)
                     const parameterSubjects = primitives.map(() => new BehaviorSubject<any>({}))
@@ -42,8 +43,7 @@ export function useResult(text: string) {
                         ),
                     }))
                     return changes
-                }),
-                shareReplay({ bufferSize: 1, refCount: false }) //TODO: unsubscribe when the component is destroyed
+                })
             ),
         []
     )
