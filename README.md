@@ -50,6 +50,12 @@ max = "a => {
 
 ### Shape
 
+`Recursion`
+
+```
+a -> translate(this | "0" | "10" | "0") terminateRandomly(this) a
+```
+
 `Forest`
 
 ```

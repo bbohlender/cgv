@@ -1,6 +1,6 @@
 import { map, mergeMap, Observable, of, OperatorFunction, scan } from "rxjs"
 import { Object3D } from "three"
-import { getIndexKey, MatrixEntry, switchGroupMap } from "../.."
+import { getIndexKey, getMatrixEntryIndexKey, MatrixEntry, switchGroupMap } from "../.."
 
 function setObject(
     object: Object3D | undefined,
@@ -37,6 +37,13 @@ function setObject(
             --endIndex
         }
         object.children.splice(endIndex, object.children.length - endIndex)
+    } else {
+        //fill previous with empty
+        for (let i = index[0] - 1; i >= 0; i--) {
+            if (object.children[i] == null) {
+                object.children[i] = new Object3D()
+            }
+        }
     }
     return object
 }
@@ -49,7 +56,7 @@ export function toObject3D<T>(
             mergeMap((changes) => of(...changes)), //like above okay here, since the inner observable directly completes
             switchGroupMap<MatrixEntry<Observable<T | undefined>>, Array<MatrixEntry<T | undefined>>, string>(
                 (change) => change.value.pipe(map((value) => [{ index: change.index, value }])),
-                getIndexKey
+                getMatrixEntryIndexKey
             ),
             scan<Array<MatrixEntry<T | undefined>> | undefined, Object3D | undefined>(
                 (prev, cur) =>

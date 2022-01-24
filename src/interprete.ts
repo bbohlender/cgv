@@ -81,9 +81,7 @@ export function interpreteStep<T>(
                 throw new Error(`unknown operation "${step.identifier}"`)
             }
             return (input) =>
-                defer(() =>
-                    input.pipe(interpreteStep(step.parameters, grammar, operations, clone, eventScheduler), operation)
-                )
+                input.pipe(interpreteStep(step.parameters, grammar, operations, clone, eventScheduler), operation)
         case "parallel":
             return (input) => {
                 const sharedInput = input.pipe(deepShareReplay({ refCount: true, bufferSize: 1 }))
@@ -152,7 +150,7 @@ export function interpreteStep<T>(
             if (rule == null) {
                 throw new Error(`unknown rule "${step.identifier}"`)
             }
-            return interpreteStep(rule, grammar, operations, clone, eventScheduler)
+            return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations, clone, eventScheduler)))
     }
 }
 

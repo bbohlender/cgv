@@ -308,7 +308,8 @@ export const operations: Operations<Instance> = {
         changes.pipe(operation(computeSample2d, ([instance, amount]) => [instance.value, amount.value], undefined, 2)),
     replace: (changes) =>
         changes.pipe(operation(computeReplace, ([instance, url]) => [instance.value, url.value], undefined, 2)),
-    connect: (changes) => changes.pipe(operation(computeConnect, ([i1, i2]) => [i1.value, i2.value], undefined, 2, undefined, true)),
+    connect: (changes) =>
+        changes.pipe(operation(computeConnect, ([i1, i2]) => [i1.value, i2.value], undefined, 2, undefined)),
     points: components.bind(null, ComponentType.Point),
     lines: components.bind(null, ComponentType.Line),
     faces: components.bind(null, ComponentType.Face),
