@@ -1,4 +1,4 @@
-import { Attribute, AttributeType, InstanceParameters, NumberAttribute } from "cgv/domains/shape"
+import { Attribute, AttributeType, NumberAttribute } from "cgv/domains/shape"
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from "react"
 
 export function AttributeInput({

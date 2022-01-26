@@ -53,7 +53,7 @@ max = "a => {
 `Recursion`
 
 ```
-a -> translate(this | "0" | "10" | "0") terminateRandomly(this) a
+a -> translate(this | "0" | "100" | "0") terminateRandomly(this) a
 ```
 
 `Forest`
@@ -65,15 +65,11 @@ Forest -> sample2d(this | "1") replace(this | "'/tree.gltf'")
 `City 1`
 
 ```
-a -> road | building
+City -> switchType(Road | Building)
 
-road -> filter(this | isRoad(this)) expand2d(this | attribute(this | "'delta'" | "10" | "50" | "'int'"))
+Road -> expand2d(this | "20")
 
-building -> filter(this | isBuilding(this)) translate(this | "0" | "20" | "0") lines(this)
-```
-
-```
-City ->  translate(this | "0" | "100" | "0") | lines(this) connect(translate(this | "0" | "100" | "0") | this)
+Building -> translate(this | "0" | "100" | "0") | lines(this) connect(translate(this | "0" | "100" | "0") | this)
 ```
 
 `City 2`

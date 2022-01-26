@@ -1,47 +1,41 @@
-import { parse, interprete, MatrixEntry, deepShareReplay } from "cgv"
-import { FacePrimitive, Primitive } from "co-3gen"
+import { parse, interprete, MatrixEntry, deepShareReplay, InterpretionValue, Parameters } from "cgv"
+import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "co-3gen"
 import { useMemo, useState } from "react"
 import { Matrix4, Plane, Vector3 } from "three"
 import { Layers, loadLayers } from "./api"
 import { cloneInstance, Instance, operations } from "cgv/domains/shape"
-import { BehaviorSubject, from, map, Observable, shareReplay, tap } from "rxjs"
+import { BehaviorSubject, from, map, Observable, of, shareReplay, tap } from "rxjs"
 
-const roadParameters = {
-    layer: "road",
+const roadParameters: Parameters = {
+    layer: of("road"),
 }
-const buildingParameters = {
-    layer: "building",
+const buildingParameters: Parameters = {
+    layer: of("building"),
 }
 
 export function useResult(text: string) {
-    const [subjects, setSubjects] = useState<Array<BehaviorSubject<any>> | undefined>()
-
     const changes = useMemo(
         () =>
             from(loadLayers()).pipe(
                 shareReplay({ bufferSize: 1, refCount: true }),
                 map((layers) => {
-                    const primitives = layersToPrimitives(layers)
-                    const parameterSubjects = primitives.map(() => new BehaviorSubject<any>({}))
-                    setSubjects((subjects) => {
-                        subjects?.forEach((subject) => subject.complete())
-                        return parameterSubjects
-                    })
-                    const changes = primitives.map<MatrixEntry<Observable<Instance>>>((primitive, i) => ({
-                        index: [i],
-                        value: parameterSubjects[i].pipe(
-                            map((parameters) => ({
-                                id: `${i}`,
-                                parameters: {
-                                    ...buildingParameters,
-                                    ...parameters,
+                    const roads = getRoads(layers)
+                    const buildings = getBuildings(layers)
+                    const changes = [...roads, ...buildings].map<MatrixEntry<Observable<InterpretionValue<Instance>>>>(
+                        ([primitive, parameters], i) => ({
+                            index: [i],
+                            value: of({
+                                terminated: false,
+                                eventDepthMap: {},
+                                parameters,
+                                value: {
+                                    path: [i],
+                                    attributes: {},
+                                    primitive,
                                 },
-                                attributes: {},
-                                primitive,
-                                children: [],
-                            }))
-                        ),
-                    }))
+                            }),
+                        })
+                    )
                     return changes
                 })
             ),
@@ -56,46 +50,47 @@ export function useResult(text: string) {
         }
     }, [text])
 
-    return [instances, error, subjects] as const
+    return [instances, error] as const
 }
 
-function layersToPrimitives(layers: Layers): Array<Primitive> {
-    let roadId = 0
-    let buildingId = 0
-    /*const instances =
-        layers["road"] //building
+function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
+    return layers["building"].reduce<Array<[Primitive, Parameters]>>(
+        (prev, feature) =>
+            prev.concat(
+                feature.geometry.map<[Primitive, Parameters]>((lot) => [
+                    FacePrimitive.fromPointsOnPlane(
+                        new Matrix4(),
+                        new Plane(new Vector3(0, 1, 0)),
+                        lot.map(({ x, y }) => new Vector3(x, 0, y))
+                    ),
+                    buildingParameters,
+                ])
+            ),
+        []
+    )
+}
+
+function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
+    return layers["road"]
         .filter((feature) => feature.properties.class === "street")
-        .map((feature) =>
-            feature.geometry.map((geoemtry) => ({
-                attributes: {},
-                parameters: roadParameters,
-                primitive: new CombinedPrimitive(
-                    new Matrix4(),
-                    geoemtry.slice(0, -1).map((p1, i) => {
-                        const p2 = geoemtry[(i + 1) % geoemtry.length]
-                        return LinePrimitive.fromPoints(
+        .reduce<Array<[Primitive, Parameters]>>(
+            (prev, feature) =>
+                prev.concat(
+                    feature.geometry.map((geoemtry) => [
+                        new CombinedPrimitive(
                             new Matrix4(),
-                            new Vector3(p1.x, 0, p1.y),
-                            new Vector3(p2.x, 0, p2.y)
-                        )
-                    })
+                            geoemtry.slice(0, -1).map((p1, i) => {
+                                const p2 = geoemtry[(i + 1) % geoemtry.length]
+                                return LinePrimitive.fromPoints(
+                                    new Matrix4(),
+                                    new Vector3(p1.x, 0, p1.y),
+                                    new Vector3(p2.x, 0, p2.y)
+                                )
+                            })
+                        ),
+                        roadParameters,
+                    ])
                 ),
-                children: [],
-                id: `root/road/${roadId++}`,
-                parent: base,
-            }))
+            []
         )
-        .reduce<Array<Instance>>((v1, v2) => v1.concat(v2), [])
-        .concat(*/
-    return layers["building"]
-        .map((value) =>
-            value.geometry.map((lot) =>
-                FacePrimitive.fromPointsOnPlane(
-                    new Matrix4(),
-                    new Plane(new Vector3(0, 1, 0)),
-                    lot.map(({ x, y }) => new Vector3(x, 0, y))
-                )
-            )
-        )
-        .reduce((v1, v2) => v1.concat(v2), [])
 }

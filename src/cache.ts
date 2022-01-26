@@ -3,7 +3,6 @@ import { distinctUntilChanged, map, Observable, OperatorFunction, shareReplay, s
 const cacheMap = new Map<(input: any) => Observable<any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
 
 //TODO: clear the cache after certain amount of unused time (and unsubscribe connected observable)
-//TODO: clone when caching
 
 export function cache<Input, Output>(
     getDependencies: (input: Input) => Array<any>,

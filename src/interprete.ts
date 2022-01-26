@@ -1,4 +1,4 @@
-import { defer, distinctUntilChanged, map, MonoTypeOperatorFunction, Observable, of, OperatorFunction, tap } from "rxjs"
+import { defer, distinctUntilChanged, map, MonoTypeOperatorFunction, Observable, of, OperatorFunction } from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -10,7 +10,9 @@ import {
     deepShareReplay,
 } from "."
 
-export type EventDepthMap = { [identifier in string]?: number }
+export type EventDepthMap = Readonly<{ [identifier in string]?: number }>
+
+export type Parameters = Readonly<{ [identifier in string]?: Observable<any> }>
 
 export type Operation<T> = OperatorFunction<
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
@@ -21,44 +23,28 @@ export type Operations<T> = {
     [name in string]: Operation<T>
 }
 
-export type InterpretionValue<T> = {
+export type InterpretionValue<T> = Readonly<{
     value: T
     eventDepthMap: EventDepthMap
     terminated: boolean
-    //TODO: parameters (scoped variables accessible through this.[parameterName])
-}
+    parameters: Parameters
+}>
 
 export function interprete<T>(
-    input: MatrixEntriesObservable<T>,
+    input: MatrixEntriesObservable<InterpretionValue<T>>,
     grammar: ParsedGrammarDefinition,
     operations: Operations<T>,
     clone: (value: T, index: number) => T
-): MatrixEntriesObservable<T> {
+): MatrixEntriesObservable<InterpretionValue<T>> {
     const rules = Object.values(grammar)
     if (rules.length === 0) {
         return input
     }
     const eventScheduler = generateEventScheduler<T>()
-    return input.pipe(
-        map((changes) =>
-            changes.map<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>((change) => ({
-                ...change,
-                value: change.value.pipe(
-                    map((value) => (value != null ? { value, eventDepthMap: {}, terminated: false } : undefined))
-                ),
-            }))
-        ),
-        interpreteStep(rules[0], grammar, operations, clone, eventScheduler),
-        map((changes) =>
-            changes.map((change) => ({
-                ...change,
-                value: change.value.pipe(map((val) => val?.value)),
-            }))
-        )
-    )
+    return input.pipe(interpreteStep(rules[0], grammar, operations, clone, eventScheduler))
 }
 
-//TODO: combine clone, with clone from cache
+//TODO: don't clone and DON'T mutate anything :) change things in co-3gen
 
 export function interpreteStep<T>(
     step: ParsedStep,
@@ -118,6 +104,7 @@ export function interpreteStep<T>(
                                 eventDepthMap: {},
                                 terminated: false,
                                 value: step.value,
+                                parameters: {},
                             }),
                         }))
                     )
@@ -139,6 +126,7 @@ export function interpreteStep<T>(
                         interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler)
                     )
                     //TODO: think of ways to reduce the amount of "doubles" through splitting
+                    //maybe implement sequential through a nextSteps parameters, which are then just cleared?
                 }
 
                 return mergeMatrices([current, ...terminated])

@@ -1,8 +1,8 @@
 import Head from "next/head"
 import React, { useEffect, useState } from "react"
-import { parse, interprete, toArray } from "cgv"
+import { parse, interprete, toArray, InterpretionValue } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { interval, of, tap } from "rxjs"
+import { interval, of, map } from "rxjs"
 
 export default function Index() {
     const [text, setText] = useState("")
@@ -12,10 +12,27 @@ export default function Index() {
         try {
             const grammar = parse(text)
             setState([undefined, undefined])
-            const subscription = interprete(of([{ index: [], value: interval(1000) }]), grammar, operations, (v) => v)
+            const subscription = interprete(
+                of([
+                    {
+                        index: [],
+                        value: interval(1000).pipe(
+                            map((value) => ({
+                                value,
+                                eventDepthMap: {},
+                                parameters: {},
+                                terminated: false,
+                            }))
+                        ),
+                    },
+                ]),
+                grammar,
+                operations,
+                (v) => v
+            )
                 .pipe(toArray(10))
                 .subscribe({
-                    next: (results) => setState([JSON.stringify(results), undefined]),
+                    next: (results) => setState([JSON.stringify(results.map(({ value }) => value)), undefined]),
                     error: (error) => setState([undefined, error.message]),
                 })
             return () => subscription.unsubscribe()

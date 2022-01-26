@@ -1,29 +1,20 @@
 import { Primitive } from "co-3gen"
 import { Attribute } from "./attribute"
 
-export type InstanceParameters = { [name in string]?: any }
 export type InstanceAttributes = { [name in string]?: Attribute }
 
 export type Instance = {
-    id: string
-    parameters: InstanceParameters
+    path: Array<number>
     attributes: InstanceAttributes
     primitive: Primitive
-    parent?: Instance
-    children: Array<Instance>
 }
 
 export function cloneInstance(instance: Instance, i: number) {
-    const child = {
-        parent: instance,
-        id: `${instance.id}/${i}`,
-        attributes: {},
-        parameters: instance.parameters,
+    return {
+        path: [...instance.path, i],
+        attributes: { ...instance.attributes },
         primitive: instance.primitive.clone(),
-        children: [],
     }
-    instance.children.push(child)
-    return child
 }
 
 export * from "./attribute"

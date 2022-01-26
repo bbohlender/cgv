@@ -1,9 +1,38 @@
 import { map, Observable, OperatorFunction, filter } from "rxjs"
-import { getMatrixEntryIndexKey, MatrixEntry, nestChanges, switchGroupMap, toArray, toChanges } from "."
+import {
+    EventDepthMap,
+    getMatrixEntryIndexKey,
+    InterpretionValue,
+    MatrixEntry,
+    nestChanges,
+    switchGroupMap,
+    toArray,
+    toChanges,
+    Parameters,
+} from "."
 import { cache } from "./cache"
 
-function defaultParameterIndex(index: Array<number>): [outer: Array<number>, inner: Array<number>] {
+export function defaultParameterIndex(index: Array<number>): [outer: Array<number>, inner: Array<number>] {
     return [index.slice(1), [index[0]]]
+}
+
+export function maxEventDepth(maps: Array<InterpretionValue<any>>): EventDepthMap {
+    const prev: any = {}
+    for (const map of maps) {
+        const entries = Object.entries(map.eventDepthMap)
+        for (const entry of entries) {
+            const [eventName, eventDepth] = entry
+            if (eventDepth == null) {
+                continue
+            }
+            const currentEventDepth = prev[eventName]
+            if (currentEventDepth == null || eventDepth > currentEventDepth) {
+                prev[entry[0]] = entry[1]
+            }
+        }
+    }
+
+    return prev
 }
 
 export function operation<Input, Output>(
@@ -13,22 +42,46 @@ export function operation<Input, Output>(
     inputAmount?: number,
     debounceTime: number = 10
 ): OperatorFunction<
-    Array<MatrixEntry<Observable<Input | undefined>>>,
-    Array<MatrixEntry<Observable<Output | undefined>>>
+    Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
+    Array<MatrixEntry<Observable<InterpretionValue<Output> | undefined>>>
 > {
-    return (changes: Observable<Array<MatrixEntry<Observable<Input | undefined>>>>) =>
+    const computeInterpretationValue: (
+        input: Array<InterpretionValue<Input>>
+    ) => Observable<Array<InterpretionValue<Output>>> = (input) => {
+        const eventDepthMap = maxEventDepth(input)
+        const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
+        return compute(input.map(({ value }) => value)).pipe(
+            map((results) =>
+                results.map<InterpretionValue<Output>>((value) => ({
+                    eventDepthMap,
+                    parameters,
+                    terminated: false,
+                    value,
+                }))
+            )
+        )
+    }
+    const computeDependencies: (input: Array<InterpretionValue<Input>>) => Array<any> = (input) =>
+        getDependencies(input.map(({ value }) => value))
+
+    return (changes) =>
         changes.pipe(
             nestChanges(getParameterIndex, debounceTime),
             switchGroupMap<
-                MatrixEntry<Observable<Array<MatrixEntry<Observable<Input | undefined>>> | undefined>>,
-                Array<MatrixEntry<Observable<Output | undefined>>>,
+                MatrixEntry<
+                    Observable<Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>> | undefined>
+                >,
+                Array<MatrixEntry<Observable<InterpretionValue<Output> | undefined>>>,
                 string
             >(
                 (change) =>
                     change.value.pipe(
                         toArray(debounceTime),
                         filter((array) => inputAmount == null || array.length === inputAmount),
-                        cache(getDependencies, compute),
+                        cache<Array<InterpretionValue<Input>>, Array<InterpretionValue<Output>>>(
+                            computeDependencies,
+                            computeInterpretationValue
+                        ),
                         toChanges(),
                         map((entries) =>
                             entries.map((result) => ({

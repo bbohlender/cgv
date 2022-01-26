@@ -1,17 +1,15 @@
-import { OrbitControls } from "@react-three/drei"
+import { MapControls } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import { MatrixEntriesObservable } from "cgv"
+import { InterpretionValue, MatrixEntriesObservable } from "cgv"
 import { Instance, toObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
-import { BehaviorSubject, Observable, tap } from "rxjs"
+import { tap } from "rxjs"
 import { Object3D } from "three"
 
 export function ShapeEditor({
     changes,
-    parameters,
 }: {
-    parameters: BehaviorSubject<any>[] | undefined
-    changes: MatrixEntriesObservable<Instance> | undefined
+    changes: MatrixEntriesObservable<InterpretionValue<Instance>> | undefined
 }) {
     const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     useEffect(() => {
@@ -20,7 +18,7 @@ export function ShapeEditor({
         }
         const subscription = changes
             .pipe(
-                toObject3D((value) => value.primitive.getObject3D(false)),
+                toObject3D((value) => value.value.primitive.getObject3D(false)),
                 tap({
                     next: (object) => setState([object, undefined]),
                     error: (error) => setState([undefined, error.message]),
@@ -35,7 +33,7 @@ export function ShapeEditor({
             className="flex-basis-0 d-flex flex-column flex-grow-1 bg-white h3 mb-0">
             <div className="flex-basis-0 flex-grow-1 overflow-hidden position-relative">
                 <Canvas>
-                    <OrbitControls />
+                    <MapControls />
                     <gridHelper />
                     <pointLight position={[3, 3, 3]} />
                     <ambientLight />

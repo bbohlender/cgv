@@ -6,7 +6,7 @@ import { ShapeEditor } from "../src/shape-editor"
 export default function Index() {
     const [text, setText] = useState("")
 
-    const [changes, error, parameterSubjects] = useResult(text)
+    const [changes, error] = useResult(text)
 
     return (
         <>
@@ -16,7 +16,7 @@ export default function Index() {
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
-                <ShapeEditor parameters={parameterSubjects} changes={changes} />
+                <ShapeEditor changes={changes} />
                 <div className="d-flex flex-column flex-basis-0 flex-grow-1">
                     <textarea
                         style={{ resize: "none", outline: 0 }}
