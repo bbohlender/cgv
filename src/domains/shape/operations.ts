@@ -212,6 +212,9 @@ function computeReplace([instance, url]: Array<any>): Observable<Array<Instance>
     return of(url).pipe(
         cache((url) => [url], computeLoad),
         map((gltf) => {
+            if(instance.primitive.pointAmount <= 0) {
+                return []
+            }
             const clone = gltf.scene.clone(true)
             instance.primitive.getPoint(0, clone.position)
             clone.scale.set(500, 500, 500) //TODO: remove - just for testing
