@@ -1,10 +1,10 @@
-import { parse, interprete, MatrixEntry, deepShareReplay, InterpretionValue, Parameters } from "cgv"
+import { parse, interprete, MatrixEntry, InterpretionValue, Parameters } from "cgv"
 import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "co-3gen"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Matrix4, Plane, Vector3 } from "three"
 import { Layers, loadLayers } from "./api"
 import { cloneInstance, Instance, operations } from "cgv/domains/shape"
-import { BehaviorSubject, from, map, Observable, of, shareReplay, tap } from "rxjs"
+import { from, map, Observable, of, shareReplay } from "rxjs"
 
 const roadParameters: Parameters = {
     layer: of("road"),

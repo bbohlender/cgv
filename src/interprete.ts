@@ -70,7 +70,7 @@ export function interpreteStep<T>(
                 input.pipe(interpreteStep(step.parameters, grammar, operations, clone, eventScheduler), operation)
         case "parallel":
             return (input) => {
-                const sharedInput = input.pipe(deepShareReplay({ refCount: true, bufferSize: 1 }))
+                const sharedInput = input.pipe(deepShareReplay({ refCount: true })) //TODO: buffer Size unlimited (bad)
                 return mergeMatrices(
                     step.steps.map((stepOfSteps, i) =>
                         sharedInput.pipe(
@@ -115,9 +115,8 @@ export function interpreteStep<T>(
                 let terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
                 for (const stepOfSteps of step.steps) {
                     const sharedCurrent = current.pipe(
-                        deepShareReplay({
-                            refCount: true,
-                            bufferSize: 1,
+                        deepShareReplay({ //TODO: buffer Size unlimited (bad)
+                            refCount: true
                         })
                     )
                     terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))

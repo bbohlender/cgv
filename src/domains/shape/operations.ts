@@ -217,7 +217,7 @@ function computeReplace([instance, url]: Array<any>): Observable<Array<Instance>
             }
             const clone = gltf.scene.clone(true)
             instance.primitive.getPoint(0, clone.position)
-            clone.scale.set(500, 500, 500) //TODO: remove - just for testing
+            clone.scale.set(200, 200, 200) //TODO: remove - just for testing
             return [instanceChangePrimitive(new ObjectPrimitive(clone), instance)]
         })
     )

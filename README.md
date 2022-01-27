@@ -67,7 +67,7 @@ Forest -> sample2d(this | "1") replace(this | "'/tree.gltf'")
 ```
 City -> switchType(Road | Building)
 
-Road -> expand2d(this | "20")
+Road -> expand2d(this | "20") (this | sample2d(this | "30") replace(this | "'/tree.gltf'"))
 
 Building -> translate(this | "0" | "100" | "0") | lines(this) connect(translate(this | "0" | "100" | "0") | this)
 ```
