@@ -1,4 +1,4 @@
-import { map, Observable, OperatorFunction, filter } from "rxjs"
+import { map, Observable, OperatorFunction, filter, tap } from "rxjs"
 import {
     EventDepthMap,
     getMatrixEntryIndexKey,
@@ -9,6 +9,8 @@ import {
     toArray,
     toChanges,
     Parameters,
+    ArrayOrSingle,
+    mergeMatrixOperatorsIV,
 } from "."
 import { cache } from "./cache"
 
@@ -38,6 +40,13 @@ export function maxEventDepth(maps: Array<InterpretionValue<any>>): EventDepthMa
 export function operation<Input, Output>(
     compute: (input: Array<Input>) => Observable<Array<Output>>,
     getDependencies: (input: Array<Input>) => Array<any>,
+    clone: (value: Input, index: number) => Input, //TODO: remove
+    parameters: ArrayOrSingle<
+        OperatorFunction<
+            Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
+            Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>
+        >
+    >,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     inputAmount?: number,
     debounceTime: number = 10
@@ -66,14 +75,9 @@ export function operation<Input, Output>(
 
     return (changes) =>
         changes.pipe(
+            mergeMatrixOperatorsIV(clone, parameters),
             nestChanges(getParameterIndex, debounceTime),
-            switchGroupMap<
-                MatrixEntry<
-                    Observable<Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>> | undefined>
-                >,
-                Array<MatrixEntry<Observable<InterpretionValue<Output> | undefined>>>,
-                string
-            >(
+            switchGroupMap(
                 (change) =>
                     change.value.pipe(
                         toArray(debounceTime),

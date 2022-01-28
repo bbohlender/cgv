@@ -54,7 +54,7 @@ export function toObject3D<T>(
     return (observable) =>
         observable.pipe(
             mergeMap((changes) => of(...changes)), //like above okay here, since the inner observable directly completes
-            switchGroupMap<MatrixEntry<Observable<T | undefined>>, Array<MatrixEntry<T | undefined>>, string>(
+            switchGroupMap(
                 (change) => change.value.pipe(map((value) => [{ index: change.index, value }])),
                 getMatrixEntryIndexKey
             ),

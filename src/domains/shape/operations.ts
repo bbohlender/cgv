@@ -11,25 +11,22 @@ import {
     YAXIS,
     boolean2d,
 } from "co-3gen"
-import { filter, from, map, mergeMap, NEVER, Observable, of, switchMap, tap } from "rxjs"
+import { from, map, mergeMap, NEVER, Observable, of, OperatorFunction, switchMap } from "rxjs"
 import { Plane } from "three"
 import { GLTFLoader, DRACOLoader, GLTF } from "three-stdlib"
 import { Attribute, AttributeType, Instance } from "."
 import {
+    ArrayOrSingle,
     debounceBufferTime,
-    defaultParameterIndex,
     getMatrixEntryIndexKey,
     InterpretionValue,
     MatrixEntriesObservable,
     MatrixEntry,
-    nestChanges,
+    mergeMatrixOperators,
+    mergeMatrixOperatorsIV,
     operation,
-    Operation,
     Operations,
     switchGroupMap,
-    toArray,
-    toChanges,
-    toOuterArray,
 } from "../.."
 import { cache } from "../../cache"
 import { ObjectPrimitive } from "./object-primitive"
@@ -43,24 +40,61 @@ function layerToIndex(layer: string): number {
 }
 
 export function switchType(
+    clone: (value: Instance, index: number) => Instance, //TODO: remove
+    parameters: ArrayOrSingle<
+        OperatorFunction<
+            Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>,
+            Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>
+        >
+    >,
     changes: MatrixEntriesObservable<InterpretionValue<Instance>>
 ): MatrixEntriesObservable<InterpretionValue<Instance>> {
-    //TODO: cache, distinctUntilChanged, toChanges?
-    return changes.pipe(
-        mergeMap((changes) => of(...changes)),
-        map((change) => ({
-            index: change.index,
-            value: change.value.pipe(
-                switchMap(
-                    (value) =>
-                        value?.parameters.layer?.pipe(//TODO: bad implementation
-                            map((layer) => (layerToIndex(layer) !== change.index[0] ? undefined : value))
-                        ) ?? NEVER
-                )
+    if (Array.isArray(parameters) && parameters.length === 2) {
+        //TODO: cache, distinctUntilChanged, toChanges?
+        return changes.pipe(
+            map((changes) =>
+                changes.map((change) => ({
+                    ...change,
+                    value: change.value.pipe(
+                        switchMap(
+                            (value) =>
+                                value?.parameters.layer?.pipe(
+                                    map<any, [number, InterpretionValue<Instance>]>((layer) => [
+                                        layerToIndex(layer),
+                                        value,
+                                    ])
+                                ) ?? of(undefined)
+                        )
+                    ),
+                }))
             ),
-        })),
-        debounceBufferTime(10)
-    )
+            mergeMatrixOperators(
+                ([layer, value], i) =>
+                    [layer, { ...value, value: clone(value.value, i) }] as [number, InterpretionValue<Instance>],
+                parameters.map<
+                    OperatorFunction<
+                        Array<MatrixEntry<Observable<[number, InterpretionValue<Instance>] | undefined>>>,
+                        Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>
+                    >
+                >(
+                    (parameter, i) => (observable) =>
+                        observable.pipe(
+                            map((changes) =>
+                                changes.map((change) => ({
+                                    ...change,
+                                    value: change.value.pipe(
+                                        map((content) => (content == null || content[0] !== i ? undefined : content[1]))
+                                    ),
+                                }))
+                            ),
+                            parameter
+                        )
+                )
+            )
+        )
+    } else {
+        return NEVER
+    }
 }
 
 function computeAttribute([instance, name, min, max, type]: Array<any>): Observable<Array<any>> {
@@ -130,10 +164,18 @@ function computeExpand2d([instance, delta]: Array<any>): Observable<Array<Instan
 
 function components(
     type: number,
+    clone: (value: Instance, index: number) => Instance, //TODO: remove
+    parameters: ArrayOrSingle<
+        OperatorFunction<
+            Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>,
+            Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>
+        >
+    >,
     changes: MatrixEntriesObservable<InterpretionValue<Instance>>
 ): MatrixEntriesObservable<InterpretionValue<Instance>> {
     //TODO: cache, distinctUntilChanged, toChanges?
     return changes.pipe(
+        mergeMatrixOperatorsIV(clone, parameters),
         map((changes) =>
             changes.map((change) => ({
                 index: change.index,
@@ -153,10 +195,18 @@ function components(
 }
 
 export function terminateRandomly(
+    clone: (value: Instance, index: number) => Instance, //TODO: remove
+    parameters: ArrayOrSingle<
+        OperatorFunction<
+            Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>,
+            Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>
+        >
+    >,
     changes: MatrixEntriesObservable<InterpretionValue<Instance>>
 ): MatrixEntriesObservable<InterpretionValue<Instance>> {
     //TODO: cache, distinctUntilChanged, toChanges?
     return changes.pipe(
+        mergeMatrixOperatorsIV(clone, parameters),
         map((changes) =>
             changes.map((change) => ({
                 index: change.index,
@@ -212,7 +262,7 @@ function computeReplace([instance, url]: Array<any>): Observable<Array<Instance>
     return of(url).pipe(
         cache((url) => [url], computeLoad),
         map((gltf) => {
-            if(instance.primitive.pointAmount <= 0) {
+            if (instance.primitive.pointAmount <= 0) {
                 return []
             }
             const clone = gltf.scene.clone(true)
@@ -236,23 +286,37 @@ function computeSample2d([instance, amount]: Array<any>): Observable<Array<Insta
 //TODO: fix draco loader wasm error (=> redo push with .gitattributes fixed)
 
 export const operations: Operations<Instance> = {
-    sample2d: (changes) => changes.pipe(operation(computeSample2d, (values) => values, undefined, 2)),
-    replace: (changes) => changes.pipe(operation(computeReplace, (values) => values, undefined, 2)),
-    connect: (changes) => changes.pipe(operation(computeConnect, (values) => values, undefined, 2, undefined)),
-    points: components.bind(null, ComponentType.Point),
-    lines: components.bind(null, ComponentType.Line),
-    faces: components.bind(null, ComponentType.Face),
-    union3d: (changes) => changes.pipe(operation(computeUnion3d, (values) => values)),
-    subtract3d: (changes) => changes.pipe(operation(computeSubtract3d, (values) => values)),
-    intersect3d: (changes) => changes.pipe(operation(computeIntersect3d, (values) => values)),
-    union2d: (changes) => changes.pipe(operation(computeUnion2d, (values) => values)),
-    subtract2d: (changes) => changes.pipe(operation(computeSubtract2d, (values) => values)),
-    intersect2d: (changes) => changes.pipe(operation(computeIntersect2d, (values) => values)),
-    translate: (changes) => changes.pipe(operation(computeTranslate, (values) => values, undefined, 4)),
-    rotate: (changes) => changes.pipe(operation(computeRotate, (values) => values, undefined, 4)),
-    scale: (changes) => changes.pipe(operation(computeScale, (values) => values, undefined, 4)),
-    attribute: (changes) => changes.pipe(operation(computeAttribute, (values) => values, undefined, 5)),
-    expand2d: (changes) => changes.pipe(operation(computeExpand2d, (values) => values, undefined, 2)),
-    switchType,
-    terminateRandomly,
+    sample2d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeSample2d, (values) => values, clone, parameters, undefined, 2)),
+    replace: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeReplace, (values) => values, clone, parameters, undefined, 2)),
+    connect: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeConnect, (values) => values, clone, parameters, undefined, 2, undefined)),
+    points: (clone, parameters) => components.bind(null, ComponentType.Point, clone, parameters),
+    lines: (clone, parameters) => components.bind(null, ComponentType.Line, clone, parameters),
+    faces: (clone, parameters) => components.bind(null, ComponentType.Face, clone, parameters),
+    union3d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeUnion3d, (values) => values, clone, parameters)),
+    subtract3d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeSubtract3d, (values) => values, clone, parameters)),
+    intersect3d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeIntersect3d, (values) => values, clone, parameters)),
+    union2d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeUnion2d, (values) => values, clone, parameters)),
+    subtract2d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeSubtract2d, (values) => values, clone, parameters)),
+    intersect2d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeIntersect2d, (values) => values, clone, parameters)),
+    translate: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeTranslate, (values) => values, clone, parameters, undefined, 4)),
+    rotate: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeRotate, (values) => values, clone, parameters, undefined, 4)),
+    scale: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeScale, (values) => values, clone, parameters, undefined, 4)),
+    attribute: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeAttribute, (values) => values, clone, parameters, undefined, 5)),
+    expand2d: (clone, parameters) => (changes) =>
+        changes.pipe(operation(computeExpand2d, (values) => values, clone, parameters, undefined, 2)),
+    switchType: (clone, parameters) => switchType.bind(null, clone, parameters),
+    terminateRandomly: (clone, parameters) => terminateRandomly.bind(null, clone, parameters),
 }

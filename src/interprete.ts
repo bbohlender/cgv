@@ -14,7 +14,15 @@ export type EventDepthMap = Readonly<{ [identifier in string]?: number }>
 
 export type Parameters = Readonly<{ [identifier in string]?: Observable<any> }>
 
-export type Operation<T> = OperatorFunction<
+export type Operation<T> = (
+    clone: (value: T, index: number) => T, //TODO: remove
+    parameters: ArrayOrSingle<
+        OperatorFunction<
+            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
+            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
+        >
+    >
+) => OperatorFunction<
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
 >
@@ -41,10 +49,59 @@ export function interprete<T>(
         return input
     }
     const eventScheduler = generateEventScheduler<T>()
-    return input.pipe(interpreteStep(rules[0], grammar, operations, clone, eventScheduler))
+    return input.pipe(
+        mergeMatrixOperatorsIV(clone, interpreteStep(rules[0], grammar, operations, clone, eventScheduler))
+    )
+}
+
+export function mergeMatrixOperatorsIV<T, K = T>(
+    clone: (value: T, index: number) => T,
+    operators: ArrayOrSingle<
+        OperatorFunction<
+            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
+            Array<MatrixEntry<Observable<InterpretionValue<K> | undefined>>>
+        >
+    >
+) {
+    return mergeMatrixOperators<InterpretionValue<T>, InterpretionValue<K>>(
+        (value, i) => ({
+            ...value,
+            value: clone(value.value, i),
+        }),
+        operators
+    )
+}
+
+export function mergeMatrixOperators<T, K = T>(
+    clone: (value: T, index: number) => T,
+    operators: ArrayOrSingle<
+        OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>>, Array<MatrixEntry<Observable<K | undefined>>>>
+    >
+): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>>, Array<MatrixEntry<Observable<K | undefined>>>> {
+    return (observable) => {
+        if (Array.isArray(operators)) {
+            const shared = observable.pipe(deepShareReplay({ refCount: true }))
+            return mergeMatrices(
+                operators.map((operator, i) =>
+                    shared.pipe(
+                        map((changes) =>
+                            changes.map((change) => ({
+                                index: change.index,
+                                value: change.value.pipe(map((val) => (val != null ? clone(val, i) : undefined))),
+                            }))
+                        ),
+                        operator
+                    )
+                )
+            )
+        }
+        return observable.pipe(operators)
+    }
 }
 
 //TODO: don't clone and DON'T mutate anything :) change things in co-3gen
+
+export type ArrayOrSingle<T> = T | Array<T>
 
 export function interpreteStep<T>(
     step: ParsedStep,
@@ -56,9 +113,11 @@ export function interpreteStep<T>(
         event: ParsedEventDefintion,
         input: MatrixEntriesObservable<InterpretionValue<T>>
     ) => MatrixEntriesObservable<InterpretionValue<T>>
-): OperatorFunction<
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
+): ArrayOrSingle<
+    OperatorFunction<
+        Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
+        Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
+    >
 > {
     switch (step.type) {
         case "operation":
@@ -67,33 +126,13 @@ export function interpreteStep<T>(
                 throw new Error(`unknown operation "${step.identifier}"`)
             }
             return (input) =>
-                input.pipe(interpreteStep(step.parameters, grammar, operations, clone, eventScheduler), operation)
-        case "parallel":
-            return (input) => {
-                const sharedInput = input.pipe(deepShareReplay({ refCount: true })) //TODO: buffer Size unlimited (bad)
-                return mergeMatrices(
-                    step.steps.map((stepOfSteps, i) =>
-                        sharedInput.pipe(
-                            map((changes) =>
-                                changes.map((change) => ({
-                                    index: change.index,
-                                    value: change.value.pipe(
-                                        map((val) =>
-                                            val != null
-                                                ? {
-                                                      ...val,
-                                                      value: clone(val.value, i),
-                                                  }
-                                                : undefined
-                                        )
-                                    ),
-                                }))
-                            ),
-                            interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler)
-                        )
-                    )
+                input.pipe(
+                    operation(clone, interpreteStep(step.parameters, grammar, operations, clone, eventScheduler))
                 )
-            }
+        case "parallel":
+            return step.steps.map((stepOfSteps) =>
+                mergeMatrixOperatorsIV(clone, interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler))
+            )
         case "raw":
             return (input) =>
                 input.pipe(
@@ -110,19 +149,24 @@ export function interpreteStep<T>(
                     )
                 )
         case "sequential":
+            //TODO: this can be improved?
             return (input) => {
                 let current = input
                 let terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
                 for (const stepOfSteps of step.steps) {
                     const sharedCurrent = current.pipe(
-                        deepShareReplay({ //TODO: buffer Size unlimited (bad)
-                            refCount: true
+                        deepShareReplay({
+                            //TODO: buffer Size unlimited (bad)
+                            refCount: true,
                         })
                     )
                     terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))
                     current = sharedCurrent.pipe(
                         useWhenTerminatedIs(false),
-                        interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler)
+                        mergeMatrixOperatorsIV(
+                            clone,
+                            interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler)
+                        )
                     )
                     //TODO: think of ways to reduce the amount of "doubles" through splitting
                     //maybe implement sequential through a nextSteps parameters, which are then just cleared?
@@ -137,7 +181,12 @@ export function interpreteStep<T>(
             if (rule == null) {
                 throw new Error(`unknown rule "${step.identifier}"`)
             }
-            return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations, clone, eventScheduler)))
+            return (input) =>
+                defer(() =>
+                    input.pipe(
+                        mergeMatrixOperatorsIV(clone, interpreteStep(rule, grammar, operations, clone, eventScheduler))
+                    )
+                )
     }
 }
 

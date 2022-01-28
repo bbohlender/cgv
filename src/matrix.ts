@@ -277,7 +277,7 @@ export function deepShareReplay<T>(
         )
 }
 
-export function getMatrixEntryIndexKey(entry: MatrixEntry<any>): string {
+export function getMatrixEntryIndexKey<T>(entry: MatrixEntry<T>): string {
     return getIndexKey(entry.index)
 }
 
