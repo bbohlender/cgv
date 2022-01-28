@@ -1,6 +1,6 @@
 import Head from "next/head"
 import React, { useEffect, useState } from "react"
-import { parse, interprete, toArray, InterpretionValue } from "cgv"
+import { parse, interprete, toArray } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
 import { interval, of, map } from "rxjs"
 

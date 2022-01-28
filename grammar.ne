@@ -42,7 +42,7 @@ Step                ->  Operation                                               
                     |   JS                                                          {% ([value]) => ({ type: "raw", value }) %}
                     |   %thisSymbol                                                 {% () => ({ type: "this" }) %}
 
-Operation           ->  %identifier ws %openBracket Parameters ws %closedBracket    {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
+Operation           ->  %identifier ws %openBracket EmptyParameters ws %closedBracket    {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
 
 EmptyParameters     ->  Parameters                                                  {% ([parameters]) =>  parameters%}
                     |   null                                                        {% () => [] %}

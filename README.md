@@ -78,13 +78,13 @@ max -> event("'a => {
 `Recursion`
 
 ```
-a -> translate(this, "0", "100", "0") terminateRandomly(this) a
+a -> translate("0", "100", "0") terminateRandomly() a
 ```
 
 `Forest`
 
 ```
-Forest -> sample2d(this, "10") replace(this, "'/tree.gltf'")
+Forest -> sample2d("10") replace("'/tree.gltf'")
 ```
 
 `City 1`
@@ -92,9 +92,9 @@ Forest -> sample2d(this, "10") replace(this, "'/tree.gltf'")
 ```
 City -> switchType(Road, Building)
 
-Road -> expand2d(this, "20") (this | sample2d(this, "30") replace(this, "'/tree.gltf'"))
+Road -> expand2d("20") (this | sample2d("30") replace("'/tree.gltf'"))
 
-Building -> translate(this, "0", "100", "0") | lines(this) connect(translate(this, "0", "100", "0"), this)
+Building -> translate("0", "100", "0") | lines() connect(translate("0", "100", "0"), this)
 ```
 
 `City 2`

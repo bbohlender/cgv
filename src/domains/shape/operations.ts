@@ -24,6 +24,7 @@ import {
     mergeMatrixOperatorsIV,
     operation,
     Operations,
+    thisParameter,
 } from "../.."
 import { cache } from "../../cache"
 import { ObjectPrimitive } from "./object-primitive"
@@ -284,36 +285,46 @@ function computeSample2d([instance, amount]: Array<any>): Observable<Array<Insta
 
 export const operations: Operations<Instance> = {
     sample2d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeSample2d, (values) => values, clone, parameters, undefined, 2)),
+        changes.pipe(
+            operation(computeSample2d, (values) => values, clone, [thisParameter, ...parameters], undefined, 2)
+        ),
     replace: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeReplace, (values) => values, clone, parameters, undefined, 2)),
+        changes.pipe(
+            operation(computeReplace, (values) => values, clone, [thisParameter, ...parameters], undefined, 2)
+        ),
     connect: (clone, parameters) => (changes) =>
         changes.pipe(operation(computeConnect, (values) => values, clone, parameters, undefined, 2, undefined)),
-    points: (clone, parameters) => components.bind(null, ComponentType.Point, clone, parameters),
-    lines: (clone, parameters) => components.bind(null, ComponentType.Line, clone, parameters),
-    faces: (clone, parameters) => components.bind(null, ComponentType.Face, clone, parameters),
+    points: (clone, parameters) => components.bind(null, ComponentType.Point, clone, [thisParameter, ...parameters]),
+    lines: (clone, parameters) => components.bind(null, ComponentType.Line, clone, [thisParameter, ...parameters]),
+    faces: (clone, parameters) => components.bind(null, ComponentType.Face, clone, [thisParameter, ...parameters]),
     union3d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeUnion3d, (values) => values, clone, parameters)),
+        changes.pipe(operation(computeUnion3d, (values) => values, clone, [thisParameter, ...parameters])),
     subtract3d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeSubtract3d, (values) => values, clone, parameters)),
+        changes.pipe(operation(computeSubtract3d, (values) => values, clone, [thisParameter, ...parameters])),
     intersect3d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeIntersect3d, (values) => values, clone, parameters)),
+        changes.pipe(operation(computeIntersect3d, (values) => values, clone, [thisParameter, ...parameters])),
     union2d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeUnion2d, (values) => values, clone, parameters)),
+        changes.pipe(operation(computeUnion2d, (values) => values, clone, [thisParameter, ...parameters])),
     subtract2d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeSubtract2d, (values) => values, clone, parameters)),
+        changes.pipe(operation(computeSubtract2d, (values) => values, clone, [thisParameter, ...parameters])),
     intersect2d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeIntersect2d, (values) => values, clone, parameters)),
+        changes.pipe(operation(computeIntersect2d, (values) => values, clone, [thisParameter, ...parameters])),
     translate: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeTranslate, (values) => values, clone, parameters, undefined, 4)),
+        changes.pipe(
+            operation(computeTranslate, (values) => values, clone, [thisParameter, ...parameters], undefined, 4)
+        ),
     rotate: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeRotate, (values) => values, clone, parameters, undefined, 4)),
+        changes.pipe(operation(computeRotate, (values) => values, clone, [thisParameter, ...parameters], undefined, 4)),
     scale: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeScale, (values) => values, clone, parameters, undefined, 4)),
+        changes.pipe(operation(computeScale, (values) => values, clone, [thisParameter, ...parameters], undefined, 4)),
     attribute: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeAttribute, (values) => values, clone, parameters, undefined, 5)),
+        changes.pipe(
+            operation(computeAttribute, (values) => values, clone, [thisParameter, ...parameters], undefined, 5)
+        ),
     expand2d: (clone, parameters) => (changes) =>
-        changes.pipe(operation(computeExpand2d, (values) => values, clone, parameters, undefined, 2)),
+        changes.pipe(
+            operation(computeExpand2d, (values) => values, clone, [thisParameter, ...parameters], undefined, 2)
+        ),
     switchType: (clone, parameters) => switchType.bind(null, clone, parameters),
-    terminateRandomly: (clone, parameters) => terminateRandomly.bind(null, clone, parameters),
+    terminateRandomly: (clone, parameters) => terminateRandomly.bind(null, clone, [thisParameter, ...parameters]),
 }

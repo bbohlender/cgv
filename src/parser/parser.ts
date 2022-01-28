@@ -80,7 +80,7 @@ const grammar: Grammar = {
     {"name": "Step", "symbols": ["Symbol"], "postprocess": ([symbol]) => symbol},
     {"name": "Step", "symbols": ["JS"], "postprocess": ([value]) => ({ type: "raw", value })},
     {"name": "Step", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol)], "postprocess": () => ({ type: "this" })},
-    {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "Parameters", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value })},
+    {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "EmptyParameters", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value })},
     {"name": "EmptyParameters", "symbols": ["Parameters"], "postprocess": ([parameters]) =>  parameters},
     {"name": "EmptyParameters", "symbols": [], "postprocess": () => []},
     {"name": "Parameters$ebnf$1", "symbols": ["Parameter"]},

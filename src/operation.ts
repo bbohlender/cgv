@@ -13,6 +13,12 @@ import {
 } from "."
 import { cache } from "./cache"
 
+export function thisParameter<T>(
+    input: Observable<Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>>
+): Observable<Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>> {
+    return input
+}
+
 export function defaultParameterIndex(index: Array<number>): [outer: Array<number>, inner: Array<number>] {
     return [index.slice(1), [index[0]]]
 }
