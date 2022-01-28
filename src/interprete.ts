@@ -15,7 +15,7 @@ export type Parameters = Readonly<{ [identifier in string]?: Observable<any> }>
 
 export type Operation<T> = (
     clone: (value: T, index: number) => T, //TODO: remove
-    parameters: ArrayOrSingle<
+    parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
             Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
@@ -47,15 +47,13 @@ export function interprete<T>(
     if (rules.length === 0) {
         return input
     }
-    const eventScheduler = null as any//generateEventScheduler<T>()
-    return input.pipe(
-        mergeMatrixOperatorsIV(clone, interpreteStep(rules[0], grammar, operations, clone, eventScheduler))
-    )
+    const eventScheduler = null as any //generateEventScheduler<T>()
+    return input.pipe(interpreteStep(rules[0], grammar, operations, clone, eventScheduler))
 }
 
 export function mergeMatrixOperatorsIV<T, K = T>(
     clone: (value: T, index: number) => T,
-    operators: ArrayOrSingle<
+    operators: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
             Array<MatrixEntry<Observable<InterpretionValue<K> | undefined>>>
@@ -73,7 +71,7 @@ export function mergeMatrixOperatorsIV<T, K = T>(
 
 export function mergeMatrixOperators<T, K = T>(
     clone: (value: T, index: number) => T,
-    operators: ArrayOrSingle<
+    operators: Array<
         OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>>, Array<MatrixEntry<Observable<K | undefined>>>>
     >
 ): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>>, Array<MatrixEntry<Observable<K | undefined>>>> {
@@ -100,8 +98,6 @@ export function mergeMatrixOperators<T, K = T>(
 
 //TODO: don't clone and DON'T mutate anything :) change things in co-3gen
 
-export type ArrayOrSingle<T> = T | Array<T>
-
 export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
@@ -112,11 +108,9 @@ export function interpreteStep<T>(
         event: ParsedEventDefintion,
         input: MatrixEntriesObservable<InterpretionValue<T>>
     ) => MatrixEntriesObservable<InterpretionValue<T>>
-): ArrayOrSingle<
-    OperatorFunction<
-        Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-        Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
-    >
+): OperatorFunction<
+    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
+    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
 > {
     switch (step.type) {
         case "operation":
@@ -126,11 +120,17 @@ export function interpreteStep<T>(
             }
             return (input) =>
                 input.pipe(
-                    operation(clone, interpreteStep(step.parameters, grammar, operations, clone, eventScheduler))
+                    operation(
+                        clone,
+                        step.parameters.map((parameter) =>
+                            interpreteStep(parameter, grammar, operations, clone, eventScheduler)
+                        )
+                    )
                 )
         case "parallel":
-            return step.steps.map((stepOfSteps) =>
-                mergeMatrixOperatorsIV(clone, interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler))
+            return mergeMatrixOperatorsIV(
+                clone,
+                step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler))
             )
         case "raw":
             return (input) =>
@@ -162,10 +162,7 @@ export function interpreteStep<T>(
                     terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))
                     current = sharedCurrent.pipe(
                         useWhenTerminatedIs(false),
-                        mergeMatrixOperatorsIV(
-                            clone,
-                            interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler)
-                        )
+                        interpreteStep(stepOfSteps, grammar, operations, clone, eventScheduler)
                     )
                     //TODO: think of ways to reduce the amount of "doubles" through splitting
                     //maybe implement sequential through a nextSteps parameters, which are then just cleared?
@@ -180,12 +177,7 @@ export function interpreteStep<T>(
             if (rule == null) {
                 throw new Error(`unknown rule "${step.identifier}"`)
             }
-            return (input) =>
-                defer(() =>
-                    input.pipe(
-                        mergeMatrixOperatorsIV(clone, interpreteStep(rule, grammar, operations, clone, eventScheduler))
-                    )
-                )
+            return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations, clone, eventScheduler)))
     }
 }
 

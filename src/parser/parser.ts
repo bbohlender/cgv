@@ -10,6 +10,7 @@ declare var parallel: any;
 declare var openBracket: any;
 declare var closedBracket: any;
 declare var thisSymbol: any;
+declare var comma: any;
 declare var js: any;
 
 import moo from "moo";
@@ -19,6 +20,7 @@ const lexer = moo.compile({
     openBracket: /\(/,
     closedBracket: /\)/,
     parallel: /\|/,
+    comma: /,/,
     thisSymbol: /this/,
     identifier: /[A-Za-z\d]+/,
     js: { match: /"[^"]+"/, lineBreaks: true },
@@ -78,7 +80,14 @@ const grammar: Grammar = {
     {"name": "Step", "symbols": ["Symbol"], "postprocess": ([symbol]) => symbol},
     {"name": "Step", "symbols": ["JS"], "postprocess": ([value]) => ({ type: "raw", value })},
     {"name": "Step", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol)], "postprocess": () => ({ type: "this" })},
-    {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "EmptySteps", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value })},
+    {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "Parameters", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value })},
+    {"name": "EmptyParameters", "symbols": ["Parameters"], "postprocess": ([parameters]) =>  parameters},
+    {"name": "EmptyParameters", "symbols": [], "postprocess": () => []},
+    {"name": "Parameters$ebnf$1", "symbols": ["Parameter"]},
+    {"name": "Parameters$ebnf$1", "symbols": ["Parameters$ebnf$1", "Parameter"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "Parameters", "symbols": ["Steps", "Parameters$ebnf$1"], "postprocess": ([steps, stepsList]) => [steps, ...stepsList]},
+    {"name": "Parameters", "symbols": ["Steps"], "postprocess": ([steps]) => [steps]},
+    {"name": "Parameter", "symbols": ["ws", (lexer.has("comma") ? {type: "comma"} : comma), "Steps"], "postprocess": ([,,steps]) =>  steps},
     {"name": "Symbol", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([{ value }]) => ({ type: "symbol", identifier: value })},
     {"name": "JS", "symbols": [(lexer.has("js") ? {type: "js"} : js)], "postprocess": ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn))},
     {"name": "ws", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},

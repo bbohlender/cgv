@@ -17,7 +17,6 @@ import { GLTFLoader, GLTF } from "three-stdlib/loaders/GLTFLoader"
 import { DRACOLoader } from "three-stdlib/loaders/DRACOLoader"
 import { Attribute, AttributeType, Instance } from "."
 import {
-    ArrayOrSingle,
     InterpretionValue,
     MatrixEntriesObservable,
     MatrixEntry,
@@ -39,7 +38,7 @@ function layerToIndex(layer: string): number {
 
 export function switchType(
     clone: (value: Instance, index: number) => Instance, //TODO: remove
-    parameters: ArrayOrSingle<
+    parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>,
             Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>
@@ -163,7 +162,7 @@ function computeExpand2d([instance, delta]: Array<any>): Observable<Array<Instan
 function components(
     type: number,
     clone: (value: Instance, index: number) => Instance, //TODO: remove
-    parameters: ArrayOrSingle<
+    parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>,
             Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>
@@ -194,7 +193,7 @@ function components(
 
 export function terminateRandomly(
     clone: (value: Instance, index: number) => Instance, //TODO: remove
-    parameters: ArrayOrSingle<
+    parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>,
             Array<MatrixEntry<Observable<InterpretionValue<Instance> | undefined>>>

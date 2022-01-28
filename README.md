@@ -21,6 +21,11 @@ _Computer Generated Verse_
 
 `TBD`
 
+## Language Features ToDo
+
+* Parameters (e.g. this.type)  
+* Domain Constants (e.g. `1` instead of `"1"`)
+
 ## Glossary
 
 -   grammar - a set of rules
@@ -51,7 +56,7 @@ _Computer Generated Verse_
 *currently not working, cause the event operator is missing*
 
 ```
-a -> sum("1" | "2") max | "4" max
+a -> sum("1", "2") max | "4" max
 
 max -> event("'a => {
    let max = 0
@@ -73,23 +78,23 @@ max -> event("'a => {
 `Recursion`
 
 ```
-a -> translate(this | "0" | "100" | "0") terminateRandomly(this) a
+a -> translate(this, "0", "100", "0") terminateRandomly(this) a
 ```
 
 `Forest`
 
 ```
-Forest -> sample2d(this | "1") replace(this | "'/tree.gltf'")
+Forest -> sample2d(this, "10") replace(this, "'/tree.gltf'")
 ```
 
 `City 1`
 
 ```
-City -> switchType(Road | Building)
+City -> switchType(Road, Building)
 
-Road -> expand2d(this | "20") (this | sample2d(this | "30") replace(this | "'/tree.gltf'"))
+Road -> expand2d(this, "20") (this | sample2d(this, "30") replace(this, "'/tree.gltf'"))
 
-Building -> translate(this | "0" | "100" | "0") | lines(this) connect(translate(this | "0" | "100" | "0") | this)
+Building -> translate(this, "0", "100", "0") | lines(this) connect(translate(this, "0", "100", "0"), this)
 ```
 
 `City 2`

@@ -34,7 +34,7 @@ export type ParsedSequantialValues = {
 
 export type ParsedOperation = {
     type: "operation"
-    parameters: ParsedStep
+    parameters: Array<ParsedStep>
     identifier: string
 }
 export type ParsedSymbol = {

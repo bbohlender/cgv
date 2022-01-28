@@ -9,7 +9,6 @@ import {
     toArray,
     toChanges,
     Parameters,
-    ArrayOrSingle,
     mergeMatrixOperatorsIV,
 } from "."
 import { cache } from "./cache"
@@ -41,7 +40,7 @@ export function operation<Input, Output>(
     compute: (input: Array<Input>) => Observable<Array<Output>>,
     getDependencies: (input: Array<Input>) => Array<any>,
     clone: (value: Input, index: number) => Input, //TODO: remove
-    parameters: ArrayOrSingle<
+    parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
             Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>

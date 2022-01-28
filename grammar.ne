@@ -7,6 +7,7 @@ const lexer = moo.compile({
     openBracket: /\(/,
     closedBracket: /\)/,
     parallel: /\|/,
+    comma: /,/,
     thisSymbol: /this/,
     identifier: /[A-Za-z\d]+/,
     js: { match: /"[^"]+"/, lineBreaks: true },
@@ -41,7 +42,14 @@ Step                ->  Operation                                               
                     |   JS                                                          {% ([value]) => ({ type: "raw", value }) %}
                     |   %thisSymbol                                                 {% () => ({ type: "this" }) %}
 
-Operation           ->  %identifier ws %openBracket EmptySteps ws %closedBracket    {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
+Operation           ->  %identifier ws %openBracket Parameters ws %closedBracket    {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
+
+EmptyParameters     ->  Parameters                                                  {% ([parameters]) =>  parameters%}
+                    |   null                                                        {% () => [] %}
+Parameters          ->  Steps Parameter:+                                           {% ([steps, stepsList]) => [steps, ...stepsList] %}
+                    |   Steps                                                       {% ([steps]) => [steps] %}
+Parameter           ->  ws %comma Steps                                             {% ([,,steps]) =>  steps %}
+
 Symbol              ->  %identifier                                                 {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
 
 JS                  ->  %js                                                         {% ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn)) %}
