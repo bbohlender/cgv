@@ -11,14 +11,13 @@ import {
     YAXIS,
     boolean2d,
 } from "co-3gen"
-import { from, map, mergeMap, NEVER, Observable, of, OperatorFunction, switchMap } from "rxjs"
+import { from, map, NEVER, Observable, of, OperatorFunction, switchMap } from "rxjs"
 import { Plane } from "three"
-import { GLTFLoader, DRACOLoader, GLTF } from "three-stdlib"
+import { GLTFLoader, GLTF } from "three-stdlib/loaders/GLTFLoader"
+import { DRACOLoader } from "three-stdlib/loaders/DRACOLoader"
 import { Attribute, AttributeType, Instance } from "."
 import {
     ArrayOrSingle,
-    debounceBufferTime,
-    getMatrixEntryIndexKey,
     InterpretionValue,
     MatrixEntriesObservable,
     MatrixEntry,
@@ -26,7 +25,6 @@ import {
     mergeMatrixOperatorsIV,
     operation,
     Operations,
-    switchGroupMap,
 } from "../.."
 import { cache } from "../../cache"
 import { ObjectPrimitive } from "./object-primitive"

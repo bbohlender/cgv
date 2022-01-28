@@ -6,7 +6,6 @@ import {
     ParsedEventDefintion,
     ParsedGrammarDefinition,
     ParsedStep,
-    generateEventScheduler,
     deepShareReplay,
 } from "."
 
@@ -48,7 +47,7 @@ export function interprete<T>(
     if (rules.length === 0) {
         return input
     }
-    const eventScheduler = generateEventScheduler<T>()
+    const eventScheduler = null as any//generateEventScheduler<T>()
     return input.pipe(
         mergeMatrixOperatorsIV(clone, interpreteStep(rules[0], grammar, operations, clone, eventScheduler))
     )

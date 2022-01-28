@@ -2,7 +2,7 @@ import { mergeMap, Subject } from "rxjs"
 import { ParsedEventDefintion, MatrixEntriesObservable, InterpretionValue, toArray } from "."
 
 
-export function generateEventScheduler<T>(): (
+/*export function generateEventScheduler<T>(): (
     identifier: string,
     event: ParsedEventDefintion,
     input: MatrixEntriesObservable<InterpretionValue<T>>
@@ -24,4 +24,4 @@ export function generateEventScheduler<T>(): (
         }
         return entry[1]
     }
-}
+}*/

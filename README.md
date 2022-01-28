@@ -2,38 +2,58 @@
 
 _Computer Generated Verse_
 
+## Development
+
+1. `npm install` to install the library dependencies
+2. `npm run build` to build the cgv library
+3. `cd web` to move into the frontend path
+4. `npm run install` to install the frontend dependencies
+5. `npm run dev` to start the frontend
+
+`no access http://localhost:3000/shape or http://localhost:3000/arithmetic to access the respective domain editor`
+
+### Folder Structure
+
+* `src` contains the source code for the core library including the domains in `src/domains`
+* `web` contains the frontend code in react (the pages for the respective editors)
+
+## Design Decisions
+
+`TBD`
+
 ## Glossary
 
 -   grammar - a set of rules
 -   rule - a sequence of steps
--   step - changes the current value (through mutation or a complete exchange) done by a operator/event/constant/symbol
+-   step - alters the current value done by a operator/constant/symbol
 -   operators - identifies a function defined in the domain, which take the current value and the given parameters and returns the new current value
 -   constant - identifies a constant defined in the domain
 -   symbol - executes the rule identified by the symbol and sets the result as the new current value
--   event - joines and schedules multiple derivation threads (not os threads) and enables to operate on all inputs, while handing back the result to the entrance points as their new current value
 
--   domain - set of operations and valid constants in a certain area of knowledge (e.g. shapes: extrude)
+-   domain - set of operations and valid constants in a certain area of knowledge (e.g. 3d objects / shapes with operators like extrude)
 
 -   input - starting value (domain value)
--   parameters - values accessible throught the grammar interpretion to influence the outcome
+-   parameters - values accessible throughout the grammar interpretion to influence the outcome
 -   attributes - define parameters (e.g. name, type, min, max, ...) to make them editable in a UI
 
 -   parse - the grammar definition in text form is parsed into a interpretable object representation
 -   interprete - executes the steps defined in the grammar on the input, respecting the inserted parameters and returning the result
 
--   sequential Step - the input value is mutated
--   parallel Step - the input is split/cloned into multiple values
+-   sequential step - the input value is mutated
+-   parallel step - the input is split/cloned into multiple values
 
--   premature Termination - the interpretion is cancelled before all possible steps are exhausted (reducing execution time but returning an unfinished/earlier result)
+-   premature termination - the interpretion is cancelled before all possible steps are exhausted (reducing execution time but returning an unfinished/earlier result)
 
 ## Test Grammars
 
 ### Arithmetic
 
-```
-a -> sum("1" | "2") event(max) | "4" event(max)
+*currently not working, cause the event operator is missing*
 
-max = "a => {
+```
+a -> sum("1" | "2") max | "4" max
+
+max -> event("'a => {
    let max = 0
    let maxI = 0
    let maxII = 0;
@@ -45,7 +65,7 @@ max = "a => {
       }
    }))
    return a.map((b, i) => maxI === i ? b.filter((c,ii) => maxII === ii) : [])
-}"
+}"')
 ```
 
 ### Shape
@@ -73,6 +93,8 @@ Building -> translate(this | "0" | "100" | "0") | lines(this) connect(translate(
 ```
 
 `City 2`
+
+*not working - incomplete*
 
 ```
 a -> extrude(this | 3) faces(this) (filter(this | horizontal) walls) | (filter(this | upwards) roof)
