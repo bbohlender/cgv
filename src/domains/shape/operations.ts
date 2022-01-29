@@ -6,10 +6,12 @@ import {
     makeTranslationMatrix,
     connect as connect3Gen,
     sample2d as sample2d3Gen,
+    splitAxis as splitAxis3Gen,
     Primitive,
     expand,
     YAXIS,
     boolean2d,
+    Axis,
 } from "co-3gen"
 import { from, map, NEVER, Observable, of, OperatorFunction, switchMap } from "rxjs"
 import { Plane } from "three"
@@ -120,6 +122,16 @@ function computeAttribute([instance, name, min, max, type]: Array<any>): Observa
 
 function setAttribute(instance: Instance, name: string, attribute: Attribute): void {
     instance.attributes[name] = attribute
+}
+
+function splitAxis(axis: Axis, [instance, by]: Array<any>): Observable<Array<Instance>> {
+    return of(
+        splitAxis3Gen(instance.primitive, by, axis).map((primitive, i) => ({
+            path: [...instance.path, i],
+            attributes: { ...instance.attributes },
+            primitive,
+        }))
+    )
 }
 
 function boolean3DOp(op: "union" | "intersect" | "subtract", input: Array<Instance>): Observable<Array<Instance>> {
@@ -297,6 +309,41 @@ export const operations: Operations<Instance> = {
     points: (clone, parameters) => components.bind(null, ComponentType.Point, clone, [thisParameter, ...parameters]),
     lines: (clone, parameters) => components.bind(null, ComponentType.Line, clone, [thisParameter, ...parameters]),
     faces: (clone, parameters) => components.bind(null, ComponentType.Face, clone, [thisParameter, ...parameters]),
+
+    splitX: (clone, parameters) => (changes) =>
+        changes.pipe(
+            operation(
+                splitAxis.bind(null, Axis.X),
+                (values) => values,
+                clone,
+                [thisParameter, ...parameters],
+                undefined,
+                2
+            )
+        ),
+    splitY: (clone, parameters) => (changes) =>
+        changes.pipe(
+            operation(
+                splitAxis.bind(null, Axis.Y),
+                (values) => values,
+                clone,
+                [thisParameter, ...parameters],
+                undefined,
+                2
+            )
+        ),
+    splitZ: (clone, parameters) => (changes) =>
+        changes.pipe(
+            operation(
+                splitAxis.bind(null, Axis.Z),
+                (values) => values,
+                clone,
+                [thisParameter, ...parameters],
+                undefined,
+                2
+            )
+        ),
+
     union3d: (clone, parameters) => (changes) =>
         changes.pipe(operation(computeUnion3d, (values) => values, clone, [thisParameter, ...parameters])),
     subtract3d: (clone, parameters) => (changes) =>

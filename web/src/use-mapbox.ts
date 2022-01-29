@@ -1,9 +1,9 @@
-import { parse, interprete, MatrixEntry, InterpretionValue, Parameters } from "cgv"
+import { MatrixEntry, InterpretionValue, Parameters } from "cgv"
 import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "co-3gen"
 import { useMemo } from "react"
 import { Matrix4, Plane, Vector3 } from "three"
 import { Layers, loadLayers } from "./api"
-import { cloneInstance, Instance, operations } from "cgv/domains/shape"
+import { Instance } from "cgv/domains/shape"
 import { from, map, Observable, of, shareReplay } from "rxjs"
 
 const roadParameters: Parameters = {
@@ -13,8 +13,8 @@ const buildingParameters: Parameters = {
     layer: of("building"),
 }
 
-export function useResult(text: string) {
-    const changes = useMemo(
+export function useMapbox() {
+    return useMemo(
         () =>
             from(loadLayers()).pipe(
                 shareReplay({ bufferSize: 1, refCount: true }),
@@ -41,16 +41,6 @@ export function useResult(text: string) {
             ),
         []
     )
-    const [instances, error] = useMemo(() => {
-        try {
-            const grammar = parse(text)
-            return [interprete(changes, grammar, operations, cloneInstance), undefined] as const
-        } catch (error: any) {
-            return [undefined, error.message] as const
-        }
-    }, [text])
-
-    return [instances, error] as const
 }
 
 function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
