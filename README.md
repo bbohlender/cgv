@@ -17,14 +17,33 @@ _Computer Generated Verse_
 * `src` contains the source code for the core library including the domains in `src/domains`
 * `web` contains the frontend code in react (the pages for the respective editors)
 
-## Design Decisions
+## Language Design Decisions
 
-`TBD`
+*The language expresses **procedural, conditional, stochastic grammars**, which are represented as a list of **`Rules`***
+
+The grammar is defined in [grammar.ne](./grammar.ne).
+
+* **`Rules`** - like in CGA ("**Lot --> Building**")
+   * begins with the name of the rule - called **`Symbol`**
+   * followed by `->` (simplified - "-->" in CGA)
+   * followed by **`Parallel Executions`**
+* **`Parallel Execution`** - similar to CGA ("Building --> comp(f){ front : FrontFacade **|** side : SideFacade **|** top: Roof}")
+   * seperates **`Sequential Executions`** using `|` (vertical bar)
+* **`Sequential Execution`** - like in CGA ("Lot --> **extrude(height) Building**")
+   * seperates **`Operations`**, **`Constants`** or **`Symbols`** using **`whitespace`**
+* **`Operations`** - like in CGA ("**color(wallColor)**")
+   * begins with the operation name (name is domain specific)
+   * followed by opening bracket `(`, the **`Parameters`** and a closing bracket `)`
+* **`Parameters`** - like in CGA ("s(**1,1,0.1**)")
+   * seperates **`Parallel Executions`** using commas `,`
+* **`Constants`** (*work in progress*)
+   * currently wrapped in quotation `"`
+* **`Variables`** (*work in progress*)
 
 ## Language Features ToDo
 
-* Parameters (e.g. this.type)  
 * Domain Constants (e.g. `1` instead of `"1"`)
+* "Scoped" Variables (e.g. this.type)
 
 ## Glossary
 
