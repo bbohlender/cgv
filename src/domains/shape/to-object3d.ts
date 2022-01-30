@@ -1,6 +1,6 @@
 import { map, mergeMap, Observable, of, OperatorFunction, scan } from "rxjs"
 import { Object3D } from "three"
-import { getIndexKey, getMatrixEntryIndexKey, MatrixEntry, switchGroupMap } from "../.."
+import { getMatrixEntryIndexKey, MatrixEntry, switchGroupMap } from "../.."
 
 function setObject(
     object: Object3D | undefined,

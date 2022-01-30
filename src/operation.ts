@@ -9,7 +9,7 @@ import {
     toArray,
     toChanges,
     Parameters,
-    mergeMatrixOperatorsIV,
+    mergeMatrixOperators,
 } from "."
 import { cache } from "./cache"
 
@@ -45,7 +45,6 @@ export function maxEventDepth(maps: Array<InterpretionValue<any>>): EventDepthMa
 export function operation<Input, Output>(
     compute: (input: Array<Input>) => Observable<Array<Output>>,
     getDependencies: (input: Array<Input>) => Array<any>,
-    clone: (value: Input, index: number) => Input, //TODO: remove
     parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
@@ -80,7 +79,7 @@ export function operation<Input, Output>(
 
     return (changes) =>
         changes.pipe(
-            mergeMatrixOperatorsIV(clone, parameters),
+            mergeMatrixOperators(parameters),
             nestChanges(getParameterIndex, debounceTime),
             switchGroupMap(
                 (change) =>
