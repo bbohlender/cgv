@@ -3,10 +3,10 @@ import React, { useState } from "react"
 import { of } from "rxjs"
 import { useInterpretion } from "../src/use-interpretion"
 import { ShapeEditor } from "../src/shape-editor"
-import { cloneInstance, Instance, operations } from "cgv/domains/shape"
-import { FacePrimitive } from "co-3gen"
-import { Matrix4, Plane, Vector2, Vector3 } from "three"
+import { Instance, operations } from "cgv/domains/shape"
+import { Matrix4, Plane, Shape, Vector2, Vector3 } from "three"
 import { InterpretionValue, MatrixEntriesObservable } from "cgv"
+import { FacePrimitive } from "cgv/domains/shape/primitive"
 
 const lotsVertecies: Array<Array<Vector2>> = [
     [new Vector2(100, 900), new Vector2(-200, 900), new Vector2(-500, 400), new Vector2(100, 300)],
@@ -25,7 +25,7 @@ const lots: MatrixEntriesObservable<InterpretionValue<Instance>> = of(
             value: {
                 path: [i],
                 attributes: {},
-                primitive: FacePrimitive.fromPointsAndPlane(new Matrix4(), new Plane(new Vector3(0, 1, 0)), vertecies),
+                primitive: new FacePrimitive(new Matrix4(), new Shape(vertecies)),
             },
         }),
     }))
@@ -34,7 +34,7 @@ const lots: MatrixEntriesObservable<InterpretionValue<Instance>> = of(
 export default function Index() {
     const [text, setText] = useState("")
 
-    const [changes, error] = useInterpretion(text, lots, operations, cloneInstance)
+    const [changes, error] = useInterpretion(text, lots, operations)
 
     return (
         <>

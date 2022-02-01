@@ -1,4 +1,4 @@
-import { cloneInstance, operations } from "cgv/domains/shape"
+import { operations } from "cgv/domains/shape"
 import Head from "next/head"
 import React, { useState } from "react"
 import { useMapbox } from "../src/use-mapbox"
@@ -9,7 +9,7 @@ export default function Index() {
     const [text, setText] = useState("")
 
     const input = useMapbox()
-    const [instances, error] = useInterpretion(text, input, operations, cloneInstance)
+    const [instances, error] = useInterpretion(text, input, operations)
 
     return (
         <>

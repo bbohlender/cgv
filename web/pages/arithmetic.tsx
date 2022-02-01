@@ -27,8 +27,7 @@ export default function Index() {
                     },
                 ]),
                 grammar,
-                operations,
-                (v) => v
+                operations
             )
                 .pipe(toArray(10))
                 .subscribe({

@@ -1,10 +1,10 @@
 import { MatrixEntry, InterpretionValue, Parameters } from "cgv"
-import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "co-3gen"
 import { useMemo } from "react"
-import { Matrix4, Plane, Vector3 } from "three"
+import { Matrix4, Shape, Vector2 } from "three"
 import { Layers, loadLayers } from "./api"
 import { Instance } from "cgv/domains/shape"
 import { from, map, Observable, of, shareReplay } from "rxjs"
+import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "cgv/domains/shape/primitive"
 
 const roadParameters: Parameters = {
     layer: of("road"),
@@ -48,11 +48,7 @@ function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
         (prev, feature) =>
             prev.concat(
                 feature.geometry.map<[Primitive, Parameters]>((lot) => [
-                    FacePrimitive.fromPointsOnPlane(
-                        new Matrix4(),
-                        new Plane(new Vector3(0, 1, 0)),
-                        lot.map(({ x, y }) => new Vector3(x, 0, y))
-                    ),
+                    new FacePrimitive(new Matrix4(), new Shape(lot.map(({ x, y }) => new Vector2(x, y)))),
                     buildingParameters,
                 ])
             ),
@@ -73,8 +69,8 @@ function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
                                 const p2 = geoemtry[(i + 1) % geoemtry.length]
                                 return LinePrimitive.fromPoints(
                                     new Matrix4(),
-                                    new Vector3(p1.x, 0, p1.y),
-                                    new Vector3(p2.x, 0, p2.y)
+                                    new Vector2(p1.x, p1.y),
+                                    new Vector2(p2.x, p2.y)
                                 )
                             })
                         ),

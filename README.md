@@ -14,36 +14,36 @@ _Computer Generated Verse_
 
 ### Folder Structure
 
-* `src` contains the source code for the core library including the domains in `src/domains`
-* `web` contains the frontend code in react (the pages for the respective editors)
+-   `src` contains the source code for the core library including the domains in `src/domains`
+-   `web` contains the frontend code in react (the pages for the respective editors)
 
 ## Language Design Decisions
 
-*The language expresses **procedural, conditional, stochastic grammars**, which are represented as a list of **`Rules`***
+\*The language expresses **procedural, conditional, stochastic grammars**, which are represented as a list of **`Rules`\***
 
 The grammar is defined in [grammar.ne](./grammar.ne).
 
-* **`Rules`** - like in CGA ("**Lot --> Building**")
-   * begins with the name of the rule - called **`Symbol`**
-   * followed by `->` (simplified - "-->" in CGA)
-   * followed by **`Parallel Executions`**
-* **`Parallel Execution`** - similar to CGA ("Building --> comp(f){ front : FrontFacade **|** side : SideFacade **|** top: Roof}")
-   * seperates **`Sequential Executions`** using `|` (vertical bar)
-* **`Sequential Execution`** - like in CGA ("Lot --> **extrude(height) Building**")
-   * seperates **`Operations`**, **`Constants`** or **`Symbols`** using **`whitespace`**
-* **`Operations`** - like in CGA ("**color(wallColor)**")
-   * begins with the operation name (name is domain specific)
-   * followed by opening bracket `(`, the **`Parameters`** and a closing bracket `)`
-* **`Parameters`** - like in CGA ("s(**1,1,0.1**)")
-   * seperates **`Parallel Executions`** using commas `,`
-* **`Constants`** (*work in progress*)
-   * currently wrapped in quotation `"`
-* **`Variables`** (*work in progress*)
+-   **`Rules`** - like in CGA ("**Lot --> Building**")
+    -   begins with the name of the rule - called **`Symbol`**
+    -   followed by `->` (simplified - "-->" in CGA)
+    -   followed by **`Parallel Executions`**
+-   **`Parallel Execution`** - similar to CGA ("Building --> comp(f){ front : FrontFacade **|** side : SideFacade **|** top: Roof}")
+    -   seperates **`Sequential Executions`** using `|` (vertical bar)
+-   **`Sequential Execution`** - like in CGA ("Lot --> **extrude(height) Building**")
+    -   seperates **`Operations`**, **`Constants`** or **`Symbols`** using **`whitespace`**
+-   **`Operations`** - like in CGA ("**color(wallColor)**")
+    -   begins with the operation name (name is domain specific)
+    -   followed by opening bracket `(`, the **`Parameters`** and a closing bracket `)`
+-   **`Parameters`** - like in CGA ("s(**1,1,0.1**)")
+    -   seperates **`Parallel Executions`** using commas `,`
+-   **`Constants`** (_work in progress_)
+    -   currently wrapped in quotation `"`
+-   **`Variables`** (_work in progress_)
 
 ## Language Features ToDo
 
-* Domain Constants (e.g. `1` instead of `"1"`)
-* "Scoped" Variables (e.g. this.type)
+-   Domain Constants (e.g. `1` instead of `"1"`)
+-   "Scoped" Variables (e.g. this.type)
 
 ## Glossary
 
@@ -72,7 +72,7 @@ The grammar is defined in [grammar.ne](./grammar.ne).
 
 ### Arithmetic
 
-*currently not working, cause the event operator is missing*
+_currently not working, cause the event operator is missing_
 
 ```
 a -> sum("1", "2") max | "4" max
@@ -118,7 +118,7 @@ Building -> translate("0", "100", "0") | lines() connect(translate("0", "100", "
 
 `City 2`
 
-*not working - incomplete*
+_not working - incomplete_
 
 ```
 a -> extrude(this | 3) faces(this) (filter(this | horizontal) walls) | (filter(this | upwards) roof)
@@ -130,4 +130,13 @@ roof1 -> connectAll(center(this) translate(this | 0 | attribute(float | 0 | 3) |
 
 walls -> split2d(this | horizontal | 3) split2d(this | vertical | 3) window
 window -> setback(this | 0.5) extrude(this | -0.1)
+```
+
+`City 3`
+
+```
+City -> extrude("1000") faces() (select("1", "5") Wall | select("5", "6") Roof)
+
+Wall -> splitZ("200") lines()
+Roof -> this
 ```

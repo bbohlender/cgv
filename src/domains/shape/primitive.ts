@@ -2,12 +2,16 @@ import {
     Box2,
     Box3,
     BufferGeometry,
+    Color,
     Event,
     Line,
+    LineBasicMaterial,
     Matrix4,
     Mesh,
+    MeshPhongMaterial,
     Object3D,
     Points,
+    PointsMaterial,
     Shape,
     ShapeBufferGeometry,
     Vector2,
@@ -57,7 +61,7 @@ export abstract class Primitive {
 
     abstract extrude(by: number): Primitive
     abstract components(type: "points" | "lines" | "faces"): Array<Primitive>
-    abstract toObject3D(): Object3D
+    abstract toObject3D(color: Color): Object3D
     abstract getGeometrySize(target: Vector3): void
     protected abstract computeGeometry(): BufferGeometry | undefined
 }
@@ -90,8 +94,11 @@ export class PointPrimitive extends Primitive {
             return []
         }
     }
-    toObject3D(): Object3D {
-        return setupObject3D(new Points(new BufferGeometry().setFromPoints([new Vector3()])), this.matrix)
+    toObject3D(color: Color): Object3D {
+        return setupObject3D(
+            new Points(new BufferGeometry().setFromPoints([new Vector3()]), new PointsMaterial({ color })),
+            this.matrix
+        )
     }
 
     clone(): Primitive {
@@ -150,9 +157,12 @@ export class LinePrimitive extends Primitive {
         }
     }
 
-    toObject3D(): Object3D {
+    toObject3D(color: Color): Object3D {
         return setupObject3D(
-            new Line(new BufferGeometry().setFromPoints([new Vector3(), new Vector3(0, this.length, 0)])),
+            new Line(
+                new BufferGeometry().setFromPoints([new Vector3(), new Vector3(this.length, 0, 0)]),
+                new LineBasicMaterial({ color })
+            ),
             this.matrix
         )
     }
@@ -194,7 +204,16 @@ export class FacePrimitive extends Primitive {
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
-        return new ShapeBufferGeometry(this.shape).rotateX(Math.PI / 2)
+        const geometry = new ShapeBufferGeometry(this.shape)
+        let temp: number
+        for (let i = 0; i < geometry.index!.count; i += 3) {
+            // swap the first and third values
+            temp = geometry.index!.getX(i)
+            geometry.index!.setX(i, geometry.index!.getX(i + 2))
+            geometry.index!.setX(i + 2, temp)
+        }
+        geometry.rotateX(Math.PI / 2)
+        return geometry
     }
 
     extrude(by: number): Primitive {
@@ -235,8 +254,8 @@ export class FacePrimitive extends Primitive {
         }
     }
 
-    toObject3D(): Object3D {
-        return setupObject3D(new Mesh(this.getGeometry()), this.matrix)
+    toObject3D(color: Color): Object3D {
+        return setupObject3D(new Mesh(this.getGeometry(), new MeshPhongMaterial({ color })), this.matrix)
     }
 }
 
@@ -256,8 +275,8 @@ export class GeometryPrimitive extends Primitive {
     components(type: "points" | "lines" | "faces"): Primitive[] {
         throw new Error("Method not implemented.")
     }
-    toObject3D(): Object3D {
-        return setupObject3D(new Mesh(this.getGeometry()), this.matrix)
+    toObject3D(color: Color): Object3D {
+        return setupObject3D(new Mesh(this.getGeometry(), new MeshPhongMaterial({ color })), this.matrix)
     }
 
     getGeometrySize(target: Vector3): void {
@@ -290,8 +309,10 @@ export class CombinedPrimitive extends Primitive {
         return results.map((result) => result.premultiplyMatrix(this.matrix))
     }
 
-    toObject3D(): Object3D {
-        return setupObject3D(new Mesh(this.getGeometry()), this.matrix)
+    toObject3D(color: Color): Object3D {
+        const object = setupObject3D(new Object3D(), this.matrix)
+        this.primitives.forEach((primitive) => object.add(primitive.toObject3D(color)))
+        return object
     }
 
     getGeometrySize(target: Vector3): void {

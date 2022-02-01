@@ -4,7 +4,9 @@ import { InterpretionValue, MatrixEntriesObservable } from "cgv"
 import { Instance, toObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
 import { tap } from "rxjs"
-import { Object3D } from "three"
+import { Color, Object3D } from "three"
+
+const red = new Color(0xff0000)
 
 export function ShapeEditor({
     changes,
@@ -18,7 +20,7 @@ export function ShapeEditor({
         }
         const subscription = changes
             .pipe(
-                toObject3D((value) => value.value.primitive.getObject3D(false)),
+                toObject3D((value) => value.value.primitive.toObject3D(red)),
                 tap({
                     next: (object) => setState([object, undefined]),
                     error: (error) => setState([undefined, error.message]),
