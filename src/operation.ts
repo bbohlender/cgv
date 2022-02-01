@@ -52,12 +52,13 @@ export function operation<Input, Output>(
         >
     >,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
-    inputAmount?: number,
+    inputAmount?: Array<number>,
     debounceTime: number = 10
 ): OperatorFunction<
     Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
     Array<MatrixEntry<Observable<InterpretionValue<Output> | undefined>>>
 > {
+    //TODO: throw error when inputAmount != parameters.length
     const computeInterpretationValue: (
         input: Array<InterpretionValue<Input>>
     ) => Observable<Array<InterpretionValue<Output>>> = (input) => {
@@ -85,7 +86,7 @@ export function operation<Input, Output>(
                 (change) =>
                     change.value.pipe(
                         toArray(debounceTime),
-                        filter((array) => inputAmount == null || array.length === inputAmount),
+                        filter((array) => parameters.length === array.length),
                         cache<Array<InterpretionValue<Input>>, Array<InterpretionValue<Output>>>(
                             computeDependencies,
                             computeInterpretationValue

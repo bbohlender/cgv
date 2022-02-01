@@ -11,7 +11,7 @@ export function useInterpretion<T>(
             const grammar = parse(text)
             return [interprete<T>(changes, grammar, operations), undefined] as const
         } catch (error: any) {
-            return [undefined, error.message] as const
+            return [undefined, JSON.stringify(error.message)] as const
         }
     }, [text, changes])
 }

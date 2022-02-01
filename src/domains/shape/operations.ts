@@ -191,10 +191,10 @@ const computePoints = computeComponents.bind(null, "points")
 const computeLines = computeComponents.bind(null, "lines")
 const computeFaces = computeComponents.bind(null, "faces")
 
-function computeSplitZ([instance, at]: Array<any>): Observable<Array<Instance>> {
+function computeSplitZ([instance, at, limit]: Array<any>): Observable<Array<Instance>> {
     return of(
         Split(instance.primitive, Axis.Z, (matrix, index, x, y, z) => {
-            if (index === 0) {
+            if (limit == null || index < limit) {
                 const size = Math.min(at, z)
                 return FacePrimitive.fromLengthAndHeight(matrix, x, size)
             } else {
@@ -207,10 +207,10 @@ function computeSplitZ([instance, at]: Array<any>): Observable<Array<Instance>> 
     )
 }
 
-function computeSplitX([instance, at]: Array<any>): Observable<Array<Instance>> {
+function computeSplitX([instance, at, limit]: Array<any>): Observable<Array<Instance>> {
     return of(
         Split(instance.primitive, Axis.X, (matrix, index, x, y, z) => {
-            if (index === 0) {
+            if (limit == null || index < limit) {
                 const size = Math.min(at, x)
                 return FacePrimitive.fromLengthAndHeight(matrix, size, z)
             } else {
@@ -225,21 +225,21 @@ function computeSplitX([instance, at]: Array<any>): Observable<Array<Instance>> 
 
 export const operations: Operations<Instance> = {
     translate: (parameters) => (changes) =>
-        changes.pipe(operation(computeTranslate, (values) => values, [thisParameter, ...parameters], undefined, 4)),
+        changes.pipe(operation(computeTranslate, (values) => values, [thisParameter, ...parameters], undefined, [4])),
 
     scale: (parameters) => (changes) =>
-        changes.pipe(operation(computeScale, (values) => values, [thisParameter, ...parameters], undefined, 4)),
+        changes.pipe(operation(computeScale, (values) => values, [thisParameter, ...parameters], undefined, [4])),
 
     rotate: (parameters) => (changes) =>
-        changes.pipe(operation(computeRotate, (values) => values, [thisParameter, ...parameters], undefined, 4)),
+        changes.pipe(operation(computeRotate, (values) => values, [thisParameter, ...parameters], undefined, [4])),
 
     extrude: (parameters) => (changes) =>
-        changes.pipe(operation(computeExtrude, (values) => values, [thisParameter, ...parameters], undefined, 2)),
+        changes.pipe(operation(computeExtrude, (values) => values, [thisParameter, ...parameters], undefined, [2])),
 
     splitX: (parameters) => (changes) =>
-        changes.pipe(operation(computeSplitX, (values) => values, [thisParameter, ...parameters], undefined, 2)),
+        changes.pipe(operation(computeSplitX, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])),
     splitZ: (parameters) => (changes) =>
-        changes.pipe(operation(computeSplitZ, (values) => values, [thisParameter, ...parameters], undefined, 2)),
+        changes.pipe(operation(computeSplitZ, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])),
 
     points: (parameters) => (changes) =>
         changes.pipe(operation(computePoints, (values) => values, [thisParameter, ...parameters])),

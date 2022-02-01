@@ -10,6 +10,7 @@ import {
     Mesh,
     MeshPhongMaterial,
     Object3D,
+    Path,
     Points,
     PointsMaterial,
     Shape,
@@ -18,7 +19,7 @@ import {
     Vector3,
 } from "three"
 import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
-import { computeDirectionMatrix, makeTranslationMatrix } from "./math"
+import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "./math"
 
 const helperMatrix = new Matrix4()
 const helperVector = new Vector3()
@@ -216,20 +217,32 @@ export class FacePrimitive extends Primitive {
         return geometry
     }
 
+    invert(): FacePrimitive {
+        const newMatrix = this.matrix.clone()
+        newMatrix.multiply(makeRotationMatrix(Math.PI, 0, 0))
+        const points = this.shape.getPoints(5)
+        const holes = this.shape.holes
+        const newShape = new Shape(points.map(({ x, y }) => new Vector2(x, -y)))
+        newShape.holes = holes.map((hole) => new Path(hole.getPoints().map(({ x, y }) => new Vector2(x, -y))))
+        return new FacePrimitive(newMatrix, newShape)
+    }
+
     extrude(by: number): Primitive {
         invertMatrix.copy(this.matrix).invert()
-        const bottom = this.multiplyMatrix(invertMatrix)
-        const top = bottom.multiplyMatrix(makeTranslationMatrix(0, by, 0))
+        const top = this.multiplyMatrix(invertMatrix.multiply(makeTranslationMatrix(0, by, 0)))
         const points = this.shape.extractPoints(5).shape
         return new CombinedPrimitive(this.matrix.clone(), [
-            bottom,
             ...points.map((p1, i) => {
                 const p2 = points[(i + 1) % points.length]
                 helperVector.set(p2.x - p1.x, 0, p2.y - p1.y)
                 const length = helperVector.length()
                 const matrix = makeTranslationMatrix(p1.x, 0, p1.y, new Matrix4())
                 matrix.multiply(computeDirectionMatrix(helperVector.normalize(), YAXIS))
-                return FacePrimitive.fromLengthAndHeight(matrix, length, by, true)
+                const result = FacePrimitive.fromLengthAndHeight(matrix, length, by, true)
+                if (by < 0) {
+                    return result.invert()
+                }
+                return result
             }),
             top,
         ])

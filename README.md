@@ -135,8 +135,17 @@ window -> setback(this | 0.5) extrude(this | -0.1)
 `City 3`
 
 ```
-City -> extrude("1000") faces() (select("1", "5") Wall | select("5", "6") Roof)
+City -> extrude("1000") faces() (select("0", "4") Wall | select("4", "5") Roof)
 
-Wall -> splitZ("200") lines()
+Wall -> splitZ("200") Floor
+
+Floor -> splitX("200") Tile
+
+Tile -> splitX("50", "1") (select("0", "1") | select("1", "2") splitX("100", "1") (select("0", "1") WindowWrapper | select("1", "2")) )
+
+WindowWrapper -> splitZ("50", "1") (select("0", "1") | select("1", "2") splitZ("100", "1") (select("0", "1") Window | select("1", "2")) )
+
+Window -> extrude("-10")
+
 Roof -> this
 ```

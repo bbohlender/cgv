@@ -3,7 +3,6 @@ import { Canvas } from "@react-three/fiber"
 import { InterpretionValue, MatrixEntriesObservable } from "cgv"
 import { Instance, toObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
-import { tap } from "rxjs"
 import { Color, Object3D } from "three"
 
 const red = new Color(0xff0000)
@@ -18,15 +17,10 @@ export function ShapeEditor({
         if (changes == null) {
             return
         }
-        const subscription = changes
-            .pipe(
-                toObject3D((value) => value.value.primitive.toObject3D(red)),
-                tap({
-                    next: (object) => setState([object, undefined]),
-                    error: (error) => setState([undefined, error.message]),
-                })
-            )
-            .subscribe()
+        const subscription = changes.pipe(toObject3D((value) => value.value.primitive.toObject3D(red))).subscribe({
+            next: (object) => setState([object, undefined]),
+            error: (error) => setState([undefined, error.message]),
+        })
         return () => subscription.unsubscribe()
     }, [changes])
     return (

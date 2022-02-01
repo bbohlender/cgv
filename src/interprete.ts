@@ -1,4 +1,13 @@
-import { defer, distinctUntilChanged, map, MonoTypeOperatorFunction, Observable, of, OperatorFunction } from "rxjs"
+import {
+    defer,
+    distinctUntilChanged,
+    map,
+    MonoTypeOperatorFunction,
+    Observable,
+    of,
+    OperatorFunction,
+    throwError,
+} from "rxjs"
 import {
     MatrixEntry,
     MatrixEntriesObservable,
@@ -63,8 +72,6 @@ export function mergeMatrixOperators<T, K = T>(
     }
 }
 
-//TODO: don't clone and DON'T mutate anything :) change things in co-3gen
-
 export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
@@ -82,7 +89,7 @@ export function interpreteStep<T>(
         case "operation":
             const operation = operations[step.identifier]
             if (operation == null) {
-                throw new Error(`unknown operation "${step.identifier}"`)
+                return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
             }
             return (input) =>
                 input.pipe(
@@ -139,7 +146,7 @@ export function interpreteStep<T>(
         case "symbol":
             const rule = grammar[step.identifier]
             if (rule == null) {
-                throw new Error(`unknown rule "${step.identifier}"`)
+                return () => throwError(() => new Error(`unknown rule "${step.identifier}"`))
             }
             return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations, eventScheduler)))
     }
