@@ -199,10 +199,11 @@ export class LinePrimitive extends Primitive {
                 return []
             case "lines":
                 return [this.clone()]
-            case "points":
+            case "points": {
                 const end = new PointPrimitive(this.matrix.clone(), this.materialGenerator)
                 end.multiplyMatrix(helperMatrix.makeTranslation(0, this.length, 0))
                 return [new PointPrimitive(this.matrix.clone(), this.materialGenerator), end]
+            }
         }
     }
 
@@ -322,7 +323,7 @@ export class FacePrimitive extends Primitive {
                                 this.materialGenerator
                             )
                     )
-            case "lines":
+            case "lines": {
                 const points = this.shape.extractPoints(5).shape
                 return points.map((point, i) =>
                     LinePrimitive.fromPoints(
@@ -332,6 +333,7 @@ export class FacePrimitive extends Primitive {
                         this.materialGenerator
                     )
                 )
+            }
             case "faces":
                 return [this]
         }

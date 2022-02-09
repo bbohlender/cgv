@@ -17,7 +17,7 @@ export function cache<Input, Output>(
     return (input) =>
         input.pipe(
             map((input) => {
-                if(input == null) {
+                if (input == null) {
                     return of(undefined)
                 }
                 const dependencies = getDependencies(input)

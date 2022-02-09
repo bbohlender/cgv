@@ -180,9 +180,7 @@ export function switchSize(
     )
 }
 
-export function ifElse() {
-
-}
+export function ifElse() {}
 
 export function switchBlock(
     parameters: Array<

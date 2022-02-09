@@ -54,7 +54,11 @@ export function Split(
 
 const sizeHelper = new Vector3()
 
-export function Replace(primitive: Primitive, geometry: BufferGeometry, materialGenerator: (type: ObjectType) => Material): Primitive {
+export function Replace(
+    primitive: Primitive,
+    geometry: BufferGeometry,
+    materialGenerator: (type: ObjectType) => Material
+): Primitive {
     geometry.computeBoundingBox()
     geometry.boundingBox!.getSize(vectorHelper)
     primitive.getGeometrySize(sizeHelper)
@@ -77,7 +81,12 @@ export function Transform(primitive: Primitive, matrix: Matrix4): Primitive {
     return primitive.multiplyMatrix(matrix)
 }
 
-export function CSGCombine(p1: Primitive, p2: Primitive, applyCSGOperation: (csg1: CSG, csg2: CSG) => CSG, materialGenerator: (type: ObjectType) => Material): Primitive {
+export function CSGCombine(
+    p1: Primitive,
+    p2: Primitive,
+    applyCSGOperation: (csg1: CSG, csg2: CSG) => CSG,
+    materialGenerator: (type: ObjectType) => Material
+): Primitive {
     matrixHelper.copy(p2.matrix).invert().premultiply(p1.matrix)
     const g1 = p1.getGeometry()
     const g2 = p2.getGeometry()?.clone().applyMatrix4(matrixHelper)
@@ -89,9 +98,13 @@ export function CSGCombine(p1: Primitive, p2: Primitive, applyCSGOperation: (csg
     const csg1 = CSG.fromGeometry(g1)
     const csg2 = CSG.fromGeometry(g2)
 
-    g2?.dispose();
+    g2?.dispose()
 
-    return new GeometryPrimitive(p1.matrix.clone(), applyCSGOperation(csg1, csg2).toGeometry(matrixHelper.identity()), materialGenerator)
+    return new GeometryPrimitive(
+        p1.matrix.clone(),
+        applyCSGOperation(csg1, csg2).toGeometry(matrixHelper.identity()),
+        materialGenerator
+    )
 }
 
 export function CSGInverse(primitive: Primitive, materialGenerator: (type: ObjectType) => Material): Primitive {

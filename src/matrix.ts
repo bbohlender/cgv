@@ -299,9 +299,6 @@ export function switchGroupMap<Input, Output, Key>(
     return (values) =>
         values.pipe(
             groupBy(key),
-            mergeMap((group) => group.pipe(
-                distinctUntilChanged(),
-                switchMap(project)
-            ))
+            mergeMap((group) => group.pipe(distinctUntilChanged(), switchMap(project)))
         )
 }

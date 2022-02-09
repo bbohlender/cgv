@@ -1,7 +1,6 @@
 import { mergeMap, Subject } from "rxjs"
 import { ParsedEventDefintion, MatrixEntriesObservable, InterpretionValue, toArray } from "."
 
-
 /*export function generateEventScheduler<T>(): (
     identifier: string,
     event: ParsedEventDefintion,

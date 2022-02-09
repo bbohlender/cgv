@@ -1,4 +1,4 @@
-import { map, Observable, OperatorFunction, filter, tap, switchMap, distinctUntilChanged, of } from "rxjs"
+import { map, Observable, OperatorFunction, switchMap, distinctUntilChanged, of } from "rxjs"
 import {
     EventDepthMap,
     getMatrixEntryIndexKey,
@@ -53,7 +53,7 @@ export function operation<Input, Output>(
     >,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     inputAmount?: Array<number>,
-    debounceTime: number = 10
+    debounceTime = 10
 ): OperatorFunction<
     Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
     Array<MatrixEntry<Observable<InterpretionValue<Output> | undefined>>>
@@ -62,7 +62,7 @@ export function operation<Input, Output>(
     const computeInterpretationValue: (
         input: Array<InterpretionValue<Input>> | undefined
     ) => Observable<Array<InterpretionValue<Output>>> = (input) => {
-        if(input == null) {
+        if (input == null) {
             return of([])
         }
         const eventDepthMap = maxEventDepth(input)
@@ -82,9 +82,10 @@ export function operation<Input, Output>(
     const computeCachedValue: OperatorFunction<
         Array<InterpretionValue<Input>> | undefined,
         Array<InterpretionValue<Output>> | undefined
-    > = getDependencies == null
-        ? (input) => input.pipe(switchMap(computeInterpretationValue), distinctUntilChanged())
-        : cache((input) => getDependencies(input.map(({ value }) => value)), computeInterpretationValue)
+    > =
+        getDependencies == null
+            ? (input) => input.pipe(switchMap(computeInterpretationValue), distinctUntilChanged())
+            : cache((input) => getDependencies(input.map(({ value }) => value)), computeInterpretationValue)
 
     return (changes) =>
         changes.pipe(
@@ -94,7 +95,7 @@ export function operation<Input, Output>(
                 (change) =>
                     change.value.pipe(
                         toArray(debounceTime),
-                        map((array) => parameters.length === array.length ? array : undefined),
+                        map((array) => (parameters.length === array.length ? array : undefined)),
                         computeCachedValue,
                         toChanges(),
                         map((entries) =>

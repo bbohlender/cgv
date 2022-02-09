@@ -86,7 +86,7 @@ export function interpreteStep<T>(
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
 > {
     switch (step.type) {
-        case "operation":
+        case "operation": {
             const operation = operations[step.identifier]
             if (operation == null) {
                 return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
@@ -95,11 +95,12 @@ export function interpreteStep<T>(
                 step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations, eventScheduler))
             )
             return (input) => input.pipe(appliedOperation)
+        }
         case "parallel":
             return mergeMatrixOperators(
                 step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, eventScheduler))
             )
-        case "raw":
+        case "raw": {
             const value = of({
                 eventDepthMap: {},
                 terminated: false,
@@ -115,11 +116,12 @@ export function interpreteStep<T>(
                         }))
                     )
                 )
+        }
         case "sequential":
             //TODO: this can be improved?
             return (input) => {
                 let current = input
-                let terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
+                const terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
                 for (const stepOfSteps of step.steps) {
                     const sharedCurrent = current.pipe(
                         deepShareReplay({
@@ -140,12 +142,13 @@ export function interpreteStep<T>(
             }
         case "this":
             return (input) => input
-        case "symbol":
+        case "symbol": {
             const rule = grammar[step.identifier]
             if (rule == null) {
                 return () => throwError(() => new Error(`unknown rule "${step.identifier}"`))
             }
             return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations, eventScheduler)))
+        }
     }
 }
 
