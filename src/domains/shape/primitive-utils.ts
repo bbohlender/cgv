@@ -1,7 +1,7 @@
-import { BufferGeometry, Matrix4, Vector3 } from "three"
+import { BufferGeometry, Material, Matrix4, Vector3 } from "three"
 import { CSG } from "three-csg-ts"
 import { makeTranslationMatrix } from "./math"
-import { GeometryPrimitive, PointPrimitive, Primitive } from "./primitive"
+import { GeometryPrimitive, ObjectType, PointPrimitive, Primitive } from "./primitive"
 
 const vectorHelper = new Vector3()
 const moveVector = new Vector3()
@@ -19,7 +19,7 @@ const axisKey: { [axis in Axis]: "x" | "y" | "z" } = {
     [Axis.Z]: "z",
 }
 
-function getValueOnAxis(vector: Vector3, axis: Axis): number {
+export function getValueOnAxis(vector: Vector3, axis: Axis): number {
     return vector[axisKey[axis]]
 }
 
@@ -54,18 +54,19 @@ export function Split(
 
 const sizeHelper = new Vector3()
 
-export function Replace(primitive: Primitive, geometry: BufferGeometry): Primitive {
+export function Replace(primitive: Primitive, geometry: BufferGeometry, materialGenerator: (type: ObjectType) => Material): Primitive {
     geometry.computeBoundingBox()
     geometry.boundingBox!.getSize(vectorHelper)
     primitive.getGeometrySize(sizeHelper)
     return new GeometryPrimitive(
         primitive.matrix.clone(),
-        geometry.scale(sizeHelper.x / vectorHelper.x, sizeHelper.y / vectorHelper.y, sizeHelper.z / vectorHelper.z)
+        geometry.scale(sizeHelper.x / vectorHelper.x, sizeHelper.y / vectorHelper.y, sizeHelper.z / vectorHelper.z),
+        materialGenerator
     )
 }
 
-export function CenterPoint(primtive: Primitive): Primitive {
-    const result = new PointPrimitive(primtive.matrix)
+export function CenterPoint(primtive: Primitive, materialGenerator: (type: ObjectType) => Material): Primitive {
+    const result = new PointPrimitive(primtive.matrix, materialGenerator)
     primtive.getGeometrySize(vectorHelper)
     vectorHelper.divideScalar(2)
     result.multiplyMatrix(makeTranslationMatrix(vectorHelper.x, vectorHelper.y, vectorHelper.z))
@@ -76,7 +77,7 @@ export function Transform(primitive: Primitive, matrix: Matrix4): Primitive {
     return primitive.multiplyMatrix(matrix)
 }
 
-export function CSGCombine(p1: Primitive, p2: Primitive, applyCSGOperation: (csg1: CSG, csg2: CSG) => CSG): Primitive {
+export function CSGCombine(p1: Primitive, p2: Primitive, applyCSGOperation: (csg1: CSG, csg2: CSG) => CSG, materialGenerator: (type: ObjectType) => Material): Primitive {
     matrixHelper.copy(p2.matrix).invert().premultiply(p1.matrix)
     const g1 = p1.getGeometry()
     const g2 = p2.getGeometry()?.clone().applyMatrix4(matrixHelper)
@@ -90,16 +91,17 @@ export function CSGCombine(p1: Primitive, p2: Primitive, applyCSGOperation: (csg
 
     g2?.dispose();
 
-    return new GeometryPrimitive(p1.matrix.clone(), applyCSGOperation(csg1, csg2).toGeometry(matrixHelper.identity()))
+    return new GeometryPrimitive(p1.matrix.clone(), applyCSGOperation(csg1, csg2).toGeometry(matrixHelper.identity()), materialGenerator)
 }
 
-export function CSGInverse(primitive: Primitive): Primitive {
+export function CSGInverse(primitive: Primitive, materialGenerator: (type: ObjectType) => Material): Primitive {
     const g = primitive.getGeometry()
     if (g == null) {
         throw "can't apply csg invert on primitive with no geometry"
     }
     return new GeometryPrimitive(
         primitive.matrix.clone(),
-        CSG.fromGeometry(g).inverse().toGeometry(matrixHelper.identity())
+        CSG.fromGeometry(g).inverse().toGeometry(matrixHelper.identity()),
+        materialGenerator
     )
 }

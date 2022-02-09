@@ -4,9 +4,11 @@ import { of } from "rxjs"
 import { useInterpretion } from "../src/use-interpretion"
 import { ShapeEditor } from "../src/shape-editor"
 import { Instance, operations } from "cgv/domains/shape"
-import { Matrix4, Plane, Shape, Vector2, Vector3 } from "three"
+import { Color, Matrix4, Shape, Vector2 } from "three"
 import { InterpretionValue, MatrixEntriesObservable } from "cgv"
-import { FacePrimitive } from "cgv/domains/shape/primitive"
+import { createPhongMaterialGenerator, FacePrimitive } from "cgv/domains/shape/primitive"
+
+const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
 const lot: MatrixEntriesObservable<InterpretionValue<Instance>> = of([
     {
@@ -25,7 +27,8 @@ const lot: MatrixEntriesObservable<InterpretionValue<Instance>> = of([
                         new Vector2(-200, 200),
                         new Vector2(-300, -200),
                         new Vector2(200, -300),
-                    ])
+                    ]),
+                    redMaterialGenerator
                 ),
             },
         }),

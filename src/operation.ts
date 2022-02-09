@@ -1,4 +1,4 @@
-import { map, Observable, OperatorFunction, filter, tap } from "rxjs"
+import { map, Observable, OperatorFunction, filter, tap, switchMap, distinctUntilChanged, of } from "rxjs"
 import {
     EventDepthMap,
     getMatrixEntryIndexKey,
@@ -44,7 +44,7 @@ export function maxEventDepth(maps: Array<InterpretionValue<any>>): EventDepthMa
 
 export function operation<Input, Output>(
     compute: (input: Array<Input>) => Observable<Array<Output>>,
-    getDependencies: (input: Array<Input>) => Array<any>,
+    getDependencies: ((input: Array<Input>) => Array<any>) | undefined,
     parameters: Array<
         OperatorFunction<
             Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
@@ -60,8 +60,11 @@ export function operation<Input, Output>(
 > {
     //TODO: throw error when inputAmount != parameters.length
     const computeInterpretationValue: (
-        input: Array<InterpretionValue<Input>>
+        input: Array<InterpretionValue<Input>> | undefined
     ) => Observable<Array<InterpretionValue<Output>>> = (input) => {
+        if(input == null) {
+            return of([])
+        }
         const eventDepthMap = maxEventDepth(input)
         const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
         return compute(input.map(({ value }) => value)).pipe(
@@ -75,8 +78,13 @@ export function operation<Input, Output>(
             )
         )
     }
-    const computeDependencies: (input: Array<InterpretionValue<Input>>) => Array<any> = (input) =>
-        getDependencies(input.map(({ value }) => value))
+
+    const computeCachedValue: OperatorFunction<
+        Array<InterpretionValue<Input>> | undefined,
+        Array<InterpretionValue<Output>> | undefined
+    > = getDependencies == null
+        ? (input) => input.pipe(switchMap(computeInterpretationValue), distinctUntilChanged())
+        : cache((input) => getDependencies(input.map(({ value }) => value)), computeInterpretationValue)
 
     return (changes) =>
         changes.pipe(
@@ -86,11 +94,8 @@ export function operation<Input, Output>(
                 (change) =>
                     change.value.pipe(
                         toArray(debounceTime),
-                        filter((array) => parameters.length === array.length),
-                        cache<Array<InterpretionValue<Input>>, Array<InterpretionValue<Output>>>(
-                            computeDependencies,
-                            computeInterpretationValue
-                        ),
+                        map((array) => parameters.length === array.length ? array : undefined),
+                        computeCachedValue,
                         toChanges(),
                         map((entries) =>
                             entries.map((result) => ({

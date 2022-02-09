@@ -91,30 +91,27 @@ export function interpreteStep<T>(
             if (operation == null) {
                 return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
             }
-            return (input) =>
-                input.pipe(
-                    operation(
-                        step.parameters.map((parameter) =>
-                            interpreteStep(parameter, grammar, operations, eventScheduler)
-                        )
-                    )
-                )
+            const appliedOperation = operation(
+                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations, eventScheduler))
+            )
+            return (input) => input.pipe(appliedOperation)
         case "parallel":
             return mergeMatrixOperators(
                 step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, eventScheduler))
             )
         case "raw":
+            const value = of({
+                eventDepthMap: {},
+                terminated: false,
+                value: step.value,
+                parameters: {},
+            })
             return (input) =>
                 input.pipe(
                     map((changes) =>
                         changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
                             ...change,
-                            value: of({
-                                eventDepthMap: {},
-                                terminated: false,
-                                value: step.value,
-                                parameters: {},
-                            }),
+                            value,
                         }))
                     )
                 )

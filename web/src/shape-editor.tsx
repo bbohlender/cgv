@@ -5,8 +5,6 @@ import { Instance, toObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
 import { Color, Object3D } from "three"
 
-const red = new Color(0xff0000)
-
 export function ShapeEditor({
     changes,
 }: {
@@ -17,7 +15,7 @@ export function ShapeEditor({
         if (changes == null) {
             return
         }
-        const subscription = changes.pipe(toObject3D((value) => value.value.primitive.toObject3D(red))).subscribe({
+        const subscription = changes.pipe(toObject3D((value) => value.value.primitive.getObject())).subscribe({
             next: (object) => setState([object, undefined]),
             error: (error) => setState([undefined, error.message]),
         })

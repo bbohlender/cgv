@@ -3,9 +3,9 @@ import {
     Box3,
     BufferGeometry,
     Color,
-    Event,
     Line,
     LineBasicMaterial,
+    Material,
     Matrix4,
     Mesh,
     MeshPhongMaterial,
@@ -21,6 +21,21 @@ import {
 import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
 import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "./math"
 
+export type MaterialGenerator = (type: ObjectType) => Material
+
+export function createPhongMaterialGenerator(color: Color): MaterialGenerator {
+    return (type) => {
+        switch (type) {
+            case ObjectType.Point:
+                return new PointsMaterial({ color })
+            case ObjectType.Line:
+                return new LineBasicMaterial({ color })
+            case ObjectType.Mesh:
+                return new MeshPhongMaterial({ color })
+        }
+    }
+}
+
 const helperMatrix = new Matrix4()
 const helperVector = new Vector3()
 
@@ -32,10 +47,17 @@ function setupObject3D(object: Object3D, matrix: Matrix4): Object3D {
 
 //TODO: remove clone, make every readonly, mutation only through recreation
 
+export enum ObjectType {
+    Point,
+    Line,
+    Mesh,
+}
+
 export abstract class Primitive {
     public abstract readonly matrix: Matrix4
 
     private geometryCache: BufferGeometry | null | undefined = null
+    private objectCache: Object3D | null = null
 
     getGeometry(): BufferGeometry | undefined {
         if (this.geometryCache === null) {
@@ -44,11 +66,20 @@ export abstract class Primitive {
         return this.geometryCache
     }
 
+    getObject(): Object3D {
+        if (this.objectCache === null) {
+            this.objectCache = this.computeObject3D()
+        }
+        return this.objectCache
+    }
+
     dispose(): void {
         this.geometryCache?.dispose()
     }
 
     protected abstract changeMatrix(matrix: Matrix4): Primitive
+
+    abstract changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive
 
     //abstract applyMatrixToGeometry(matrix: Matrix4): void;
 
@@ -62,21 +93,25 @@ export abstract class Primitive {
 
     abstract extrude(by: number): Primitive
     abstract components(type: "points" | "lines" | "faces"): Array<Primitive>
-    abstract toObject3D(color: Color): Object3D
+    protected abstract computeObject3D(): Object3D
     abstract getGeometrySize(target: Vector3): void
     protected abstract computeGeometry(): BufferGeometry | undefined
 }
 
 export class PointPrimitive extends Primitive {
+    changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
+        return new PointPrimitive(this.matrix, generator)
+    }
+
     protected changeMatrix(matrix: Matrix4): Primitive {
-        return new PointPrimitive(matrix)
+        return new PointPrimitive(matrix, this.materialGenerator)
     }
 
     multiplyMatrix(matrix: Matrix4): Primitive {
-        return new PointPrimitive(this.matrix.clone().multiply(matrix))
+        return new PointPrimitive(this.matrix.clone().multiply(matrix), this.materialGenerator)
     }
 
-    constructor(public readonly matrix: Matrix4) {
+    constructor(public readonly matrix: Matrix4, protected materialGenerator: (type: ObjectType) => Material) {
         super()
     }
 
@@ -85,7 +120,7 @@ export class PointPrimitive extends Primitive {
     }
 
     extrude(by: number): Primitive {
-        return new LinePrimitive(this.matrix.clone(), by)
+        return new LinePrimitive(this.matrix.clone(), by, this.materialGenerator)
     }
 
     components(type: "points" | "lines" | "faces"): Primitive[] {
@@ -95,15 +130,15 @@ export class PointPrimitive extends Primitive {
             return []
         }
     }
-    toObject3D(color: Color): Object3D {
+    computeObject3D(): Object3D {
         return setupObject3D(
-            new Points(new BufferGeometry().setFromPoints([new Vector3()]), new PointsMaterial({ color })),
+            new Points(new BufferGeometry().setFromPoints([new Vector3()]), this.materialGenerator(ObjectType.Point)),
             this.matrix
         )
     }
 
     clone(): Primitive {
-        return new PointPrimitive(this.matrix.clone())
+        return new PointPrimitive(this.matrix.clone(), this.materialGenerator)
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
@@ -117,20 +152,33 @@ const YAXIS = new Vector3(0, 1, 0)
  * line in x direction
  */
 export class LinePrimitive extends Primitive {
-    protected changeMatrix(matrix: Matrix4): Primitive {
-        return new LinePrimitive(matrix, this.length)
+    changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
+        return new LinePrimitive(this.matrix, this.length, generator)
     }
 
-    constructor(public readonly matrix: Matrix4, private readonly length: number) {
+    protected changeMatrix(matrix: Matrix4): Primitive {
+        return new LinePrimitive(matrix, this.length, this.materialGenerator)
+    }
+
+    constructor(
+        public readonly matrix: Matrix4,
+        private readonly length: number,
+        protected materialGenerator: (type: ObjectType) => Material
+    ) {
         super()
     }
 
-    static fromPoints(matrix: Matrix4, p1: Vector2, p2: Vector2): LinePrimitive {
+    static fromPoints(
+        matrix: Matrix4,
+        p1: Vector2,
+        p2: Vector2,
+        materialGenerator: (type: ObjectType) => Material
+    ): LinePrimitive {
         matrix.multiply(makeTranslationMatrix(p1.x, 0, p1.y))
         vec2Helper.copy(p2).sub(p1)
         const length = vec2Helper.length()
         matrix.multiply(computeDirectionMatrix(helperVector.set(vec2Helper.x, 0, vec2Helper.y).normalize(), YAXIS))
-        return new LinePrimitive(matrix, length)
+        return new LinePrimitive(matrix, length, materialGenerator)
     }
 
     getGeometrySize(target: Vector3): void {
@@ -138,11 +186,11 @@ export class LinePrimitive extends Primitive {
     }
 
     clone(): Primitive {
-        return new LinePrimitive(this.matrix.clone(), this.length)
+        return new LinePrimitive(this.matrix.clone(), this.length, this.materialGenerator)
     }
 
     extrude(by: number): Primitive {
-        return FacePrimitive.fromLengthAndHeight(this.matrix.clone(), this.length, by, true)
+        return FacePrimitive.fromLengthAndHeight(this.matrix.clone(), this.length, by, true, this.materialGenerator)
     }
 
     components(type: "points" | "lines" | "faces"): Primitive[] {
@@ -152,17 +200,17 @@ export class LinePrimitive extends Primitive {
             case "lines":
                 return [this.clone()]
             case "points":
-                const end = new PointPrimitive(this.matrix.clone())
+                const end = new PointPrimitive(this.matrix.clone(), this.materialGenerator)
                 end.multiplyMatrix(helperMatrix.makeTranslation(0, this.length, 0))
-                return [new PointPrimitive(this.matrix.clone()), end]
+                return [new PointPrimitive(this.matrix.clone(), this.materialGenerator), end]
         }
     }
 
-    toObject3D(color: Color): Object3D {
+    computeObject3D(): Object3D {
         return setupObject3D(
             new Line(
                 new BufferGeometry().setFromPoints([new Vector3(), new Vector3(this.length, 0, 0)]),
-                new LineBasicMaterial({ color })
+                this.materialGenerator(ObjectType.Line)
             ),
             this.matrix
         )
@@ -182,21 +230,35 @@ const invertMatrix = new Matrix4()
  * face in x, z axis
  */
 export class FacePrimitive extends Primitive {
-    protected changeMatrix(matrix: Matrix4): Primitive {
-        return new FacePrimitive(matrix, this.shape)
+    changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
+        return new FacePrimitive(this.matrix, this.shape, generator)
     }
 
-    constructor(public readonly matrix: Matrix4, private readonly shape: Shape) {
+    protected changeMatrix(matrix: Matrix4): Primitive {
+        return new FacePrimitive(matrix, this.shape, this.materialGenerator)
+    }
+
+    constructor(
+        public readonly matrix: Matrix4,
+        private readonly shape: Shape,
+        protected materialGenerator: (type: ObjectType) => Material
+    ) {
         super()
     }
 
-    static fromLengthAndHeight(matrix: Matrix4, x: number, z: number, yUp: boolean = false): FacePrimitive {
+    static fromLengthAndHeight(
+        matrix: Matrix4,
+        x: number,
+        z: number,
+        yUp: boolean,
+        materialGenerator: (type: ObjectType) => Material
+    ): FacePrimitive {
         if (yUp) {
             matrix.multiply(helperMatrix.makeRotationX(-Math.PI / 2))
         }
         const points = [new Vector2(x, 0), new Vector2(x, z), new Vector2(0, z), new Vector2(0, 0)]
         const shape = new Shape(points)
-        return new FacePrimitive(matrix, shape)
+        return new FacePrimitive(matrix, shape, materialGenerator)
     }
 
     getGeometrySize(target: Vector3): void {
@@ -224,7 +286,7 @@ export class FacePrimitive extends Primitive {
         const holes = this.shape.holes
         const newShape = new Shape(points.map(({ x, y }) => new Vector2(x, -y)))
         newShape.holes = holes.map((hole) => new Path(hole.getPoints().map(({ x, y }) => new Vector2(x, -y))))
-        return new FacePrimitive(newMatrix, newShape)
+        return new FacePrimitive(newMatrix, newShape, this.materialGenerator)
     }
 
     extrude(by: number): Primitive {
@@ -238,7 +300,7 @@ export class FacePrimitive extends Primitive {
                 const length = helperVector.length()
                 const matrix = makeTranslationMatrix(p1.x, 0, p1.y, new Matrix4())
                 matrix.multiply(computeDirectionMatrix(helperVector.normalize(), YAXIS))
-                const result = FacePrimitive.fromLengthAndHeight(matrix, length, by, true)
+                const result = FacePrimitive.fromLengthAndHeight(matrix, length, by, true, this.materialGenerator)
                 if (by < 0) {
                     return result.invert()
                 }
@@ -255,30 +317,46 @@ export class FacePrimitive extends Primitive {
                     .extractPoints(5)
                     .shape.map(
                         (point) =>
-                            new PointPrimitive(this.matrix.clone().multiply(makeTranslationMatrix(point.x, 0, point.y)))
+                            new PointPrimitive(
+                                this.matrix.clone().multiply(makeTranslationMatrix(point.x, 0, point.y)),
+                                this.materialGenerator
+                            )
                     )
             case "lines":
                 const points = this.shape.extractPoints(5).shape
                 return points.map((point, i) =>
-                    LinePrimitive.fromPoints(this.matrix.clone(), point, points[(i + 1) % points.length])
+                    LinePrimitive.fromPoints(
+                        this.matrix.clone(),
+                        point,
+                        points[(i + 1) % points.length],
+                        this.materialGenerator
+                    )
                 )
             case "faces":
                 return [this]
         }
     }
 
-    toObject3D(color: Color): Object3D {
-        return setupObject3D(new Mesh(this.getGeometry(), new MeshPhongMaterial({ color })), this.matrix)
+    computeObject3D(): Object3D {
+        return setupObject3D(new Mesh(this.getGeometry(), this.materialGenerator(ObjectType.Mesh)), this.matrix)
     }
 }
 
 const box3Helper = new Box3()
 
 export class GeometryPrimitive extends Primitive {
-    protected changeMatrix(matrix: Matrix4): Primitive {
-        return new GeometryPrimitive(matrix, this.geometry)
+    changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
+        return new GeometryPrimitive(this.matrix, this.geometry, generator)
     }
-    constructor(public readonly matrix: Matrix4, private readonly geometry: BufferGeometry) {
+
+    protected changeMatrix(matrix: Matrix4): Primitive {
+        return new GeometryPrimitive(matrix, this.geometry, this.materialGenerator)
+    }
+    constructor(
+        public readonly matrix: Matrix4,
+        private readonly geometry: BufferGeometry,
+        protected materialGenerator: (type: ObjectType) => Material
+    ) {
         super()
     }
 
@@ -288,8 +366,8 @@ export class GeometryPrimitive extends Primitive {
     components(type: "points" | "lines" | "faces"): Primitive[] {
         throw new Error("Method not implemented.")
     }
-    toObject3D(color: Color): Object3D {
-        return setupObject3D(new Mesh(this.getGeometry(), new MeshPhongMaterial({ color })), this.matrix)
+    computeObject3D(): Object3D {
+        return setupObject3D(new Mesh(this.getGeometry(), this.materialGenerator(ObjectType.Mesh)), this.matrix)
     }
 
     getGeometrySize(target: Vector3): void {
@@ -303,6 +381,13 @@ export class GeometryPrimitive extends Primitive {
 }
 
 export class CombinedPrimitive extends Primitive {
+    changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
+        return new CombinedPrimitive(
+            this.matrix,
+            this.primitives.map((primitive) => primitive.changeMaterialGenerator(generator))
+        )
+    }
+
     protected changeMatrix(matrix: Matrix4): Primitive {
         return new CombinedPrimitive(matrix, this.primitives)
     }
@@ -322,9 +407,9 @@ export class CombinedPrimitive extends Primitive {
         return results.map((result) => result.premultiplyMatrix(this.matrix))
     }
 
-    toObject3D(color: Color): Object3D {
+    computeObject3D(): Object3D {
         const object = setupObject3D(new Object3D(), this.matrix)
-        this.primitives.forEach((primitive) => object.add(primitive.toObject3D(color)))
+        this.primitives.forEach((primitive) => object.add(primitive.getObject()))
         return object
     }
 

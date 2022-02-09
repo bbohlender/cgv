@@ -116,36 +116,58 @@ Road -> expand2d("20") (this | sample2d("30") replace("'/tree.gltf'"))
 Building -> translate("0", "100", "0") | lines() connect(translate("0", "100", "0"), this)
 ```
 
-`City 2`
-
-_not working - incomplete_
+`Task 1`
 
 ```
-a -> extrude(this | 3) faces(this) (filter(this | horizontal) walls) | (filter(this | upwards) roof)
-
-roof -> switch(this | attribute(enum | "roof1" | "roof2") | roof1 | roof2)
-
-roof2 -> this
-roof1 -> connectAll(center(this) translate(this | 0 | attribute(float | 0 | 3) | 0) | lines(this))
-
-walls -> split2d(this | horizontal | 3) split2d(this | vertical | 3) window
-window -> setback(this | 0.5) extrude(this | -0.1)
-```
-
-`City 3`
-
-```
-City -> extrude("1000") faces() (select("0", "4") Wall | select("4", "5") Roof)
+City -> color("0x333343") extrude("600") faces() (select("0", "4") Wall | select("4", "5") Roof)
 
 Wall -> splitZ("200") Floor
 
-Floor -> splitX("200") Tile
+Roof -> color("0x8881111")
 
-Tile -> splitX("50", "1") (select("0", "1") | select("1", "2") splitX("100", "1") (select("0", "1") WindowWrapper | select("1", "2")) )
+Floor -> splitX("200") WindowFrame
 
-WindowWrapper -> splitZ("50", "1") (select("0", "1") | select("1", "2") splitZ("100", "1") (select("0", "1") Window | select("1", "2")) )
+WindowFrame -> switchSizeX("200", this, multiSplitX("50", "100") switchIndex(this,  multiSplitZ("50", "100") switchIndex(this, Window, this), this))
 
-Window -> extrude("-10")
+Window -> color("0xEEEEEE")
+```
 
-Roof -> this
+`Task 2`
+
+```
+City -> color("0x333343") extrude(random("400", "600")) faces() (select("0", "4") Wall | select("4", "5") Roof)
+
+Wall -> splitZ(random("150", "250")) Floor
+
+Roof -> color("0x8881111")
+
+Floor -> switchSizeZ("140", this, splitX(random("150", "250")) WindowFrame)
+
+WindowFrame -> switchSizeX("150", this, multiSplitX("40", "100") switchIndex(this,  multiSplitZ("50", "100") switchIndex(this, Window, this), this))
+
+Window -> color("0xEEEEEE")
+```
+
+`Task 3`
+
+```
+City -> color("0x333343") switchBlock(LowBuilding, HighBuilding)
+
+HighBuilding -> extrude(random("800", "1200")) Building
+
+LowBuilding -> extrude(random("200", "600")) Building
+
+Building -> faces() (select("0", "4") Wall | select("4", "5") Roof)
+
+Roof -> switchBlock(color("0x8881111"), color("0x111111"))
+
+Wall -> splitZ(random("190", "250")) Floor
+
+Floor -> switchSizeZ("190", this, splitX("200") switchBlock(SmallTile, BigTile))
+
+BigTile -> switchSizeX("200", this, multiSplitX("10", "190") switchIndex(this,  multiSplitZ("40", "150") switchIndex(this, Window, this), this))
+
+SmallTile -> switchSizeX("180", this, multiSplitX("50", "100") switchIndex(this,  multiSplitZ("50", "100") switchIndex(this, Window, this), this))
+
+Window -> extrude("-20") faces() (select("0", "4") | select("4", "5") color("0xEEEEEE"))
 ```

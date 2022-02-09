@@ -19,6 +19,7 @@ import {
     finalize,
     take,
     startWith,
+    distinctUntilChanged,
 } from "rxjs"
 
 export type MatrixEntry<T> = { index: Array<number>; value: T }
@@ -236,11 +237,12 @@ export function staticMatrix<T>(
     }
 }
 
-export function toChanges<T>(): OperatorFunction<Array<T>, Array<MatrixEntry<Observable<T | undefined>>>> {
+export function toChanges<T>(): OperatorFunction<Array<T> | undefined, Array<MatrixEntry<Observable<T | undefined>>>> {
     return (array) =>
         array.pipe(
-            scan<Array<T>, [array: Array<BehaviorSubject<T>>, added: Array<MatrixEntry<Observable<T>>>]>(
+            scan<Array<T> | undefined, [array: Array<BehaviorSubject<T>>, added: Array<MatrixEntry<Observable<T>>>]>(
                 ([subjectArray], valueArray) => {
+                    valueArray = valueArray ?? []
                     const length = Math.max(subjectArray.length, valueArray.length)
                     const added: Array<MatrixEntry<Observable<T>>> = []
                     for (let i = 0; i < length; i++) {
@@ -297,6 +299,9 @@ export function switchGroupMap<Input, Output, Key>(
     return (values) =>
         values.pipe(
             groupBy(key),
-            mergeMap((group) => group.pipe(switchMap(project)))
+            mergeMap((group) => group.pipe(
+                distinctUntilChanged(),
+                switchMap(project)
+            ))
         )
 }
