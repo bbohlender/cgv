@@ -1,4 +1,4 @@
-import { Operations } from ".."
+export * from "./operations"
 
 /* for later:
 export type Domain = {

@@ -21,6 +21,7 @@ export type ParsedStep =
     | ParsedSymbol
     | ParsedRaw
     | ParsedThis
+    | ParsedReturn
 
 export type ParsedParallelValues = {
     type: "parallel"
@@ -47,6 +48,9 @@ export type ParsedRaw = {
 }
 export type ParsedThis = {
     type: "this"
+}
+export type ParsedReturn = {
+    type: "return"
 }
 
 export type ParsedGrammarDefinition = {

@@ -6,11 +6,11 @@ _Computer Generated Verse_
 
 1. `npm install` to install the library dependencies
 2. `npm run build` to build the cgv library
-3. `cd web` to move into the frontend path
+3. `cd web` to move into the frontend folder
 4. `npm run install` to install the frontend dependencies
 5. `npm run dev` to start the frontend
 
-`no access http://localhost:3000/shape or http://localhost:3000/arithmetic to access the respective domain editor`
+`now access http://localhost:3000/shape or http://localhost:3000/arithmetic to access the respective domain editor`
 
 ### Folder Structure
 
@@ -39,6 +39,10 @@ The grammar is defined in [grammar.ne](./grammar.ne).
 -   **`Constants`** (_work in progress_)
     -   currently wrapped in quotation `"`
 -   **`Variables`** (_work in progress_)
+
+### Operator Precendence
+
+Except for the parallel and sequential execution the precendence of all operators is implemented according to the operator precendence in c++ (https://en.cppreference.com/w/cpp/language/operator_precedence). Operator precedence is common and equal for most programming langugages.
 
 ## Language Features ToDo
 
@@ -151,23 +155,23 @@ Window -> color("0xEEEEEE")
 `Task 3`
 
 ```
-City -> color("0x333343") switchBlock(LowBuilding, HighBuilding)
+City -> color(0x333343) switchBlock(LowBuilding, HighBuilding)
 
-HighBuilding -> extrude(random("800", "1200")) Building
+HighBuilding -> extrude(random(800, 1200)) Building
 
-LowBuilding -> extrude(random("200", "600")) Building
+LowBuilding -> extrude(random(200, 600)) Building
 
-Building -> faces() (select("0", "4") Wall | select("4", "5") Roof)
+Building -> faces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Roof -> switchBlock(color("0x8881111"), color("0x111111"))
+Roof -> switchBlock(color(0x8881111), color(0x111111))
 
-Wall -> splitZ(random("190", "250")) Floor
+Wall -> splitZ(random(190, 250)) Floor
 
-Floor -> switchSizeZ("190", this, splitX("200") switchBlock(SmallTile, BigTile))
+Floor -> switchSizeZ(190, this, splitX(200) switchBlock(SmallTile, BigTile))
 
-BigTile -> switchSizeX("200", this, multiSplitX("10", "190") switchIndex(this,  multiSplitZ("40", "150") switchIndex(this, Window, this), this))
+BigTile -> switchSizeX(200, this, multiSplitX(10, 190) switchIndex(this,  multiSplitZ(40, 150) switchIndex(this, Window, this), this))
 
-SmallTile -> switchSizeX("180", this, multiSplitX("50", "100") switchIndex(this,  multiSplitZ("50", "100") switchIndex(this, Window, this), this))
+SmallTile -> switchSizeX(180, this, multiSplitX(50, 100) switchIndex(this,  multiSplitZ(50, 100) switchIndex(this, Window, this), this))
 
-Window -> extrude("-20") faces() (select("0", "4") | select("4", "5") color("0xEEEEEE"))
+Window -> extrude(-20) faces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```

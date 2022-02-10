@@ -36,6 +36,7 @@ export default function Index() {
                 })
             return () => subscription.unsubscribe()
         } catch (error: any) {
+            console.error(error)
             setState([undefined, error.message])
         }
     }, [text])

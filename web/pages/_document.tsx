@@ -10,7 +10,7 @@ class MyDocument extends Document {
         return (
             <Html lang="en">
                 <Head>
-                    <meta http-equiv="Content-Security-Policy" content="default-src * data: 'unsafe-eval' 'unsafe-inline' 'self' blob:" />
+                    <meta httpEquiv="Content-Security-Policy" content="default-src * data: 'unsafe-eval' 'unsafe-inline' 'self' blob:" />
                 </Head>
                 <body style={{ margin: 0, overflow: "hidden" }}>
                     <Main />

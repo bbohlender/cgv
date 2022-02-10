@@ -1,8 +1,7 @@
-import { debounceTime, filter, map, NEVER, Observable, of, OperatorFunction, switchMap, tap } from "rxjs"
+import { map, NEVER, Observable, of, OperatorFunction, switchMap } from "rxjs"
 import { Vector3 } from "three"
 import { Instance } from "."
 import {
-    deepShareReplay,
     defaultParameterIndex,
     getMatrixEntryIndexKey,
     InterpretionValue,
@@ -15,11 +14,11 @@ import {
     switchGroupMap,
     thisParameter,
     toArray,
-    toChanges,
 } from "../.."
 import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix } from "./math"
 import { createPhongMaterialGenerator, FacePrimitive } from "./primitive"
 import { Axis, getValueOnAxis, Split } from "./primitive-utils"
+import { operations as defaultOperations } from ".."
 
 function layerToIndex(layer: string): number {
     return layer === "road" ? 0 : 1
@@ -179,8 +178,6 @@ export function switchSize(
         )
     )
 }
-
-export function ifElse() {}
 
 export function switchBlock(
     parameters: Array<
@@ -434,7 +431,8 @@ function computeMultiSplitZ([instance, ...distances]: Array<any>) {
     )
 }
 
-export const operations: Operations<Instance> = {
+export const operations: Operations = {
+    ...defaultOperations,
     translate: (parameters) => (changes) =>
         changes.pipe(operation(computeTranslate, (values) => values, [thisParameter, ...parameters], undefined, [4])),
 
@@ -471,10 +469,10 @@ export const operations: Operations<Instance> = {
     color: (parameters) => (changes) =>
         changes.pipe(operation(computeColorChange, undefined, [thisParameter, ...parameters], undefined, [2])),
 
-    switchType: (parameters) => switchType.bind(null, parameters),
+    /*switchType: (parameters) => switchType.bind(null, parameters),
     switchBlock: (parameters) => switchBlock.bind(null, parameters),
     switchIndex: (parameters) => switchIndex.bind(null, parameters),
     select: (parameters) => select.bind(null, [thisParameter, ...parameters]),
     switchSizeX: (parameters) => switchSize.bind(null, Axis.X, [thisParameter, ...parameters]),
-    switchSizeZ: (parameters) => switchSize.bind(null, Axis.Z, [thisParameter, ...parameters]),
+    switchSizeZ: (parameters) => switchSize.bind(null, Axis.Z, [thisParameter, ...parameters]),*/
 }

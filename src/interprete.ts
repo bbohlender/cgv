@@ -34,8 +34,24 @@ export type Operation<T> = (
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
 >
 
-export type Operations<T> = {
-    [name in string]: Operation<T>
+export type Operations = {
+    "+": Operation<number>
+    "-": Operation<number>
+    "/": Operation<number>
+    "*": Operation<number>
+    "%": Operation<number>
+    "!-": Operation<number>
+    "!": Operation<boolean>
+    "&&": Operation<boolean>
+    "||": Operation<number>
+    "<": Operation<any>
+    "<=": Operation<any>
+    "==": Operation<any>
+    "!=": Operation<any>
+    if: Operation<any>
+    switch: Operation<any>
+} & {
+    [name in string]?: Operation<any>
 }
 
 export type InterpretionValue<T> = Readonly<{
@@ -48,7 +64,7 @@ export type InterpretionValue<T> = Readonly<{
 export function interprete<T>(
     input: MatrixEntriesObservable<InterpretionValue<T>>,
     grammar: ParsedGrammarDefinition,
-    operations: Operations<T>
+    operations: Operations
 ): MatrixEntriesObservable<InterpretionValue<T>> {
     const rules = Object.values(grammar)
     if (rules.length === 0) {
@@ -75,7 +91,7 @@ export function mergeMatrixOperators<T, K = T>(
 export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
-    operations: Operations<T>,
+    operations: Operations,
     eventScheduler: (
         identifier: string,
         event: ParsedEventDefintion,
@@ -107,15 +123,12 @@ export function interpreteStep<T>(
                 value: step.value,
                 parameters: {},
             })
-            return (input) =>
-                input.pipe(
-                    map((changes) =>
-                        changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
-                            ...change,
-                            value,
-                        }))
-                    )
-                )
+            return map((changes) =>
+                changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
+                    ...change,
+                    value,
+                }))
+            )
         }
         case "sequential":
             //TODO: this can be improved?
@@ -142,6 +155,15 @@ export function interpreteStep<T>(
             }
         case "this":
             return (input) => input
+        case "return":
+            return map((changes) =>
+                changes.map((change) => ({
+                    ...change,
+                    value: change.value.pipe(
+                        map((value) => (value == null ? undefined : { ...value, terminated: true }))
+                    ),
+                }))
+            )
         case "symbol": {
             const rule = grammar[step.identifier]
             if (rule == null) {
