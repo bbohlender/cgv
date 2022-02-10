@@ -62,16 +62,17 @@ export type InterpretionValue<T> = Readonly<{
 }>
 
 export function interprete<T>(
-    input: MatrixEntriesObservable<InterpretionValue<T>>,
     grammar: ParsedGrammarDefinition,
     operations: Operations
-): MatrixEntriesObservable<InterpretionValue<T>> {
+): OperatorFunction<
+    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
+    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
+> {
     const rules = Object.values(grammar)
     if (rules.length === 0) {
-        return input
+        return (input) => input
     }
-    const eventScheduler = null as any //generateEventScheduler<T>()
-    return input.pipe(interpreteStep(rules[0], grammar, operations, eventScheduler))
+    return interpreteStep<T>(rules[0], grammar, operations)
 }
 
 export function mergeMatrixOperators<T, K = T>(
@@ -91,12 +92,7 @@ export function mergeMatrixOperators<T, K = T>(
 export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
-    operations: Operations,
-    eventScheduler: (
-        identifier: string,
-        event: ParsedEventDefintion,
-        input: MatrixEntriesObservable<InterpretionValue<T>>
-    ) => MatrixEntriesObservable<InterpretionValue<T>>
+    operations: Operations
 ): OperatorFunction<
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
     Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
@@ -108,13 +104,13 @@ export function interpreteStep<T>(
                 return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
             }
             const appliedOperation = operation(
-                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations, eventScheduler))
+                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations))
             )
             return (input) => input.pipe(appliedOperation)
         }
         case "parallel":
             return mergeMatrixOperators(
-                step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, eventScheduler))
+                step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations))
             )
         case "raw": {
             const value = of({
@@ -145,7 +141,7 @@ export function interpreteStep<T>(
                     terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))
                     current = sharedCurrent.pipe(
                         useWhenTerminatedIs(false),
-                        interpreteStep(stepOfSteps, grammar, operations, eventScheduler)
+                        interpreteStep(stepOfSteps, grammar, operations)
                     )
                     //TODO: think of ways to reduce the amount of "doubles" through splitting
                     //maybe implement sequential through a nextSteps parameters, which are then just cleared?
@@ -169,7 +165,7 @@ export function interpreteStep<T>(
             if (rule == null) {
                 return () => throwError(() => new Error(`unknown rule "${step.identifier}"`))
             }
-            return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations, eventScheduler)))
+            return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations)))
         }
     }
 }
