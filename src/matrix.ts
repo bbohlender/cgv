@@ -1,286 +1,70 @@
 import {
+    combineLatest,
+    distinctUntilChanged,
+    groupBy,
+    GroupedObservable,
+    isObservable,
     map,
-    merge,
-    Observable,
-    scan,
     mergeMap,
-    BehaviorSubject,
-    filter,
+    Observable,
     of,
     OperatorFunction,
-    debounceTime,
-    groupBy,
-    switchMap,
-    ShareReplayConfig,
+    pairwise,
+    scan,
     shareReplay,
-    tap,
-    Subject,
-    buffer,
-    finalize,
-    take,
+    ShareReplayConfig,
     startWith,
-    distinctUntilChanged,
+    switchMap,
 } from "rxjs"
 
-export type MatrixEntry<T> = { index: Array<number>; value: T }
+export type Matrix<T> = T | Array<Matrix<T>>
 
-export type Matrix<T> = undefined | T | Array<Matrix<T>>
+export type AsyncMatrix<T> = Observable<Matrix<Observable<T>>>
 
-export function matrixToArray<T>(matrix: Matrix<T>): Array<T> {
-    if (Array.isArray(matrix)) {
-        return matrix.reduce<Array<T>>((prev, cur) => prev.concat(matrixToArray(cur)), [])
-    } else if (matrix == null) {
-        return []
-    } else {
-        return [matrix]
-    }
-}
+const flatArrays = map((arrays: Array<Array<any>>) => arrays.reduce((v1, v2) => v1.concat(v2), []))
 
-export function getMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>): T | undefined {
-    if (index.length <= 0) {
-        return Array.isArray(matrix) ? undefined : matrix
-    }
-
-    if (Array.isArray(matrix)) {
-        return getMatrixEntry(matrix[index[0]], index.slice(1))
-    }
-
-    return undefined
-}
-
-export function setMatrixEntry<T>(matrix: Matrix<T>, index: Array<number>, value: T | undefined): Matrix<T> {
-    if (index.length <= 0) {
-        if (Array.isArray(matrix)) {
-            throw new Error(
-                `can't overwrite nested matrix (${JSON.stringify(matrix)}) at index (${JSON.stringify(index)})`
-            )
-        }
-        return value
-    }
-
-    if (matrix === undefined) {
-        matrix = []
-    }
-
-    if (Array.isArray(matrix)) {
-        matrix[index[0]] = setMatrixEntry(matrix[index[0]], index.slice(1), value)
-        if (value === undefined) {
-            //clear empty end of matrix
-            let endIndex = matrix.length
-            while (endIndex > 0 && matrixEmpty(matrix[endIndex - 1])) {
-                --endIndex
-            }
-            matrix.splice(endIndex, matrix.length - endIndex)
-        }
-        return matrix
-    }
-
-    throw new Error(`can't set index (${index}) on a non nested matrix`)
-}
-
-function matrixEmpty<T>(matrix: Matrix<T>): boolean {
-    return matrix === undefined || (Array.isArray(matrix) && matrix.length === 0)
-}
-
-export type MatrixEntriesObservable<T> = Observable<Array<MatrixEntry<Observable<T | undefined>>>>
-
-/**
- * @returns a negative value if i1 is smaller to i2 and a positive value of i1 is bigger then i2 (0 when they are equal)
- */
-export function compareIndices(i1: Array<number>, i2: Array<number>): number {
-    const length = Math.min(i1.length, i2.length)
-    for (let i = 0; i < length; i++) {
-        if (i1[i] != i2[i]) {
-            return i1[i] - i2[i]
-        }
-    }
-    return 0
-}
-
-export function indexEqual(i1: Array<number>, i2: Array<number>): boolean {
-    if (i1.length != i2.length) {
-        return false
-    }
-    for (let i = 0; i < i1.length; i++) {
-        if (i1[i] != i2[i]) {
-            return false
-        }
-    }
-    return true
+export function flattenMatrix<T>(): OperatorFunction<AsyncMatrix<T>, AsyncMatrix<T>> {
+    return matrix => 
 }
 
 export function nestChanges<T>(
-    getIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>],
-    bufferTimeSpan: number
-): OperatorFunction<
-    Array<MatrixEntry<Observable<T | undefined>>>,
-    MatrixEntry<Observable<Array<MatrixEntry<Observable<T | undefined>>> | undefined>>
-> {
-    return (changes) => {
+    getIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>]
+): OperatorFunction<AsyncMatrix<T>, AsyncMatrix<T>> {
+    return (matrix) => {
         const keyMap = new Map<string, Array<number>>()
-        return changes.pipe(
-            //mergeMap is okay here, since it's not async when using "of"
-            mergeMap((changes) =>
-                of(
-                    ...changes.map((change) => {
-                        const [outer, inner] = getIndex(change.index)
-                        return { value: change.value, index: inner, outer }
-                    })
-                )
-            ),
-            groupBy(({ outer }) => {
-                const key = getIndexKey(outer)
-                if (!keyMap.has(key)) {
-                    keyMap.set(key, outer)
-                }
-                return key
-            }),
-            map((group) => ({
-                index: keyMap.get(group.key)!,
-                value: group.pipe(debounceBufferTime(bufferTimeSpan)),
-            }))
-        )
-    }
-}
-
-export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
-    return (observable) => {
-        const subject = new Subject<void>()
-        return observable.pipe(
-            tap(() => subject.next()),
-            buffer(subject.pipe(debounceTime(dueTime))),
-            finalize(() => subject.complete())
-        )
-    }
-}
-
-export function toOuterArray<T>(
-    dueTime: number
-): OperatorFunction<Array<MatrixEntry<T | undefined>> | undefined, Array<T>> {
-    return (changes) =>
-        changes.pipe(
-            toOuterMatrix(),
-            debounceTime(dueTime),
-            map((matrix) => matrixToArray(matrix))
-        )
-}
-
-export function toOuterMatrix<T>(): OperatorFunction<Array<MatrixEntry<T | undefined>> | undefined, Matrix<T>> {
-    return (changes) =>
-        changes.pipe(
-            scan<Array<MatrixEntry<T | undefined>> | undefined, Matrix<T>>(
-                (prev, cur) =>
-                    cur == null
-                        ? undefined
-                        : cur.reduce((p, entry) => setMatrixEntry(p, entry.index, entry.value), prev),
-                undefined
-            )
-        )
-}
-
-export function toArray<T>(
-    dueTime: number
-): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>> | undefined, Array<T>> {
-    return (changes) =>
-        changes.pipe(
-            toMatrix(),
-            debounceTime(dueTime),
-            map((matrix) => matrixToArray(matrix))
-        )
-}
-
-export function toMatrix<T>(): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>> | undefined, Matrix<T>> {
-    return (changes) =>
-        changes.pipe(
-            mergeMap((changes) => of(...changes)), //like above okay here, since the inner observable directly completes
-            switchGroupMap<MatrixEntry<Observable<T | undefined>>, Array<MatrixEntry<T | undefined>>, string>(
-                (change) => change.value.pipe(map((value) => [{ index: change.index, value }])),
-                getMatrixEntryIndexKey
-            ),
-            toOuterMatrix()
-        )
-}
-
-export function mergeMatrices<T>(changesObservables: Array<MatrixEntriesObservable<T>>): MatrixEntriesObservable<T> {
-    return merge(
-        ...changesObservables.map((changesObservable, i) =>
-            changesObservable.pipe(
-                map((changes) =>
-                    changes.map<MatrixEntry<Observable<T | undefined>>>((change) => ({
-                        ...change,
-                        index: [i, ...change.index],
-                    }))
-                )
-            )
-        )
-    )
-}
-
-export function staticMatrix<T>(
-    matrix: Matrix<T>,
-    index: Array<number> = []
-): Array<MatrixEntry<Observable<T | undefined>>> {
-    if (Array.isArray(matrix)) {
-        return matrix.reduce<Array<MatrixEntry<Observable<T | undefined>>>>(
-            (prev, cur, i) => prev.concat(staticMatrix(cur, [i, ...index])),
-            []
-        )
-    } else if (matrix == null) {
-        return []
-    } else {
-        return [
-            {
-                index,
-                value: of(matrix),
-            },
-        ]
-    }
-}
-
-export function toChanges<T>(): OperatorFunction<Array<T> | undefined, Array<MatrixEntry<Observable<T | undefined>>>> {
-    return (array) =>
-        array.pipe(
-            scan<Array<T> | undefined, [array: Array<BehaviorSubject<T>>, added: Array<MatrixEntry<Observable<T>>>]>(
-                ([subjectArray], valueArray) => {
-                    valueArray = valueArray ?? []
-                    const length = Math.max(subjectArray.length, valueArray.length)
-                    const added: Array<MatrixEntry<Observable<T>>> = []
-                    for (let i = 0; i < length; i++) {
-                        if (subjectArray[i]?.value != valueArray[i]) {
-                            if (subjectArray[i] != null) {
-                                subjectArray[i].next(valueArray[i])
-                            } else {
-                                subjectArray[i] = new BehaviorSubject(valueArray[i])
-                                added.push({
-                                    index: [i],
-                                    value: subjectArray[i],
-                                })
-                            }
-                        }
+        return matrix.pipe(
+            startWith<AsyncMatrix<T> | undefined>(undefined),
+            pairwise(),
+            map(([from, to]) => computeChanges(from, to)),
+            mergeMap((changes) => {
+                const changesGroupMap = new Map<string, {outer: Array<number>, changes: Array<MatrixChange<T>> }>()
+                for(const change of changes) {
+                    const [outer, inner] = getIndex(change.index)
+                    const key = getIndexKey(outer)
+                    if (!keyMap.has(key)) {
+                        keyMap.set(key, outer)
                     }
-                    return [subjectArray, added]
-                },
-                [[], []]
-            ),
-            map(([, added]) => added),
-            filter((added) => added.length > 0)
+                    let entry = changesGroupMap.get(key)
+                    if(entry == null) {
+                        entry = {
+                            outer,
+                            changes: []
+                        }
+                        changesGroupMap.set(key, entry)
+                    }
+                    entry.changes.push({ ...change, index: inner })
+                }
+                return of(...Array.from(changesGroupMap.values()))
+            }),
+            groupBy(({ outer }) => getIndexKey(outer)),
+            scan<GroupedObservable<string, { outer: Array<number>, changes: Array<MatrixChange<T>>}>, AsyncMatrix<T>>((outerMatrix, group) => {
+                const outerIndex = keyMap.get(group.key)!
+                const innerMatrix = group.pipe(scan<{ outer: Array<number>, changes: Array<MatrixChange<T>>}, Matrix<T>>((acc, {changes}) => applyChanges(acc, changes), []))
+                //TODO set innerMatrix
+                return outerMatrix
+            }, [])
         )
-}
-
-export function deepShareReplay<T>(
-    config: ShareReplayConfig
-): OperatorFunction<Array<MatrixEntry<Observable<T>>>, Array<MatrixEntry<Observable<T>>>> {
-    return (value) =>
-        value.pipe(
-            map((changes) =>
-                changes.map((change) => ({ index: change.index, value: change.value.pipe(shareReplay(config)) }))
-            ),
-            shareReplay(config)
-        )
-}
-
-export function getMatrixEntryIndexKey<T>(entry: MatrixEntry<T>): string {
-    return getIndexKey(entry.index)
+    }
 }
 
 export function getIndexKey(index: Array<number>) {
@@ -292,13 +76,82 @@ export function getIndexKey(index: Array<number>) {
     return ""
 }
 
-export function switchGroupMap<Input, Output, Key>(
-    project: (input: Input) => Observable<Output>,
-    key: (input: Input) => Key
-): OperatorFunction<Input, Output> {
-    return (values) =>
-        values.pipe(
-            groupBy(key),
-            mergeMap((group) => group.pipe(distinctUntilChanged(), switchMap(project)))
+export const distinctUntilChangedMatrix = distinctUntilChanged<Matrix<any>>(matrixEqual)
+
+export function matrixEqual<T>(m1: Matrix<T>, m2: Matrix<T>): boolean {
+    if (m1 === m2) {
+        return true
+    }
+    if (Array.isArray(m1) && Array.isArray(m2) && m1.length === m2.length) {
+        for (let i = 0; i < m1.length; i++) {
+            if (!matrixEqual(m1[i], m2[i])) {
+                return false
+            }
+        }
+        return true
+    }
+    return false
+}
+
+export function shareReplayMatrix<T>(config: ShareReplayConfig): OperatorFunction<AsyncMatrix<T>, AsyncMatrix<T>> {
+    return (matrix) => _shareReplayMatrix(config, matrix) as Observable<AsyncMatrix<T>>
+}
+
+function _shareReplayMatrix<T>(config: ShareReplayConfig, matrix: AsyncMatrix<T>): AsyncMatrix<T> {
+    if (Array.isArray(matrix)) {
+        return matrix.map((entry) => _shareReplayMatrix(config, entry))
+    }
+    if (isObservable(matrix)) {
+        return matrix.pipe(
+            map((m) => _shareReplayMatrix(config, m)),
+            shareReplay(config)
         )
+    }
+    return matrix
+}
+
+/*** INTERNAL CHANGE HANDLING ***/
+
+enum MatrixChangeType {
+    SET,
+    REMOVE,
+}
+
+type MatrixChange<T> = {
+    index: Array<number>
+} & (
+    | { type: MatrixChangeType.SET; value: T }
+    | {
+          type: MatrixChangeType.REMOVE
+      }
+)
+
+const EMPTY_ARRAY: Array<any> = []
+
+function computeChanges<T>(from: Matrix<T> | undefined, to: Matrix<T> | undefined, prefixIndex: Array<number> = []): Array<MatrixChange<T>> {
+    if(to == null) {
+        return [{
+            index: [],
+            type: MatrixChangeType.REMOVE
+        }]
+    }
+
+    if(Array.isArray(to)) {
+        const fromAsArray = Array.isArray(from) ? from : EMPTY_ARRAY
+        const length = Math.max(fromAsArray.length, to.length)
+        return new Array(length).fill(null).reduce((prev, _, i) => [...prev, computeChanges(fromAsArray[i], to[i], [...prefixIndex, i])], [] as Array<MatrixChange<T>>)
+    }
+
+    return [{
+        index: [],
+        type: MatrixChangeType.SET,
+        value: to
+    }]
+}
+
+function applyChanges<T>(to: Matrix<T>, changes: Array<MatrixChange<T>>): Matrix<T> {
+    for (const change of changes) {
+        //TODO
+    }
+    return to
 }
