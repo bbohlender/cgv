@@ -1,10 +1,9 @@
 import { Observable, of, OperatorFunction } from "rxjs"
-import { InterpretionValue, MatrixEntriesObservable, MatrixEntry, operation, Operation, Operations } from ".."
-import { Instance } from "./shape"
+import { InterpretionValue, Matrix, operation, Operation, Operations } from ".."
 
 function basicOperation<T>(calculation: (v1: T, v2: T) => T): Operation<T> {
-    return (parameters) => (changes) =>
-        changes.pipe(
+    return (parameters) => (matrix) =>
+        matrix.pipe(
             operation(
                 ([op1, op2]) => of([calculation(op1, op2)]),
                 (values) => values,
@@ -26,25 +25,19 @@ function unaryOperation<T>(calculation: (v1: T) => T): Operation<T> {
 
 export function switchOperation<T>(
     parameters: Array<
-        OperatorFunction<
-            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
-        >
+        OperatorFunction<Matrix<Observable<InterpretionValue<T>>>, Matrix<Observable<InterpretionValue<T>>>>
     >,
-    changes: MatrixEntriesObservable<InterpretionValue<T>>
-): MatrixEntriesObservable<InterpretionValue<T>> {
+    changes: Observable<Matrix<Observable<InterpretionValue<T>>>>
+): Observable<Matrix<Observable<InterpretionValue<T>>>> {
     return changes
 }
 
 export function ifOperation<T>(
     parameters: Array<
-        OperatorFunction<
-            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
-        >
+        OperatorFunction<Matrix<Observable<InterpretionValue<T>>>, Matrix<Observable<InterpretionValue<T>>>>
     >,
-    changes: MatrixEntriesObservable<InterpretionValue<T>>
-): MatrixEntriesObservable<InterpretionValue<T>> {
+    changes: Observable<Matrix<Observable<InterpretionValue<T>>>>
+): Observable<Matrix<Observable<InterpretionValue<T>>>> {
     //TODO: cache, distinctUntilChanged, toChanges?
     const condition = parameters[0]
 

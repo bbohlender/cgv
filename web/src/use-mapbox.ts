@@ -1,10 +1,16 @@
-import { MatrixEntry, InterpretionValue, Parameters } from "cgv"
+import { InterpretionValue, Matrix, Parameters } from "cgv"
 import { useMemo } from "react"
-import { Matrix4, Shape, Vector2 } from "three"
+import { Color, Matrix4, Shape, Vector2 } from "three"
 import { Layers, loadLayers } from "./api"
 import { Instance } from "cgv/domains/shape"
 import { from, map, Observable, of, shareReplay } from "rxjs"
-import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "cgv/domains/shape/primitive"
+import {
+    CombinedPrimitive,
+    createPhongMaterialGenerator,
+    FacePrimitive,
+    LinePrimitive,
+    Primitive,
+} from "cgv/domains/shape/primitive"
 
 const roadParameters: Parameters = {
     layer: of("road"),
@@ -12,6 +18,8 @@ const roadParameters: Parameters = {
 const buildingParameters: Parameters = {
     layer: of("building"),
 }
+
+const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
 export function useMapbox() {
     return useMemo(
@@ -21,10 +29,9 @@ export function useMapbox() {
                 map((layers) => {
                     const roads = getRoads(layers)
                     const buildings = getBuildings(layers)
-                    const changes = [...roads, ...buildings].map<MatrixEntry<Observable<InterpretionValue<Instance>>>>(
-                        ([primitive, parameters], i) => ({
-                            index: [i],
-                            value: of({
+                    const matrix = [...roads, ...buildings].map<Observable<InterpretionValue<Instance>>>(
+                        ([primitive, parameters], i) =>
+                            of({
                                 terminated: false,
                                 eventDepthMap: {},
                                 parameters,
@@ -33,10 +40,9 @@ export function useMapbox() {
                                     attributes: {},
                                     primitive,
                                 },
-                            }),
-                        })
+                            })
                     )
-                    return changes
+                    return matrix
                 })
             ),
         []
@@ -48,7 +54,11 @@ function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
         (prev, feature) =>
             prev.concat(
                 feature.geometry.map<[Primitive, Parameters]>((lot) => [
-                    new FacePrimitive(new Matrix4(), new Shape(lot.map(({ x, y }) => new Vector2(x, y)))),
+                    new FacePrimitive(
+                        new Matrix4(),
+                        new Shape(lot.map(({ x, y }) => new Vector2(x, y))),
+                        redMaterialGenerator
+                    ),
                     buildingParameters,
                 ])
             ),
@@ -70,7 +80,8 @@ function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
                                 return LinePrimitive.fromPoints(
                                     new Matrix4(),
                                     new Vector2(p1.x, p1.y),
-                                    new Vector2(p2.x, p2.y)
+                                    new Vector2(p2.x, p2.y),
+                                    redMaterialGenerator
                                 )
                             })
                         ),

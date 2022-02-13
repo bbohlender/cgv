@@ -1,26 +1,27 @@
 import { MapControls } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import { InterpretionValue, MatrixEntriesObservable } from "cgv"
-import { Instance, toObject3D } from "cgv/domains/shape"
+import { InterpretionValue, Matrix } from "cgv"
+import { Instance, matrixObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
-import { Color, Object3D } from "three"
+import { Observable } from "rxjs"
+import { Object3D } from "three"
 
 export function ShapeEditor({
-    changes,
+    matrix,
 }: {
-    changes: MatrixEntriesObservable<InterpretionValue<Instance>> | undefined
+    matrix: Observable<Matrix<Observable<InterpretionValue<Instance>>>> | undefined
 }) {
     const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     useEffect(() => {
-        if (changes == null) {
+        if (matrix == null) {
             return
         }
-        const subscription = changes.pipe(toObject3D((value) => value.value.primitive.getObject())).subscribe({
+        const subscription = matrix.pipe(matrixObject3D(10)).subscribe({
             next: (object) => setState([object, undefined]),
             error: (error) => setState([undefined, error.message]),
         })
         return () => subscription.unsubscribe()
-    }, [changes])
+    }, [matrix])
     return (
         <div
             style={{ whiteSpace: "pre-line" }}
@@ -38,7 +39,7 @@ export function ShapeEditor({
                 className="overflow-auto mb-0 border-top flex-basis-0 h5 bg-light flex-grow-1"
                 style={{ whiteSpace: "pre-line", maxHeight: 300, height: 300 }}>
                 {error == null ? (
-                    changes == null ? (
+                    matrix == null ? (
                         <div className="text-primary p-3">waiting ...</div>
                     ) : (
                         <div className="text-success p-3">ok</div>

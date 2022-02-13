@@ -1,11 +1,11 @@
 import Head from "next/head"
 import React, { useState } from "react"
-import { of } from "rxjs"
+import { Observable, of } from "rxjs"
 import { useInterpretion } from "../src/use-interpretion"
 import { ShapeEditor } from "../src/shape-editor"
 import { Instance, operations } from "cgv/domains/shape"
 import { Color, Matrix4, Plane, Shape, Vector2, Vector3 } from "three"
-import { InterpretionValue, MatrixEntriesObservable } from "cgv"
+import { InterpretionValue, Matrix } from "cgv"
 import { createPhongMaterialGenerator, FacePrimitive } from "cgv/domains/shape/primitive"
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
@@ -17,10 +17,9 @@ const lotsVertecies: Array<Array<Vector2>> = [
     [new Vector2(700, 900), new Vector2(300, 800), new Vector2(200, 400), new Vector2(700, 400)],
 ]
 
-const lots: MatrixEntriesObservable<InterpretionValue<Instance>> = of(
-    lotsVertecies.map((vertecies, i) => ({
-        index: [i],
-        value: of({
+const lots: Observable<Matrix<Observable<InterpretionValue<Instance>>>> = of(
+    lotsVertecies.map((vertecies, i) =>
+        of({
             terminated: false,
             eventDepthMap: {},
             parameters: {},
@@ -29,8 +28,8 @@ const lots: MatrixEntriesObservable<InterpretionValue<Instance>> = of(
                 attributes: {},
                 primitive: new FacePrimitive(new Matrix4(), new Shape(vertecies), redMaterialGenerator),
             },
-        }),
-    }))
+        })
+    )
 )
 
 export default function Index() {
@@ -46,7 +45,7 @@ export default function Index() {
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
-                <ShapeEditor changes={changes} />
+                <ShapeEditor matrix={changes} />
                 <div className="d-flex flex-column flex-basis-0 flex-grow-1">
                     <textarea
                         style={{ resize: "none", outline: 0 }}

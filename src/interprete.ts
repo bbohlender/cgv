@@ -1,22 +1,5 @@
-import {
-    defer,
-    distinctUntilChanged,
-    map,
-    MonoTypeOperatorFunction,
-    Observable,
-    of,
-    OperatorFunction,
-    throwError,
-} from "rxjs"
-import {
-    MatrixEntry,
-    MatrixEntriesObservable,
-    mergeMatrices,
-    ParsedEventDefintion,
-    ParsedGrammarDefinition,
-    ParsedStep,
-    deepShareReplay,
-} from "."
+import { combineLatest, defer, map, Observable, of, OperatorFunction, startWith, tap, throwError } from "rxjs"
+import { mapMatrix, Matrix, ParsedGrammarDefinition, ParsedStep, shareReplayMatrix } from "."
 
 export type EventDepthMap = Readonly<{ [identifier in string]?: number }>
 
@@ -24,15 +7,9 @@ export type Parameters = Readonly<{ [identifier in string]?: Observable<any> }>
 
 export type Operation<T> = (
     parameters: Array<
-        OperatorFunction<
-            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-            Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
-        >
+        OperatorFunction<Matrix<Observable<InterpretionValue<T>>>, Matrix<Observable<InterpretionValue<T>>>>
     >
-) => OperatorFunction<
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
->
+) => OperatorFunction<Matrix<Observable<InterpretionValue<T>>>, Matrix<Observable<InterpretionValue<T>>>>
 
 export type Operations = {
     "+": Operation<number>
@@ -57,17 +34,14 @@ export type Operations = {
 export type InterpretionValue<T> = Readonly<{
     value: T
     eventDepthMap: EventDepthMap
-    terminated: boolean
+    //terminated: boolean
     parameters: Parameters
 }>
 
 export function interprete<T>(
     grammar: ParsedGrammarDefinition,
     operations: Operations
-): OperatorFunction<
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
-> {
+): OperatorFunction<Matrix<Observable<InterpretionValue<T>>>, Matrix<Observable<InterpretionValue<T>>>> {
     const rules = Object.values(grammar)
     if (rules.length === 0) {
         return (input) => input
@@ -76,16 +50,11 @@ export function interprete<T>(
 }
 
 export function mergeMatrixOperators<T, K = T>(
-    operators: Array<
-        OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>>, Array<MatrixEntry<Observable<K | undefined>>>>
-    >
-): OperatorFunction<Array<MatrixEntry<Observable<T | undefined>>>, Array<MatrixEntry<Observable<K | undefined>>>> {
+    operators: Array<OperatorFunction<Matrix<Observable<T>>, Matrix<Observable<K>>>>
+): OperatorFunction<Matrix<Observable<T>>, Matrix<Observable<K>>> {
     return (observable) => {
-        if (Array.isArray(operators)) {
-            const shared = observable.pipe(deepShareReplay({ refCount: true }))
-            return mergeMatrices(operators.map((operator) => shared.pipe(operator)))
-        }
-        return observable.pipe(operators)
+        const shared = observable.pipe(shareReplayMatrix({ refCount: true, bufferSize: 1 }))
+        return combineLatest(operators.map((operator) => shared.pipe(operator, startWith<Matrix<Observable<K>>>([]))))
     }
 }
 
@@ -93,20 +62,14 @@ export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
     operations: Operations
-): OperatorFunction<
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>,
-    Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>
-> {
+): OperatorFunction<Matrix<Observable<InterpretionValue<T>>>, Matrix<Observable<InterpretionValue<T>>>> {
     switch (step.type) {
         case "operation": {
             const operation = operations[step.identifier]
             if (operation == null) {
                 return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
             }
-            const appliedOperation = operation(
-                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations))
-            )
-            return (input) => input.pipe(appliedOperation)
+            return operation(step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations)))
         }
         case "parallel":
             return mergeMatrixOperators(
@@ -119,46 +82,24 @@ export function interpreteStep<T>(
                 value: step.value,
                 parameters: {},
             })
-            return map((changes) =>
-                changes.map<MatrixEntry<Observable<InterpretionValue<T>>>>((change) => ({
-                    ...change,
-                    value,
-                }))
-            )
+            return map((matrix) => mapMatrix(matrix, () => value))
         }
         case "sequential":
-            //TODO: this can be improved?
             return (input) => {
                 let current = input
-                const terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
+                //const terminated: Array<MatrixEntriesObservable<InterpretionValue<T> | undefined>> = []
+                //TODO
                 for (const stepOfSteps of step.steps) {
-                    const sharedCurrent = current.pipe(
-                        deepShareReplay({
-                            //TODO: buffer Size unlimited (bad)
-                            refCount: true,
-                        })
-                    )
-                    terminated.push(sharedCurrent.pipe(useWhenTerminatedIs(true)))
-                    current = sharedCurrent.pipe(
-                        useWhenTerminatedIs(false),
-                        interpreteStep(stepOfSteps, grammar, operations)
-                    )
-                    //TODO: think of ways to reduce the amount of "doubles" through splitting
-                    //maybe implement sequential through a nextSteps parameters, which are then just cleared?
+                    current = current.pipe(interpreteStep(stepOfSteps, grammar, operations))
                 }
 
-                return mergeMatrices([current, ...terminated])
+                return current
             }
         case "this":
             return (input) => input
         case "return":
-            return map((changes) =>
-                changes.map((change) => ({
-                    ...change,
-                    value: change.value.pipe(
-                        map((value) => (value == null ? undefined : { ...value, terminated: true }))
-                    ),
-                }))
+            return map((matrix) =>
+                mapMatrix(matrix, (value) => value.pipe(map((value) => ({ ...value, terminated: true }))))
             )
         case "symbol": {
             const rule = grammar[step.identifier]
@@ -168,18 +109,4 @@ export function interpreteStep<T>(
             return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations)))
         }
     }
-}
-
-function useWhenTerminatedIs<T>(
-    terminated: boolean
-): MonoTypeOperatorFunction<Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>> {
-    return map((changes) =>
-        changes.map((change) => ({
-            index: change.index,
-            value: change.value.pipe(
-                map((value) => (value?.terminated === terminated ? value : undefined)),
-                distinctUntilChanged()
-            ),
-        }))
-    )
 }

@@ -1,21 +1,22 @@
-import { map, Observable, OperatorFunction, switchMap, distinctUntilChanged, of } from "rxjs"
+import { map, Observable, OperatorFunction, switchMap, distinctUntilChanged, of, tap } from "rxjs"
 import {
     EventDepthMap,
-    getMatrixEntryIndexKey,
     InterpretionValue,
-    MatrixEntry,
-    nestChanges,
-    switchGroupMap,
-    toArray,
-    toChanges,
+    nestMatrix,
     Parameters,
     mergeMatrixOperators,
+    Matrix,
+    switchAllArray,
+    changesToMatrix,
+    debounceBufferTime,
+    switchAllMatrix,
+    tapMatrix,
 } from "."
 import { cache } from "./cache"
 
 export function thisParameter<T>(
-    input: Observable<Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>>
-): Observable<Array<MatrixEntry<Observable<InterpretionValue<T> | undefined>>>> {
+    input: Observable<Matrix<Observable<InterpretionValue<T>>>>
+): Observable<Matrix<Observable<InterpretionValue<T>>>> {
     return input
 }
 
@@ -46,22 +47,16 @@ export function operation<Input, Output>(
     compute: (input: Array<Input>) => Observable<Array<Output>>,
     getDependencies: ((input: Array<Input>) => Array<any>) | undefined,
     parameters: Array<
-        OperatorFunction<
-            Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
-            Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>
-        >
+        OperatorFunction<Matrix<Observable<InterpretionValue<Input>>>, Matrix<Observable<InterpretionValue<Input>>>>
     >,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     inputAmount?: Array<number>,
     debounceTime = 10
-): OperatorFunction<
-    Array<MatrixEntry<Observable<InterpretionValue<Input> | undefined>>>,
-    Array<MatrixEntry<Observable<InterpretionValue<Output> | undefined>>>
-> {
+): OperatorFunction<Matrix<Observable<InterpretionValue<Input>>>, Matrix<Observable<InterpretionValue<Output>>>> {
     //TODO: throw error when inputAmount != parameters.length
     const computeInterpretationValue: (
         input: Array<InterpretionValue<Input>> | undefined
-    ) => Observable<Array<InterpretionValue<Output>>> = (input) => {
+    ) => Observable<Array<Observable<InterpretionValue<Output>>>> = (input) => {
         if (input == null) {
             return of([])
         }
@@ -69,43 +64,42 @@ export function operation<Input, Output>(
         const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
         return compute(input.map(({ value }) => value)).pipe(
             map((results) =>
-                results.map<InterpretionValue<Output>>((value) => ({
-                    eventDepthMap,
-                    parameters,
-                    terminated: false,
-                    value,
-                }))
+                results.map<Observable<InterpretionValue<Output>>>((value) =>
+                    of({
+                        eventDepthMap,
+                        parameters,
+                        terminated: false,
+                        value,
+                    })
+                )
             )
         )
     }
 
     const computeCachedValue: OperatorFunction<
         Array<InterpretionValue<Input>> | undefined,
-        Array<InterpretionValue<Output>> | undefined
+        Array<Observable<InterpretionValue<Output>>> | undefined
     > =
         getDependencies == null
             ? (input) => input.pipe(switchMap(computeInterpretationValue), distinctUntilChanged())
             : cache((input) => getDependencies(input.map(({ value }) => value)), computeInterpretationValue)
 
-    return (changes) =>
-        changes.pipe(
+    return (matrix) =>
+        matrix.pipe(
+            tapMatrix(),
             mergeMatrixOperators(parameters),
-            nestChanges(getParameterIndex, debounceTime),
-            switchGroupMap(
-                (change) =>
-                    change.value.pipe(
-                        toArray(debounceTime),
-                        map((array) => (parameters.length === array.length ? array : undefined)),
-                        computeCachedValue,
-                        toChanges(),
-                        map((entries) =>
-                            entries.map((result) => ({
-                                index: [...change.index, ...result.index],
-                                value: result.value,
-                            }))
-                        )
-                    ),
-                getMatrixEntryIndexKey
-            )
+            nestMatrix<InterpretionValue<Input>>(getParameterIndex),
+            map((change) => ({
+                ...change,
+                value: change.value.pipe(
+                    switchAllArray(debounceTime),
+                    map((array) => (parameters.length === array.length ? array : undefined)),
+                    computeCachedValue,
+                    map((value) => (value == null ? [] : value))
+                ),
+            })),
+            debounceBufferTime(debounceTime),
+            changesToMatrix(),
+            switchAllMatrix(debounceTime)
         )
 }

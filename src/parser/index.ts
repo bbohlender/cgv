@@ -12,8 +12,6 @@ export function parse(text: string): ParsedGrammarDefinition {
     return parser.results[0]
 }
 
-export type ParsedEventDefintion = (values: Array<Array<any>>) => Array<Array<any>>
-
 export type ParsedStep =
     | ParsedParallelValues
     | ParsedSequantialValues
