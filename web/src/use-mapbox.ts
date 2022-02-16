@@ -1,9 +1,9 @@
-import { InterpretionValue, Matrix, Parameters } from "cgv"
+import { InterpretionValue, Parameters } from "cgv"
 import { useMemo } from "react"
 import { Color, Matrix4, Shape, Vector2 } from "three"
 import { Layers, loadLayers } from "./api"
 import { Instance } from "cgv/domains/shape"
-import { from, map, Observable, of, shareReplay } from "rxjs"
+import { from, map, of, shareReplay } from "rxjs"
 import {
     CombinedPrimitive,
     createPhongMaterialGenerator,
@@ -29,9 +29,9 @@ export function useMapbox() {
                 map((layers) => {
                     const roads = getRoads(layers)
                     const buildings = getBuildings(layers)
-                    const matrix = [...roads, ...buildings].map<Observable<InterpretionValue<Instance>>>(
+                    const matrix = [...roads, ...buildings].map<InterpretionValue<Instance>>(
                         ([primitive, parameters], i) =>
-                            of({
+                            ({
                                 terminated: false,
                                 eventDepthMap: {},
                                 parameters,

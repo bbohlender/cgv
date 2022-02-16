@@ -25,10 +25,10 @@ const blocksLotsVertecies: Array<Array<Array<Vector2>>> = [
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
-const lots: Observable<Matrix<Observable<InterpretionValue<Instance>>>> = of(
+const lots: Observable<Matrix<InterpretionValue<Instance>>> = of(
     blocksLotsVertecies.map((lotsVertecies, blockId) =>
         lotsVertecies.map((vertecies, i) =>
-            of({
+            ({
                 terminated: false,
                 eventDepthMap: {},
                 parameters: {

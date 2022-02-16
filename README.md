@@ -123,39 +123,67 @@ Building -> translate("0", "100", "0") | lines() connect(translate("0", "100", "
 `Task 1`
 
 ```
-City -> color("0x333343") extrude("600") faces() (select("0", "4") Wall | select("4", "5") Roof)
+City -> color(0x333343) extrude(600) faces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Wall -> splitZ("200") Floor
+Wall -> splitZ(200) Floor
 
-Roof -> color("0x8881111")
+Roof -> color(0x8881111)
 
-Floor -> splitX("200") WindowFrame
+Floor -> splitX(200) WindowFrame 
 
-WindowFrame -> switchSizeX("200", this, multiSplitX("50", "100") switchIndex(this,  multiSplitZ("50", "100") switchIndex(this, Window, this), this))
+WindowFrame -> if (size("x") >= 200)
+	then (
+		multiSplitX(50, 100) switch index()
+			case 0: this
+			case 1: (
+				multiSplitZ(50, 100) switch index()
+					case 0: this
+					case 1: Window
+					case 2: this
+			)
+			case 2: this
+	)
+	else this
 
-Window -> color("0xEEEEEE")
+Window -> color(0xEEEEEE)
 ```
 
 `Task 2`
 
 ```
-City -> color("0x333343") extrude(random("400", "600")) faces() (select("0", "4") Wall | select("4", "5") Roof)
+City -> color(0x333343) extrude(random(400, 600)) faces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Wall -> splitZ(random("150", "250")) Floor
+Wall -> splitZ(random(150, 250)) Floor
 
-Roof -> color("0x8881111")
+Roof -> color(0x8881111)
 
-Floor -> switchSizeZ("140", this, splitX(random("150", "250")) WindowFrame)
+Floor -> if (size("z") >= 140)
+    then (
+        splitX(random(150, 250)) WindowFrame
+    )
+    else this
 
-WindowFrame -> switchSizeX("150", this, multiSplitX("40", "100") switchIndex(this,  multiSplitZ("50", "100") switchIndex(this, Window, this), this))
+WindowFrame -> if (size("x") >= 150)
+	then (
+		multiSplitX(40, 100) switch index()
+			case 0: this
+			case 1: (
+				multiSplitZ(50, 100) switch index()
+					case 0: this
+					case 1: Window
+					case 2: this
+			)
+			case 2: this
+	)
+	else this
 
-Window -> color("0xEEEEEE")
+Window -> color(0xEEEEEE)
 ```
 
 `Task 3`
 
 ```
-City -> color(0x333343) switchBlock(LowBuilding, HighBuilding)
+City -> color(0x333343) if (block() == 0) then LowBuilding else HighBuilding
 
 HighBuilding -> extrude(random(800, 1200)) Building
 
@@ -163,15 +191,43 @@ LowBuilding -> extrude(random(200, 600)) Building
 
 Building -> faces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Roof -> switchBlock(color(0x8881111), color(0x111111))
+Roof -> if (block() == 0) then color(0x8881111) else color(0x111111)
 
 Wall -> splitZ(random(190, 250)) Floor
 
-Floor -> switchSizeZ(190, this, splitX(200) switchBlock(SmallTile, BigTile))
+Floor -> if (size("z") >= 190)
+    then (
+        splitX(200) if (block() == 0) then SmallTile else BigTile
+    )
+    else this
 
-BigTile -> switchSizeX(200, this, multiSplitX(10, 190) switchIndex(this,  multiSplitZ(40, 150) switchIndex(this, Window, this), this))
+BigTile -> if (size("x") >= 200)
+    then (
+        multiSplitX(10, 190) switch index()
+            case 0: this
+            case 1: (
+                multiSplitZ(40, 150) switch index()
+                    case 0: this
+                    case 1: Window
+                    case 2: this
+            )
+            case 2: this
+    )
+    else this
 
-SmallTile -> switchSizeX(180, this, multiSplitX(50, 100) switchIndex(this,  multiSplitZ(50, 100) switchIndex(this, Window, this), this))
+SmallTile -> if (size("x") >= 180)
+    then (
+        multiSplitX(50, 100) switch index()
+            case 0: this
+            case 1: (
+                multiSplitZ(50, 100) switch index()
+                    case 0: this
+                    case 1: Window
+                    case 2: this
+            )
+            case 2: this
+    )
+    else this
 
 Window -> extrude(-20) faces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```

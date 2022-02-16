@@ -1,91 +1,88 @@
-import { map, Observable, of, OperatorFunction } from "rxjs"
+import { map, Observable, of, switchMap, tap } from "rxjs"
 import { Instance } from "."
 import {
-    defaultParameterIndex,
+    changesToMatrix,
     InterpretionValue,
-    mergeMatrixOperators,
-    nestMatrix,
+    mapMatrix,
+    Matrix,
+    matrixToChanges,
     operation,
     Operations,
-    thisParameter
+    switchAllMatrixChanges,
+    thisParameter,
 } from "../.."
 import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix } from "./math"
 import { createPhongMaterialGenerator, FacePrimitive } from "./primitive"
 import { Axis, Split } from "./primitive-utils"
 import { operations as defaultOperations } from ".."
+import { Vector3 } from "three"
 
-function layerToIndex(layer: string): number {
-    return layer === "road" ? 0 : 1
+//TODO: remove from here since we can just use this.block
+function computeBlock(matrix: Observable<Matrix<InterpretionValue<any>>>): Observable<Matrix<any>> {
+    return matrix.pipe(
+        tap(console.log),
+        map((matrix) =>
+            mapMatrix(matrix, (value) => value.parameters.blockId!.pipe(map((id) => ({ ...value, value: id }))))
+        ),
+        matrixToChanges(),
+        switchAllMatrixChanges(10),
+        changesToMatrix(),
+        tap(console.log)
+    )
 }
 
-function indexIsInRange(index: Array<number>, from: number, to: number): boolean {
-    if (index.length === 0 && from === 0 && to > 0) {
-        return true
-    }
-    const lastEntry = index[index.length - 1]
-    return from <= lastEntry && lastEntry < to
+const size = new Vector3()
+
+function computeSize([instance, axis]: Array<any>): Observable<Matrix<any>> {
+    instance.primitive.getGeometrySize(size)
+    return of(size[axis as keyof Vector3])
 }
 
-function trimIndex(index: Array<number>, from: number, to: number): Array<number> {
-    if (index.length === 0) {
-        return index
-    }
-    return [...index.slice(0, -1), index[index.length - 1] - from]
-}
-
-function computeRandom([min, max, step]: Array<any>): Observable<Array<any>> {
+function computeRandom([min, max, step]: Array<any>): Observable<Matrix<any>> {
     const distance = max - min
     let value = Math.random() * distance + min
     if (step != null) {
         value = Math.floor(value / step) * step
     }
-    return of([value])
+    return of(value)
 }
 
-function computeScale([instance, x, y, z]: Array<any>): Observable<Array<Instance>> {
-    return of([
-        {
-            attributes: { ...instance.attributes },
-            primitive: instance.primitive.multiplyMatrix(makeScaleMatrix(x, y, z)),
-        },
-    ])
+function computeScale([instance, x, y, z]: Array<any>): Observable<Matrix<Instance>> {
+    return of({
+        attributes: { ...instance.attributes },
+        primitive: instance.primitive.multiplyMatrix(makeScaleMatrix(x, y, z)),
+    })
 }
 
 function degreeToRadians(degree: number): number {
     return (Math.PI * degree) / 180
 }
 
-function computeRotate([instance, x, y, z]: Array<any>): Observable<Array<Instance>> {
-    return of([
-        {
-            attributes: { ...instance.attributes },
-            primitive: instance.primitive.multiplyMatrix(
-                makeRotationMatrix(degreeToRadians(x), degreeToRadians(y), degreeToRadians(z))
-            ),
-        },
-    ])
+function computeRotate([instance, x, y, z]: Array<any>): Observable<Matrix<Instance>> {
+    return of({
+        attributes: { ...instance.attributes },
+        primitive: instance.primitive.multiplyMatrix(
+            makeRotationMatrix(degreeToRadians(x), degreeToRadians(y), degreeToRadians(z))
+        ),
+    })
 }
 
-function computeTranslate([instance, x, y, z]: Array<any>): Observable<Array<Instance>> {
-    return of([
-        {
-            attributes: { ...instance.attributes },
-            primitive: instance.primitive.multiplyMatrix(makeTranslationMatrix(x, y, z)),
-        },
-    ])
+function computeTranslate([instance, x, y, z]: Array<any>): Observable<Matrix<Instance>> {
+    return of({
+        attributes: { ...instance.attributes },
+        primitive: instance.primitive.multiplyMatrix(makeTranslationMatrix(x, y, z)),
+    })
 }
 
-function computeColorChange([instance, color]: Array<any>): Observable<Array<Instance>> {
-    return of([
-        {
-            attributes: { ...instance.attributes },
-            primitive: instance.primitive.changeMaterialGenerator(createPhongMaterialGenerator(color)),
-        },
-    ])
+function computeColorChange([instance, color]: Array<any>): Observable<Matrix<Instance>> {
+    return of({
+        attributes: { ...instance.attributes },
+        primitive: instance.primitive.changeMaterialGenerator(createPhongMaterialGenerator(color)),
+    })
 }
 
-function computeExtrude([instance, by]: Array<any>): Observable<Array<Instance>> {
-    return of([{ attributes: { ...instance.attributes }, primitive: instance.primitive.extrude(by) }])
+function computeExtrude([instance, by]: Array<any>): Observable<Matrix<Instance>> {
+    return of({ attributes: { ...instance.attributes }, primitive: instance.primitive.extrude(by) })
 }
 
 function computeComponents(
@@ -210,4 +207,9 @@ export const operations: Operations = {
 
     color: (parameters) => (changes) =>
         changes.pipe(operation(computeColorChange, undefined, [thisParameter, ...parameters], undefined, [2])),
+
+    size: (parameters) => (matrix) =>
+        matrix.pipe(operation(computeSize, undefined, [thisParameter, ...parameters], undefined, [2])),
+
+    block: () => computeBlock,
 }

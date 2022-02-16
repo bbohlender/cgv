@@ -45,8 +45,6 @@ function setupObject3D(object: Object3D, matrix: Matrix4): Object3D {
     return object
 }
 
-//TODO: remove clone, make every readonly, mutation only through recreation
-
 export enum ObjectType {
     Point,
     Line,
@@ -120,7 +118,7 @@ export class PointPrimitive extends Primitive {
     }
 
     extrude(by: number): Primitive {
-        return new LinePrimitive(this.matrix.clone(), by, this.materialGenerator)
+        return new LinePrimitive(this.matrix, by, this.materialGenerator)
     }
 
     components(type: "points" | "lines" | "faces"): Primitive[] {
@@ -138,7 +136,7 @@ export class PointPrimitive extends Primitive {
     }
 
     clone(): Primitive {
-        return new PointPrimitive(this.matrix.clone(), this.materialGenerator)
+        return new PointPrimitive(this.matrix, this.materialGenerator)
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
@@ -186,11 +184,11 @@ export class LinePrimitive extends Primitive {
     }
 
     clone(): Primitive {
-        return new LinePrimitive(this.matrix.clone(), this.length, this.materialGenerator)
+        return new LinePrimitive(this.matrix, this.length, this.materialGenerator)
     }
 
     extrude(by: number): Primitive {
-        return FacePrimitive.fromLengthAndHeight(this.matrix.clone(), this.length, by, true, this.materialGenerator)
+        return FacePrimitive.fromLengthAndHeight(this.matrix, this.length, by, true, this.materialGenerator)
     }
 
     components(type: "points" | "lines" | "faces"): Primitive[] {
@@ -200,9 +198,9 @@ export class LinePrimitive extends Primitive {
             case "lines":
                 return [this.clone()]
             case "points": {
-                const end = new PointPrimitive(this.matrix.clone(), this.materialGenerator)
+                const end = new PointPrimitive(this.matrix, this.materialGenerator)
                 end.multiplyMatrix(helperMatrix.makeTranslation(0, this.length, 0))
-                return [new PointPrimitive(this.matrix.clone(), this.materialGenerator), end]
+                return [new PointPrimitive(this.matrix, this.materialGenerator), end]
             }
         }
     }
@@ -294,7 +292,7 @@ export class FacePrimitive extends Primitive {
         invertMatrix.copy(this.matrix).invert()
         const top = this.multiplyMatrix(invertMatrix.multiply(makeTranslationMatrix(0, by, 0)))
         const points = this.shape.extractPoints(5).shape
-        return new CombinedPrimitive(this.matrix.clone(), [
+        return new CombinedPrimitive(this.matrix, [
             ...points.map((p1, i) => {
                 const p2 = points[(i + 1) % points.length]
                 helperVector.set(p2.x - p1.x, 0, p2.y - p1.y)
@@ -399,7 +397,7 @@ export class CombinedPrimitive extends Primitive {
 
     extrude(by: number): Primitive {
         return new CombinedPrimitive(
-            this.matrix.clone(),
+            this.matrix,
             this.primitives.map((primitive) => primitive.extrude(by))
         )
     }

@@ -5,11 +5,11 @@ import moo from "moo";
 const lexer = moo.compile({
     returnSymbol: /return/,
     thisSymbol: /this/,
-    ifSymbol: /\sif\s/,
-    thenSymbol: /\sthen\s/,
-    elseSymbol: /\selse\s/,
-    switchSymbol: /\sswitch\s/,
-    caseSymbol: /\scase\s/,
+    ifSymbol: /if/,
+    thenSymbol: /then/,
+    elseSymbol: /else/,
+    switchSymbol: /switch/,
+    caseSymbol: /case/,
     arrow: /->/,
     openBracket: /\(/,
     closedBracket: /\)/,
@@ -25,16 +25,16 @@ const lexer = moo.compile({
     and: /&&/,
     or: /\|\|/,
     not: /!/,
-    plus: /\+/,
-    minus: /-/,
-    multiply: /\*/,
-    modulo: /%/,
-    divide: /\//,
     parallel: /\|/,
     int: /0[Xx][\da-fA-F]+|0[bB][01]+/,
     number: /-?\d+(?:\.\d+)?/,
     string: /"[^"]*"/,
     boolean: /true|false/,
+    plus: /\+/,
+    minus: /-/,
+    multiply: /\*/,
+    modulo: /%/,
+    divide: /\//,
     identifier: /[a-zA-Z_$]+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
 });
@@ -68,8 +68,9 @@ Step                ->  Operation                                               
                     |   Constant                                                    {% ([value]) => ({ type: "raw", value }) %}
                     |   ConditionalOperation                                        {% ([operation]) => operation %}
                     |   %returnSymbol                                               {% () => ({ type: "return" }) %}
+                    |   %openBracket Steps ws %closedBracket                        {% ([,steps]) => steps %}
 
-Operation           ->  %identifier %openBracket EmptyParameters ws %closedBracket    {% ([{ value },,,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
+Operation           ->  %identifier %openBracket EmptyParameters ws %closedBracket    {% ([{ value },,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
 
 EmptyParameters     ->  Parameters                                                  {% ([parameters]) => parameters%}
                     |   null                                                        {% () => [] %}
@@ -83,20 +84,20 @@ JS                  ->  %js                                                     
 ws                  ->  %ws | null
 
 Constant            ->  %boolean                                                    {% ([{ value }]) => value === "true" %}
-                    |   %string                                                     {% ([{ value }]) => value %}
+                    |   %string                                                     {% ([{ value }]) => value.slice(1, -1) %}
                     |   %number                                                     {% ([{ value }]) => Number.parseFloat(value) %}
                     |   %int                                                        {% ([{ value }]) => Number.parseInt(value) %}
 
 Variable            ->  %thisSymbol %point %identifier                              
-AssignVariable      ->  Variable ws %equal Steps                                    
+AssignVariable      ->  Variable ws %equal ws Step                                    
 
 ConditionalOperation    ->  IfThenElseOperation                                     {% ([value]) => value %}                               
                         |   SwitchOperation                                         {% ([value]) => value %}
 
-IfThenElseOperation     ->  %ifSymbol Steps ws %thenSymbol Steps ws %elseSymbol Steps   {% ([,value,,,ifOperation,,,elseOperation]) => ({ type: "operation", parameters: [value, ifOperation, elseOperation], identifier: "if" }) %}
+IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,value,,,,ifOperation,,,,elseOperation]) => ({ type: "operation", parameters: [value, ifOperation, elseOperation], identifier: "if" }) %}
 
-SwitchOperation         ->  %switchSymbol Steps SwitchCase:+                            {% ([,value,cases]) => ({ type: "operation", parameters: [value, ...cases.reduce((v1: Array<any>, v2: Array<any>) => v1.concat(v2))], identifier: "switch" }) %}
-SwitchCase              ->  ws %caseSymbol Steps ws %colon Steps                        {% ([,,value,,,operation]) => [value, operation] %}
+SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                         {% ([,,value,cases]) => ({ type: "operation", parameters: [value, ...cases.reduce((v1: Array<any>, v2: Array<any>) => v1.concat(v2))], identifier: "switch" }) %}
+SwitchCase              ->  %ws %caseSymbol %ws Step %colon ws Step                        {% ([,,,value,,,operation]) => [value, operation] %}
 
 BasicOperation          ->  BooleanOperation                                            {% ([value]) => value %}
 
@@ -149,4 +150,3 @@ ModuloOperation         ->  PointOperation ws %modulo ws InvertOperation        
 
 InvertOperation         ->  %minus ws InvertOperation                                   {% ([,,value]) => ({ type: "operation", parameters: [value], identifier: "!-" }) %}
                         |   Step                                                        {% ([value]) => value %}
-                        |   %openBracket Steps ws %closedBracket                        {% ([,steps]) => steps %}

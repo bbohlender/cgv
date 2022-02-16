@@ -4,7 +4,7 @@ import { Observable } from "rxjs"
 
 export function useInterpretion<T>(
     text: string,
-    input: Observable<Matrix<Observable<InterpretionValue<T>>>>,
+    input: Observable<Matrix<InterpretionValue<T>>>,
     operations: Operations
 ) {
     return useMemo(() => {

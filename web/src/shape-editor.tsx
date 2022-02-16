@@ -6,17 +6,13 @@ import { useEffect, useState } from "react"
 import { Observable } from "rxjs"
 import { Object3D } from "three"
 
-export function ShapeEditor({
-    matrix,
-}: {
-    matrix: Observable<Matrix<Observable<InterpretionValue<Instance>>>> | undefined
-}) {
+export function ShapeEditor({ matrix }: { matrix: Observable<Matrix<InterpretionValue<Instance>>> | undefined }) {
     const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     useEffect(() => {
         if (matrix == null) {
             return
         }
-        const subscription = matrix.pipe(matrixObject3D(10)).subscribe({
+        const subscription = matrix.pipe(matrixObject3D()).subscribe({
             next: (object) => setState([object, undefined]),
             error: (error) => setState([undefined, error.message]),
         })

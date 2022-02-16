@@ -1,4 +1,4 @@
-import { map, Observable, OperatorFunction, switchMap, distinctUntilChanged, of, tap } from "rxjs"
+import { map, Observable, OperatorFunction, switchMap, of } from "rxjs"
 import {
     EventDepthMap,
     InterpretionValue,
@@ -6,17 +6,17 @@ import {
     Parameters,
     mergeMatrixOperators,
     Matrix,
-    switchAllArray,
     changesToMatrix,
     debounceBufferTime,
-    switchAllMatrix,
-    tapMatrix,
+    matrixToArray,
+    switchAllMatrixChanges,
+    mapMatrix,
 } from "."
 import { cache } from "./cache"
 
 export function thisParameter<T>(
-    input: Observable<Matrix<Observable<InterpretionValue<T>>>>
-): Observable<Matrix<Observable<InterpretionValue<T>>>> {
+    input: Observable<Matrix<InterpretionValue<T>>>
+): Observable<Matrix<InterpretionValue<T>>> {
     return input
 }
 
@@ -44,19 +44,17 @@ export function maxEventDepth(maps: Array<InterpretionValue<any>>): EventDepthMa
 }
 
 export function operation<Input, Output>(
-    compute: (input: Array<Input>) => Observable<Array<Output>>,
+    compute: (input: Array<Input>) => Observable<Matrix<Output>>,
     getDependencies: ((input: Array<Input>) => Array<any>) | undefined,
-    parameters: Array<
-        OperatorFunction<Matrix<Observable<InterpretionValue<Input>>>, Matrix<Observable<InterpretionValue<Input>>>>
-    >,
+    parameters: Array<OperatorFunction<Matrix<InterpretionValue<Input>>, Matrix<InterpretionValue<Input>>>>,
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     inputAmount?: Array<number>,
     debounceTime = 10
-): OperatorFunction<Matrix<Observable<InterpretionValue<Input>>>, Matrix<Observable<InterpretionValue<Output>>>> {
+): OperatorFunction<Matrix<InterpretionValue<Input>>, Matrix<InterpretionValue<Output>>> {
     //TODO: throw error when inputAmount != parameters.length
     const computeInterpretationValue: (
         input: Array<InterpretionValue<Input>> | undefined
-    ) => Observable<Array<Observable<InterpretionValue<Output>>>> = (input) => {
+    ) => Observable<Matrix<InterpretionValue<Output>>> = (input) => {
         if (input == null) {
             return of([])
         }
@@ -64,42 +62,39 @@ export function operation<Input, Output>(
         const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
         return compute(input.map(({ value }) => value)).pipe(
             map((results) =>
-                results.map<Observable<InterpretionValue<Output>>>((value) =>
-                    of({
-                        eventDepthMap,
-                        parameters,
-                        terminated: false,
-                        value,
-                    })
-                )
+                mapMatrix(results, (value) => ({
+                    eventDepthMap,
+                    parameters,
+                    terminated: false,
+                    value,
+                }))
             )
         )
     }
 
     const computeCachedValue: OperatorFunction<
         Array<InterpretionValue<Input>> | undefined,
-        Array<Observable<InterpretionValue<Output>>> | undefined
+        Matrix<InterpretionValue<Output>> | undefined
     > =
         getDependencies == null
-            ? (input) => input.pipe(switchMap(computeInterpretationValue), distinctUntilChanged())
+            ? (input) => input.pipe(switchMap(computeInterpretationValue))
             : cache((input) => getDependencies(input.map(({ value }) => value)), computeInterpretationValue)
 
     return (matrix) =>
         matrix.pipe(
-            tapMatrix(),
             mergeMatrixOperators(parameters),
             nestMatrix<InterpretionValue<Input>>(getParameterIndex),
             map((change) => ({
                 ...change,
                 value: change.value.pipe(
-                    switchAllArray(debounceTime),
+                    matrixToArray(),
                     map((array) => (parameters.length === array.length ? array : undefined)),
                     computeCachedValue,
                     map((value) => (value == null ? [] : value))
                 ),
             })),
             debounceBufferTime(debounceTime),
-            changesToMatrix(),
-            switchAllMatrix(debounceTime)
+            switchAllMatrixChanges(debounceTime),
+            changesToMatrix<Matrix<InterpretionValue<Output>>>()
         )
 }

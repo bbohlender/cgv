@@ -17,9 +17,9 @@ const lotsVertecies: Array<Array<Vector2>> = [
     [new Vector2(700, 900), new Vector2(300, 800), new Vector2(200, 400), new Vector2(700, 400)],
 ]
 
-const lots: Observable<Matrix<Observable<InterpretionValue<Instance>>>> = of(
+const lots: Observable<Matrix<InterpretionValue<Instance>>> = of(
     lotsVertecies.map((vertecies, i) =>
-        of({
+        ({
             terminated: false,
             eventDepthMap: {},
             parameters: {},

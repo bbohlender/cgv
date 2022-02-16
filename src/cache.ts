@@ -1,4 +1,4 @@
-import { distinctUntilChanged, map, Observable, of, OperatorFunction, shareReplay, switchAll, tap } from "rxjs"
+import { map, Observable, of, OperatorFunction, shareReplay, switchAll } from "rxjs"
 
 const cacheMap = new Map<(input: any) => Observable<any>, Array<[dependencies: Array<any>, output: Observable<any>]>>()
 
@@ -34,7 +34,6 @@ export function cache<Input, Output>(
                 }
                 return cacheEntry[1]
             }),
-            distinctUntilChanged(),
             switchAll()
         )
 }

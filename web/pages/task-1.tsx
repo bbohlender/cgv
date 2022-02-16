@@ -10,8 +10,8 @@ import { createPhongMaterialGenerator, FacePrimitive } from "cgv/domains/shape/p
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
-const lot: Observable<Matrix<Observable<InterpretionValue<Instance>>>> = of([
-    of({
+const lot: Observable<Matrix<InterpretionValue<Instance>>> = of([
+    ({
         terminated: false,
         eventDepthMap: {},
         parameters: {},
