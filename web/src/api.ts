@@ -12,7 +12,7 @@ export type Layers = {
 }
 
 export async function loadLayers(): Promise<Layers> {
-    const response = await fetch("/22545.mvt")
+    const response = await fetch(`/22545.mvt`)
     const data = await response.arrayBuffer()
     const vectorTile = new VectorTile(new Protobuf(data))
     return Object.entries(vectorTile.layers).reduce((prev, [name, layer]: [string, any]) => {

@@ -3,7 +3,7 @@ import { useMemo } from "react"
 import { Color, Matrix4, Shape, Vector2 } from "three"
 import { Layers, loadLayers } from "./api"
 import { Instance } from "cgv/domains/shape"
-import { from, map, of, shareReplay } from "rxjs"
+import { from, map, NEVER, of, shareReplay } from "rxjs"
 import {
     CombinedPrimitive,
     createPhongMaterialGenerator,
@@ -24,27 +24,28 @@ const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 export function useMapbox() {
     return useMemo(
         () =>
-            from(loadLayers()).pipe(
-                shareReplay({ bufferSize: 1, refCount: true }),
-                map((layers) => {
-                    const roads = getRoads(layers)
-                    const buildings = getBuildings(layers)
-                    const matrix = [...roads, ...buildings].map<InterpretionValue<Instance>>(
-                        ([primitive, parameters], i) =>
-                            ({
-                                terminated: false,
-                                eventDepthMap: {},
-                                parameters,
-                                value: {
-                                    path: [i],
-                                    attributes: {},
-                                    primitive,
-                                },
-                            })
-                    )
-                    return matrix
-                })
-            ),
+            global.window == null
+                ? NEVER
+                : from(loadLayers()).pipe(
+                      shareReplay({ bufferSize: 1, refCount: true }),
+                      map((layers) => {
+                          const roads = getRoads(layers)
+                          const buildings = getBuildings(layers)
+                          const matrix = [...roads, ...buildings].map<InterpretionValue<Instance>>(
+                              ([primitive, parameters], i) => ({
+                                  terminated: false,
+                                  eventDepthMap: {},
+                                  parameters,
+                                  value: {
+                                      path: [i],
+                                      attributes: {},
+                                      primitive,
+                                  },
+                              })
+                          )
+                          return matrix
+                      })
+                  ),
         []
     )
 }
