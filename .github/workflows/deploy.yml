@@ -1,0 +1,29 @@
+name: Depolyment
+
+on:
+    push:
+        branches: [main]
+
+jobs:
+    web-page:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v2
+
+        - name: Install and Build
+          run: |
+            npm install
+            npm run build
+
+        - name: Install and Build Web
+          working-directory: web
+          run: |
+            npm i --legacy-peer-deps
+            npm run generate
+
+        - name: Deploy
+          uses: JamesIves/github-pages-deploy-action@4.1.5
+          with:
+            branch: gh-pages
+            folder: web/out
