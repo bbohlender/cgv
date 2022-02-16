@@ -101,16 +101,16 @@ max -> event("'a => {
 `Recursion`
 
 ```
-a -> translate("0", "100", "0") terminateRandomly() a
+a -> translate("0", "10", "0") if (random(0,1) > 0.5) then a else this
 ```
 
-`Forest`
+`Forest` (currently not working - reimplementation of sample and load)
 
 ```
-Forest -> sample2d("10") replace("'/tree.gltf'")
+Forest -> sample2d("10") load("'/tree.gltf'")
 ```
 
-`City 1`
+`City 1` (currently not working - reimplementation of expand and sample)
 
 ```
 City -> switchType(Road, Building)
@@ -183,7 +183,7 @@ Window -> color(0xEEEEEE)
 `Task 3`
 
 ```
-City -> color(0x333343) if (block() == 0) then LowBuilding else HighBuilding
+City -> color(0x333343) if (this.blockId == 0) then LowBuilding else HighBuilding
 
 HighBuilding -> extrude(random(800, 1200)) Building
 
@@ -191,13 +191,13 @@ LowBuilding -> extrude(random(200, 600)) Building
 
 Building -> faces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Roof -> if (block() == 0) then color(0x8881111) else color(0x111111)
+Roof -> if (this.blockId == 0) then color(0x8881111) else color(0x111111)
 
 Wall -> splitZ(random(190, 250)) Floor
 
 Floor -> if (size("z") >= 190)
     then (
-        splitX(200) if (block() == 0) then SmallTile else BigTile
+        splitX(200) if (this.blockId == 0) then SmallTile else BigTile
     )
     else this
 

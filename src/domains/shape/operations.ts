@@ -1,35 +1,11 @@
-import { map, Observable, of, switchMap, tap } from "rxjs"
+import { Observable, of } from "rxjs"
 import { Instance } from "."
-import {
-    changesToMatrix,
-    InterpretionValue,
-    mapMatrix,
-    Matrix,
-    matrixToChanges,
-    operation,
-    Operations,
-    switchAllMatrixChanges,
-    thisParameter,
-} from "../.."
+import { Matrix, operationInterpretion, Operations, thisParameter } from "../.."
 import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix } from "./math"
 import { createPhongMaterialGenerator, FacePrimitive } from "./primitive"
 import { Axis, Split } from "./primitive-utils"
 import { operations as defaultOperations } from ".."
 import { Vector3 } from "three"
-
-//TODO: remove from here since we can just use this.block
-function computeBlock(matrix: Observable<Matrix<InterpretionValue<any>>>): Observable<Matrix<any>> {
-    return matrix.pipe(
-        tap(console.log),
-        map((matrix) =>
-            mapMatrix(matrix, (value) => value.parameters.blockId!.pipe(map((id) => ({ ...value, value: id }))))
-        ),
-        matrixToChanges(),
-        switchAllMatrixChanges(10),
-        changesToMatrix(),
-        tap(console.log)
-    )
-}
 
 const size = new Vector3()
 
@@ -173,43 +149,55 @@ function computeMultiSplitZ([instance, ...distances]: Array<any>) {
 export const operations: Operations = {
     ...defaultOperations,
     translate: (parameters) => (changes) =>
-        changes.pipe(operation(computeTranslate, (values) => values, [thisParameter, ...parameters], undefined, [4])),
+        changes.pipe(
+            operationInterpretion(computeTranslate, (values) => values, [thisParameter, ...parameters], undefined, [4])
+        ),
 
     scale: (parameters) => (changes) =>
-        changes.pipe(operation(computeScale, (values) => values, [thisParameter, ...parameters], undefined, [4])),
+        changes.pipe(
+            operationInterpretion(computeScale, (values) => values, [thisParameter, ...parameters], undefined, [4])
+        ),
 
     rotate: (parameters) => (changes) =>
-        changes.pipe(operation(computeRotate, (values) => values, [thisParameter, ...parameters], undefined, [4])),
+        changes.pipe(
+            operationInterpretion(computeRotate, (values) => values, [thisParameter, ...parameters], undefined, [4])
+        ),
 
     extrude: (parameters) => (changes) =>
-        changes.pipe(operation(computeExtrude, (values) => values, [thisParameter, ...parameters], undefined, [2])),
+        changes.pipe(
+            operationInterpretion(computeExtrude, (values) => values, [thisParameter, ...parameters], undefined, [2])
+        ),
 
     splitX: (parameters) => (changes) =>
-        changes.pipe(operation(computeSplitX, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])),
+        changes.pipe(
+            operationInterpretion(computeSplitX, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])
+        ),
     splitZ: (parameters) => (changes) =>
-        changes.pipe(operation(computeSplitZ, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])),
+        changes.pipe(
+            operationInterpretion(computeSplitZ, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])
+        ),
 
     multiSplitX: (parameters) => (changes) =>
-        changes.pipe(operation(computeMultiSplitX, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeMultiSplitX, (values) => values, [thisParameter, ...parameters])),
 
     multiSplitZ: (parameters) => (changes) =>
-        changes.pipe(operation(computeMultiSplitZ, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeMultiSplitZ, (values) => values, [thisParameter, ...parameters])),
 
     points: (parameters) => (changes) =>
-        changes.pipe(operation(computePoints, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computePoints, (values) => values, [thisParameter, ...parameters])),
     lines: (parameters) => (changes) =>
-        changes.pipe(operation(computeLines, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeLines, (values) => values, [thisParameter, ...parameters])),
     faces: (parameters) => (changes) =>
-        changes.pipe(operation(computeFaces, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeFaces, (values) => values, [thisParameter, ...parameters])),
 
     random: (parameters) => (changes) =>
-        changes.pipe(operation(computeRandom, undefined, [...parameters], undefined, [2])),
+        changes.pipe(operationInterpretion(computeRandom, undefined, [...parameters], undefined, [2])),
 
     color: (parameters) => (changes) =>
-        changes.pipe(operation(computeColorChange, undefined, [thisParameter, ...parameters], undefined, [2])),
+        changes.pipe(
+            operationInterpretion(computeColorChange, undefined, [thisParameter, ...parameters], undefined, [2])
+        ),
 
     size: (parameters) => (matrix) =>
-        matrix.pipe(operation(computeSize, undefined, [thisParameter, ...parameters], undefined, [2])),
-
-    block: () => computeBlock,
+        matrix.pipe(operationInterpretion(computeSize, undefined, [thisParameter, ...parameters], undefined, [2])),
 }

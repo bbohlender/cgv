@@ -64,10 +64,10 @@ PrimarySteps        ->  ws BasicOperation                                       
 Step                ->  Operation                                                   {% ([operation]) => operation %}
                     |   Symbol                                                      {% ([symbol]) => symbol %}
                     |   %thisSymbol                                                 {% () => ({ type: "this" }) %}
-                    |   Variable                                                    {% () => ({}) %}
+                    |   GetVariable                                                    {% ([getVariable]) => getVariable %}
                     |   Constant                                                    {% ([value]) => ({ type: "raw", value }) %}
                     |   ConditionalOperation                                        {% ([operation]) => operation %}
-                    |   %returnSymbol                                               {% () => ({ type: "return" }) %}
+                    |   %returnSymbol                                               {% () => ({  type: "operation", parameters: [], identifier: "return" }) %}
                     |   %openBracket Steps ws %closedBracket                        {% ([,steps]) => steps %}
 
 Operation           ->  %identifier %openBracket EmptyParameters ws %closedBracket    {% ([{ value },,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
@@ -88,8 +88,9 @@ Constant            ->  %boolean                                                
                     |   %number                                                     {% ([{ value }]) => Number.parseFloat(value) %}
                     |   %int                                                        {% ([{ value }]) => Number.parseInt(value) %}
 
-Variable            ->  %thisSymbol %point %identifier                              
-AssignVariable      ->  Variable ws %equal ws Step                                    
+Variable            ->  %thisSymbol %point %identifier                              {% ([,,identifier]) => ({ type: "raw", value: identifier }) %}
+GetVariable         ->  Variable                                                    {% ([name]) => ({ type: "operation", parameters: [name], identifier: "getVariable" }) %}
+SetVariable         ->  Variable ws %equal ws Step                                  {% ([name,,,,step]) => ({ type: "operation", parameters: [name, step], identifier: "setVariable" }) %}
 
 ConditionalOperation    ->  IfThenElseOperation                                     {% ([value]) => value %}                               
                         |   SwitchOperation                                         {% ([value]) => value %}

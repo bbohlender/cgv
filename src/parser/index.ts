@@ -19,7 +19,6 @@ export type ParsedStep =
     | ParsedSymbol
     | ParsedRaw
     | ParsedThis
-    | ParsedReturn
 
 export type ParsedParallelValues = {
     type: "parallel"

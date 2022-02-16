@@ -2,7 +2,7 @@ import Head from "next/head"
 import React, { useEffect, useState } from "react"
 import { parse, interprete, matrixToArray } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { interval, map, NEVER, of, startWith } from "rxjs"
+import { interval, map, startWith } from "rxjs"
 
 export default function Index() {
     const [text, setText] = useState("")
@@ -12,8 +12,9 @@ export default function Index() {
         try {
             const grammar = parse(text)
             setState([undefined, undefined])
-            const subscription = NEVER
+            const subscription = interval(1000)
                 .pipe(
+                    map((val) => val + 1),
                     startWith(0),
                     map((value) => ({
                         value,

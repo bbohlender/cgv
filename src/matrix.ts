@@ -203,6 +203,7 @@ function applyChanges<T>(to: Matrix<T>, changes: Array<MatrixChange<T>>): Matrix
     return to
 }
 
+//TODO: ignore setting empty arrays (will be deleted afterwards anyways)
 //TODO: clear empty arrays
 function applyChange<T>(to: Matrix<T>, index: Array<number>, change: MatrixChange<T>): Matrix<T> {
     if (index.length === 0) {

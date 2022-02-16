@@ -1,4 +1,4 @@
-import { map, Observable, OperatorFunction, switchMap, of } from "rxjs"
+import { map, Observable, OperatorFunction, switchMap, of, NEVER } from "rxjs"
 import {
     EventDepthMap,
     InterpretionValue,
@@ -43,7 +43,7 @@ export function maxEventDepth(maps: Array<InterpretionValue<any>>): EventDepthMa
     return prev
 }
 
-export function operation<Input, Output>(
+export function operationInterpretion<Input, Output>(
     compute: (input: Array<Input>) => Observable<Matrix<Output>>,
     getDependencies: ((input: Array<Input>) => Array<any>) | undefined,
     parameters: Array<OperatorFunction<Matrix<InterpretionValue<Input>>, Matrix<InterpretionValue<Input>>>>,
@@ -53,11 +53,8 @@ export function operation<Input, Output>(
 ): OperatorFunction<Matrix<InterpretionValue<Input>>, Matrix<InterpretionValue<Output>>> {
     //TODO: throw error when inputAmount != parameters.length
     const computeInterpretationValue: (
-        input: Array<InterpretionValue<Input>> | undefined
+        input: Array<InterpretionValue<Input>>
     ) => Observable<Matrix<InterpretionValue<Output>>> = (input) => {
-        if (input == null) {
-            return of([])
-        }
         const eventDepthMap = maxEventDepth(input)
         const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
         return compute(input.map(({ value }) => value)).pipe(
@@ -72,18 +69,38 @@ export function operation<Input, Output>(
         )
     }
 
-    const computeCachedValue: OperatorFunction<
-        Array<InterpretionValue<Input>> | undefined,
-        Matrix<InterpretionValue<Output>> | undefined
-    > =
+    return operation(
+        computeInterpretationValue,
+        getDependencies == null ? undefined : (input) => getDependencies(input.map(({ value }) => value)),
+        parameters,
+        getParameterIndex,
+        inputAmount,
+        debounceTime
+    )
+}
+
+export function operation<Input, Output>(
+    compute: (input: Array<Input>) => Observable<Matrix<Output>>,
+    getDependencies: ((input: Array<Input>) => Array<any>) | undefined,
+    parameters: Array<OperatorFunction<Matrix<Input>, Matrix<Input>>>,
+    getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
+    inputAmount?: Array<number>,
+    debounceTime = 10
+): OperatorFunction<Matrix<Input>, Matrix<Output>> {
+    //TODO: throw error when inputAmount != parameters.length
+
+    const computeCachedValue: OperatorFunction<Array<Input> | undefined, Matrix<Output> | undefined> =
         getDependencies == null
-            ? (input) => input.pipe(switchMap(computeInterpretationValue))
-            : cache((input) => getDependencies(input.map(({ value }) => value)), computeInterpretationValue)
+            ? (input) => input.pipe(switchMap((val) => (val == null ? of<Matrix<Output>>([]) : compute(val))))
+            : cache(
+                  (input) => getDependencies(input),
+                  (val) => (val == null ? of<Matrix<Output>>([]) : compute(val))
+              )
 
     return (matrix) =>
         matrix.pipe(
             mergeMatrixOperators(parameters),
-            nestMatrix<InterpretionValue<Input>>(getParameterIndex),
+            nestMatrix<Input>(getParameterIndex),
             map((change) => ({
                 ...change,
                 value: change.value.pipe(
@@ -95,6 +112,6 @@ export function operation<Input, Output>(
             })),
             debounceBufferTime(debounceTime),
             switchAllMatrixChanges(debounceTime),
-            changesToMatrix<Matrix<InterpretionValue<Output>>>()
+            changesToMatrix<Matrix<Output>>()
         )
 }

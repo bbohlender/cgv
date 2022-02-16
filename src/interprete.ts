@@ -1,6 +1,5 @@
 import {
     combineLatest,
-    debounceTime,
     defer,
     map,
     merge,
@@ -8,11 +7,10 @@ import {
     Observable,
     OperatorFunction,
     shareReplay,
-    startWith,
-    tap,
     throwError,
 } from "rxjs"
 import {
+    asChangeSet,
     changesToMatrix,
     ChangeType,
     filterMatrix,
@@ -49,6 +47,9 @@ export type Operations = {
     switch: Operation<any>
     select: Operation<any>
     index: Operation<number>
+    getVariable: Operation<any>
+    setVariable: Operation<any>
+    return: Operation<any>
 } & {
     [name in string]?: Operation<any>
 }
@@ -71,25 +72,23 @@ export function interprete<T>(
     return interpreteStep<T>(rules[0], grammar, operations)
 }
 
+export function combineVersioned<T>(matrices: Array<Observable<Matrix<InterpretionValue<T>>>>) {
+    merge()
+}
+
+export function setVersion<T>(): OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>> {
+    let version = 0
+    return map((matrix) => mapMatrix(matrix, (value) => ({ ...value, version: version++ })))
+}
+
 export function mergeMatrixOperators<T, K = T>(
     operators: Array<OperatorFunction<T, Matrix<K>>>
 ): OperatorFunction<T, Matrix<K>> {
     return (observable) => {
         const shared = observable.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
-        return merge(
-            ...operators.map((operator, i) =>
-                shared.pipe(
-                    operator,
-                    map<Matrix<K>, Array<MatrixChangeSet<Matrix<K>>>>((matrix) => [
-                        {
-                            index: [i],
-                            type: ChangeType.SET,
-                            value: matrix,
-                        },
-                    ])
-                )
-            )
-        ).pipe(changesToMatrix<Matrix<K>>())
+        return merge(...operators.map((operator, i) => shared.pipe(operator, asChangeSet([i])))).pipe(
+            changesToMatrix<Matrix<K>>()
+        )
     }
 }
 
@@ -104,9 +103,7 @@ export function interpreteStep<T>(
             if (operation == null) {
                 return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
             }
-            return operation(
-                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations))
-            )
+            return operation(step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations)))
         }
         case "parallel":
             return mergeMatrixOperators(
@@ -140,12 +137,12 @@ export function interpreteStep<T>(
                     //TODO: think of ways to reduce the amount of "doubles" through splitting
                 }
 
-                return combineLatest([current, ...terminated])
+                return merge(...[current, ...terminated].map((matrix, i) => matrix.pipe(asChangeSet([i])))).pipe(
+                    changesToMatrix<Matrix<InterpretionValue<T>>>()
+                )
             }
         case "this":
             return (input) => input
-        case "return":
-            return map((matrix) => mapMatrix(matrix, (value) => ({ ...value, terminated: true })))
         case "symbol": {
             const rule = grammar[step.identifier]
             if (rule == null) {

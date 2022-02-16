@@ -7,15 +7,21 @@ import {
     MatrixChangeSet,
     asChangeSet,
     mergeMatrixOperators,
-    operation,
+    operationInterpretion,
     Operation,
     Operations,
+    mapMatrix,
+    Parameters,
+    thisParameter,
+    operation,
+    maxEventDepth,
 } from ".."
+import { Instance } from "./shape"
 
 function basicOperation<T>(calculation: (v1: T, v2: T) => T): Operation<T> {
     return (parameters) => (matrix) =>
         matrix.pipe(
-            operation(
+            operationInterpretion(
                 ([op1, op2]) => of(calculation(op1, op2)),
                 (values) => values,
                 parameters
@@ -26,7 +32,7 @@ function basicOperation<T>(calculation: (v1: T, v2: T) => T): Operation<T> {
 function unaryOperation<T>(calculation: (v1: T) => T): Operation<T> {
     return (parameters) => (changes) =>
         changes.pipe(
-            operation(
+            operationInterpretion(
                 ([op1]) => of(calculation(op1)),
                 (values) => values,
                 parameters
@@ -288,6 +294,48 @@ function matrixIf<T>(
     return []
 }
 
+const returnOperation = map<Matrix<InterpretionValue<any>>, Matrix<InterpretionValue<any>>>((matrix) =>
+    mapMatrix(matrix, (value) => ({ ...value, terminated: true }))
+)
+
+function computeGetVariable<T>(
+    parameters: Array<OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>>>,
+    matrix: Observable<Matrix<InterpretionValue<T>>>
+) {
+    return matrix.pipe(
+        operation(
+            (input) => {
+
+                const eventDepthMap = maxEventDepth(input)
+                const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
+
+                const [instance, parameterName] = input
+
+                const observable = instance.parameters[parameterName.value as any] ?? of(undefined)
+
+                return observable.pipe(
+                    map((value) => ({
+                        value,
+                        eventDepthMap,
+                        terminated: false,
+                        parameters,
+                    }))
+                )
+            },
+            (values) => values,
+            parameters
+        )
+    )
+}
+
+function computeSetVariable<T>(
+    []: Array<OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>>>,
+    matrix: Observable<Matrix<InterpretionValue<T>>>
+) {
+    //TODO: set parameter
+    return matrix
+}
+
 export const operations: Operations = {
     "+": basicOperation((v1, v2) => v1 + v2),
     "-": basicOperation((v1, v2) => v1 - v2),
@@ -306,4 +354,7 @@ export const operations: Operations = {
     switch: (parameters) => switchOperation.bind(null, parameters),
     select: (parameters) => selectOperation.bind(null, parameters),
     index: () => indexOperation,
+    return: () => returnOperation,
+    getVariable: (parameters) => computeGetVariable.bind(null, [thisParameter, ...parameters]),
+    setVariable: (parameters) => computeSetVariable.bind(null, [thisParameter, ...parameters]),
 }
