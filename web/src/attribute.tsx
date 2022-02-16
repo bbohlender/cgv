@@ -1,6 +1,6 @@
 import { Attribute, AttributeType, NumberAttribute } from "cgv/domains/shape"
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from "react"
-
+/*
 export function AttributeInput({
     parameters,
     id,
@@ -107,3 +107,4 @@ function inRange(val: number, min: number, max: number): number {
 function nanToDefault(val: number, def: number): number {
     return isNaN(val) ? def : val
 }
+*/
