@@ -1,25 +1,5 @@
-import {
-    combineLatest,
-    defer,
-    map,
-    merge,
-    MonoTypeOperatorFunction,
-    Observable,
-    OperatorFunction,
-    shareReplay,
-    throwError,
-} from "rxjs"
-import {
-    asChangeSet,
-    changesToMatrix,
-    ChangeType,
-    filterMatrix,
-    mapMatrix,
-    Matrix,
-    MatrixChangeSet,
-    ParsedGrammarDefinition,
-    ParsedStep,
-} from "."
+import { defer, map, merge, MonoTypeOperatorFunction, Observable, OperatorFunction, shareReplay } from "rxjs"
+import { asChangeSet, changesToMatrix, filterMatrix, mapMatrix, Matrix, ParsedGrammarDefinition, ParsedStep } from "."
 
 export type EventDepthMap = Readonly<{ [identifier in string]?: number }>
 
@@ -69,7 +49,11 @@ export function interprete<T>(
     if (rules.length === 0) {
         return (input) => input
     }
-    return interpreteStep<T>(rules[0], grammar, operations)
+    const ruleOperatorMap = new Map<
+        string,
+        { ref: OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>> | undefined }
+    >()
+    return interpreteStep<T>(rules[0], grammar, operations, ruleOperatorMap)
 }
 
 export function combineVersioned<T>(matrices: Array<Observable<Matrix<InterpretionValue<T>>>>) {
@@ -95,19 +79,22 @@ export function mergeMatrixOperators<T, K = T>(
 export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
-    operations: Operations
+    operations: Operations,
+    ruleOperatorMap: Map<string, { ref: OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>> | undefined }>
 ): OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>> {
     switch (step.type) {
         case "operation": {
             const operation = operations[step.identifier]
             if (operation == null) {
-                return () => throwError(() => new Error(`unknown operation "${step.identifier}"`))
+                throw new Error(`unknown operation "${step.identifier}"`)
             }
-            return operation(step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations)))
+            return operation(
+                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations, ruleOperatorMap))
+            )
         }
         case "parallel":
             return mergeMatrixOperators(
-                step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations))
+                step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, ruleOperatorMap))
             )
         case "raw": {
             const value: InterpretionValue<T> = {
@@ -132,7 +119,7 @@ export function interpreteStep<T>(
                     terminated.push(sharedCurrent.pipe(filterTerminated(true)))
                     current = sharedCurrent.pipe(
                         filterTerminated(false),
-                        interpreteStep(stepOfSteps, grammar, operations)
+                        interpreteStep(stepOfSteps, grammar, operations, ruleOperatorMap)
                     )
                     //TODO: think of ways to reduce the amount of "doubles" through splitting
                 }
@@ -144,11 +131,17 @@ export function interpreteStep<T>(
         case "this":
             return (input) => input
         case "symbol": {
-            const rule = grammar[step.identifier]
-            if (rule == null) {
-                return () => throwError(() => new Error(`unknown rule "${step.identifier}"`))
+            let entry = ruleOperatorMap.get(step.identifier)
+            if (entry == null) {
+                const rule = grammar[step.identifier]
+                if (rule == null) {
+                    throw new Error(`unknown rule "${step.identifier}"`)
+                }
+                entry = { ref: undefined }
+                ruleOperatorMap.set(step.identifier, entry)
+                entry.ref = interpreteStep(rule, grammar, operations, ruleOperatorMap)
             }
-            return (input) => defer(() => input.pipe(interpreteStep(rule, grammar, operations)))
+            return (value) => defer(() => value.pipe(entry!.ref!))
         }
     }
 }
