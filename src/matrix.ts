@@ -17,14 +17,15 @@ import {
     tap,
 } from "rxjs"
 
+export type ArrayOrSingle<T> = T | ReadonlyArray<T>
+
 export type Matrix<T> = T | ReadonlyArray<Matrix<T>>
 
 export function switchAllMatrixChanges<T>(
     debounceTime: number
-): OperatorFunction<Array<MatrixChange<Observable<T>>>, Array<MatrixChange<T>>> {
+): OperatorFunction<MatrixChange<Observable<T>>, Array<MatrixChange<T>>> {
     return (matrix) =>
         matrix.pipe(
-            switchMap((changes) => of(...changes)),
             groupBy(getMatrixChangeIndexKey, {
                 connector: () => new ReplaySubject(1),
             }),
@@ -118,30 +119,43 @@ export function matrixEqual<T>(m1: Matrix<T>, m2: Matrix<T>): boolean {
     return false
 }
 
-export function mapMatrix<T, K = T>(matrix: Matrix<T>, fn: (val: T) => K): Matrix<K> {
-    if (Array.isArray(matrix)) {
-        return matrix.map((element) => mapMatrix(element, fn))
-    }
-    return fn(matrix)
+export function mapMatrix<T, K = T>(
+    fn: (index: number, val: T) => Matrix<K> | undefined,
+    matrix: Matrix<T>
+): Matrix<K> {
+    return multiMapUndefinedMatrix(fn, 0, matrix) ?? []
 }
 
-export function filterMatrix<T>(matrix: Matrix<T>, fn: (val: T) => boolean): Matrix<T> {
-    if (Array.isArray(matrix)) {
-        return matrix
-            .map((element) => {
-                if (Array.isArray(element)) {
-                    return filterMatrix(element, fn)
-                }
-                return element
-            })
-            .filter((element) => {
-                if (Array.isArray(element)) {
-                    return element.length > 0
-                }
-                return fn(element)
-            })
+/**
+ * reproduces the structure of the main matrix while offering the value of the other matrices at the same position in their matrix (undefined if the position is not exisiting)
+ */
+export function multiMapMatrix<T, M extends Array<unknown>, K = T>(
+    fn: (index: number, main: T, ...values: { [Key in keyof M]: Matrix<M[Key]> | undefined }) => Matrix<K> | undefined,
+    mainMatrix: Matrix<T>,
+    ...matrices: { [Key in keyof M]: Matrix<M[Key]> }
+): Matrix<K> {
+    return multiMapUndefinedMatrix<T, M, K>(fn, 0, mainMatrix, ...matrices) ?? []
+}
+
+function multiMapUndefinedMatrix<T, M extends Array<unknown>, K>(
+    fn: (index: number, main: T, ...values: { [Key in keyof M]: Matrix<M[Key]> | undefined }) => Matrix<K> | undefined,
+    index: number,
+    mainMatrix: Matrix<T>,
+    ...otherMatrices: { [Key in keyof M]: Matrix<M[Key]> }
+): Matrix<K> | undefined {
+    if (Array.isArray(mainMatrix)) {
+        const array: Array<Matrix<K>> = []
+        for (let i = 0; i < mainMatrix.length; i++) {
+            const mainElement = mainMatrix[i]
+            const otherElements: any = otherMatrices.map((matrix) => (Array.isArray(matrix) ? matrix[i] : undefined))
+            const mappedElement = multiMapUndefinedMatrix<T, M, K>(fn, i, mainElement, ...otherElements)
+            if (mappedElement != null) {
+                array.push(mappedElement)
+            }
+        }
+        return array.length > 0 ? array : undefined
     }
-    return fn(matrix) ? matrix : []
+    return fn(index, mainMatrix, ...otherMatrices)
 }
 
 /*** INTERNAL CHANGE HANDLING ***/
@@ -196,10 +210,14 @@ function computeChanges<T>(
     ]
 }
 
-function applyChanges<T>(to: Matrix<T>, changes: Array<MatrixChange<T>>): Matrix<T> {
+function applyChanges<T>(to: Matrix<T>, changes: ArrayOrSingle<MatrixChange<T>>): Matrix<T> {
+    if (!Array.isArray(changes)) {
+        return applyChange(to, changes.index, changes)
+    }
     for (const change of changes) {
         to = applyChange(to, change.index, change)
     }
+
     return to
 }
 
@@ -238,20 +256,16 @@ export function matrixToChanges<T>(): OperatorFunction<Matrix<T>, Array<MatrixCh
         )
 }
 
-export function asChangeSet<T>(
-    index: Array<number>
-): OperatorFunction<T, Array<MatrixChangeSet<T>>> {
-    return map((value) => [
-        {
-            index,
-            type: ChangeType.SET,
-            value: value,
-        },
-    ])
+export function asChangeSet<T>(index: Array<number>): OperatorFunction<T, MatrixChangeSet<T>> {
+    return map((value) => ({
+        index,
+        type: ChangeType.SET,
+        value: value,
+    }))
 }
 
-export function changesToMatrix<T>(): OperatorFunction<Array<MatrixChange<T>>, Matrix<T>> {
-    return scan<Array<MatrixChange<T>>, Matrix<T>>((acc, changes) => applyChanges(acc, changes), [])
+export function changesToMatrix<T>(): OperatorFunction<ArrayOrSingle<MatrixChange<T>>, Matrix<T>> {
+    return scan<ArrayOrSingle<MatrixChange<T>>, Matrix<T>>((acc, changes) => applyChanges(acc, changes), [])
 }
 
 export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {

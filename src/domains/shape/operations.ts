@@ -149,33 +149,21 @@ function computeMultiSplitZ([instance, ...distances]: Array<any>) {
 export const operations: Operations = {
     ...defaultOperations,
     translate: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeTranslate, (values) => values, [thisParameter, ...parameters], undefined, [4])
-        ),
+        changes.pipe(operationInterpretion(computeTranslate, (values) => values, [thisParameter, ...parameters])),
 
     scale: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeScale, (values) => values, [thisParameter, ...parameters], undefined, [4])
-        ),
+        changes.pipe(operationInterpretion(computeScale, (values) => values, [thisParameter, ...parameters])),
 
     rotate: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeRotate, (values) => values, [thisParameter, ...parameters], undefined, [4])
-        ),
+        changes.pipe(operationInterpretion(computeRotate, (values) => values, [thisParameter, ...parameters])),
 
     extrude: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeExtrude, (values) => values, [thisParameter, ...parameters], undefined, [2])
-        ),
+        changes.pipe(operationInterpretion(computeExtrude, (values) => values, [thisParameter, ...parameters])),
 
     splitX: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeSplitX, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])
-        ),
+        changes.pipe(operationInterpretion(computeSplitX, (values) => values, [thisParameter, ...parameters])),
     splitZ: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeSplitZ, (values) => values, [thisParameter, ...parameters], undefined, [2, 3])
-        ),
+        changes.pipe(operationInterpretion(computeSplitZ, (values) => values, [thisParameter, ...parameters])),
 
     multiSplitX: (parameters) => (changes) =>
         changes.pipe(operationInterpretion(computeMultiSplitX, (values) => values, [thisParameter, ...parameters])),
@@ -190,14 +178,11 @@ export const operations: Operations = {
     faces: (parameters) => (changes) =>
         changes.pipe(operationInterpretion(computeFaces, (values) => values, [thisParameter, ...parameters])),
 
-    random: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeRandom, undefined, [...parameters], undefined, [2])),
+    random: (parameters) => (changes) => changes.pipe(operationInterpretion(computeRandom, undefined, [...parameters])),
 
     color: (parameters) => (changes) =>
-        changes.pipe(
-            operationInterpretion(computeColorChange, undefined, [thisParameter, ...parameters], undefined, [2])
-        ),
+        changes.pipe(operationInterpretion(computeColorChange, undefined, [thisParameter, ...parameters])),
 
     size: (parameters) => (matrix) =>
-        matrix.pipe(operationInterpretion(computeSize, undefined, [thisParameter, ...parameters], undefined, [2])),
+        matrix.pipe(operationInterpretion(computeSize, undefined, [thisParameter, ...parameters])),
 }

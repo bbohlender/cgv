@@ -1,4 +1,4 @@
-import { filter, map, merge, Observable, of, OperatorFunction, shareReplay, tap } from "rxjs"
+import { filter, map, merge, Observable, of, OperatorFunction, shareReplay } from "rxjs"
 import {
     changesToMatrix,
     ChangeType,
@@ -15,8 +15,9 @@ import {
     thisParameter,
     operation,
     maxEventDepth,
+    multiMapMatrix,
+    ArrayOrSingle,
 } from ".."
-import { Instance } from "./shape"
 
 function basicOperation<T>(calculation: (v1: T, v2: T) => T): Operation<T> {
     return (parameters) => (matrix) =>
@@ -41,26 +42,17 @@ function unaryOperation<T>(calculation: (v1: T) => T): Operation<T> {
 }
 
 const indexOperation: OperatorFunction<Matrix<InterpretionValue<any>>, Matrix<InterpretionValue<number>>> = map(
-    (matrix) => matrixIndex(matrix)
+    (matrix) =>
+        mapMatrix(
+            (i, value) => ({
+                ...value,
+                value: i,
+            }),
+            matrix
+        )
 )
 
-function matrixIndex(matrix: Matrix<InterpretionValue<any>>, index = 0): Matrix<InterpretionValue<number>> {
-    if (Array.isArray(matrix)) {
-        return matrix.map(matrixIndex)
-    }
-    return {
-        ...matrix,
-        value: index,
-    }
-}
-
-const valueMatrixChangeGetValue = map<Array<MatrixChangeSet<Array<Matrix<any>>>>, Matrix<any>>(
-    ([
-        {
-            value: [value],
-        },
-    ]) => value
-)
+const valueMatrixChangeGetValue = map<MatrixChangeSet<Array<Matrix<any>>>, Matrix<any>>(({ value: [value] }) => value)
 
 function selectOperation<T>(
     parameters: Array<OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>>>,
@@ -81,7 +73,7 @@ function selectOperation<T>(
         shared.pipe(valueMatrixChangeGetValue, max, asChangeSet([2]))
     ).pipe(
         changesToMatrix() as OperatorFunction<
-            Array<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
+            ArrayOrSingle<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
             Array<Matrix<InterpretionValue<any>>>
         >,
         filter((array) => array.reduce((acc, val) => (val ? acc + 1 : acc), 0) === 3),
@@ -89,43 +81,25 @@ function selectOperation<T>(
     )
 }
 
-//TODO: improve
 function matrixSelect<T>(
     valueMatrix: Matrix<T>,
     minMatrix: Matrix<InterpretionValue<number>>,
     maxMatrix: Matrix<InterpretionValue<number>>
 ): Matrix<T> {
-    if (
-        Array.isArray(minMatrix) &&
-        Array.isArray(maxMatrix) &&
-        Array.isArray(valueMatrix) &&
-        valueMatrix.length === minMatrix.length &&
-        valueMatrix.length === maxMatrix.length
-    ) {
-        return valueMatrix
-            .map((valueElement, i) => {
-                const minElement = minMatrix[i]
-                const maxElement = maxMatrix[i]
-                if (Array.isArray(valueElement) && Array.isArray(minElement) && Array.isArray(maxElement)) {
-                    return matrixSelect(valueElement, minElement, maxElement)
-                }
-                return valueElement
-            })
-            .filter((_, i) => {
-                const minElement = minMatrix[i]
-                const maxElement = maxMatrix[i]
-                if (!Array.isArray(minElement) && !Array.isArray(maxElement)) {
-                    return minElement.value <= i && i < maxElement.value
-                }
-                return true
-            })
-    }
-    if (!Array.isArray(minMatrix) && !Array.isArray(maxMatrix) && !Array.isArray(valueMatrix)) {
-        if (minMatrix.value <= 0 && 0 < maxMatrix.value) {
-            return valueMatrix
-        }
-    }
-    return []
+    return multiMapMatrix(
+        (i, value, minM, maxM) =>
+            !Array.isArray(minM) &&
+            !Array.isArray(maxM) &&
+            minM != null &&
+            maxM != null &&
+            minM.value <= i &&
+            i < maxM.value
+                ? value
+                : undefined,
+        valueMatrix,
+        minMatrix,
+        maxMatrix
+    )
 }
 
 function switchOperation<T>(
@@ -155,7 +129,7 @@ function switchOperation<T>(
                 shared.pipe(valueMatrixChangeGetValue, parameters[i * 2 + 1], asChangeSet([2]))
             ).pipe(
                 changesToMatrix() as OperatorFunction<
-                    Array<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
+                    ArrayOrSingle<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
                     Array<Matrix<InterpretionValue<any>>>
                 >,
                 filter((array) => array.reduce((acc, val) => (val ? acc + 1 : acc), 0) === 3),
@@ -173,54 +147,24 @@ function switchOperation<T>(
     ).pipe(changesToMatrix<Matrix<InterpretionValue<T>>>())
 }
 
-//TODO: improve
 function matrixSwitch<T, K>(
     valueMatrix: Matrix<T>,
     compareMatrix: Matrix<InterpretionValue<K>>,
     caseMatrix: Matrix<InterpretionValue<K>>
 ): Matrix<T> {
-    if (
-        Array.isArray(compareMatrix) &&
-        Array.isArray(valueMatrix) &&
-        Array.isArray(caseMatrix) &&
-        compareMatrix.length === valueMatrix.length &&
-        compareMatrix.length === caseMatrix.length
-    ) {
-        const result: Array<Matrix<T>> = []
-        for (let i = 0; i < compareMatrix.length; i++) {
-            const caseElement = caseMatrix[i]
-            const compareElement = compareMatrix[i]
-
-            if (
-                Array.isArray(compareElement) ||
-                Array.isArray(caseElement) ||
-                compareElement.value === caseElement.value
-            ) {
-                const valueElement = valueMatrix[i]
-                const caseElement = caseMatrix[i]
-
-                let newElement: Matrix<T>
-
-                if (Array.isArray(valueElement) && Array.isArray(caseElement)) {
-                    newElement = matrixSwitch(valueElement, compareElement, caseElement)
-                    if (Array.isArray(newElement) && newElement.length === 0) {
-                        continue
-                    }
-                } else {
-                    newElement = valueElement
-                }
-                result.push(newElement)
-            }
-        }
-        return result
-    }
-
-    if (!Array.isArray(compareMatrix) && !Array.isArray(caseMatrix) && !Array.isArray(valueMatrix)) {
-        if (compareMatrix.value === caseMatrix.value) {
-            return valueMatrix
-        }
-    }
-    return []
+    return multiMapMatrix(
+        (i, value, compareMatrix, caseMatrix) =>
+            !Array.isArray(compareMatrix) &&
+            !Array.isArray(caseMatrix) &&
+            compareMatrix != null &&
+            caseMatrix != null &&
+            compareMatrix.value === caseMatrix.value
+                ? value
+                : undefined,
+        valueMatrix,
+        compareMatrix,
+        caseMatrix
+    )
 }
 
 function ifOperation<T>(
@@ -241,7 +185,7 @@ function ifOperation<T>(
 
     return merge(shared, shared.pipe(valueMatrixChangeGetValue, condition, asChangeSet([1]))).pipe(
         changesToMatrix() as OperatorFunction<
-            Array<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
+            ArrayOrSingle<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
             Array<Matrix<InterpretionValue<any>>>
         >,
         filter((array) => array.reduce((acc, val) => (val ? acc + 1 : acc), 0) === 2),
@@ -260,42 +204,21 @@ function ifOperation<T>(
     )
 }
 
-//TODO: improve
 function matrixIf<T>(
     valueMatrix: Matrix<T>,
     conditionMatrix: Matrix<InterpretionValue<boolean>>,
     ifValue: boolean
 ): Matrix<T> {
-    if (Array.isArray(conditionMatrix) && Array.isArray(valueMatrix) && conditionMatrix.length === valueMatrix.length) {
-        const result: Array<Matrix<T>> = []
-        for (let i = 0; i < valueMatrix.length; i++) {
-            const conditionElement = conditionMatrix[i]
-            if (Array.isArray(conditionElement) || conditionElement.value === ifValue) {
-                const valueElement = valueMatrix[i]
-                let newElement: Matrix<T>
-                if (Array.isArray(valueElement)) {
-                    newElement = matrixIf(valueElement, conditionElement, ifValue)
-                    if (Array.isArray(newElement) && newElement.length === 0) {
-                        continue
-                    }
-                } else {
-                    newElement = valueElement
-                }
-                result.push(newElement)
-            }
-        }
-        return result
-    }
-    if (!Array.isArray(conditionMatrix) && !Array.isArray(valueMatrix)) {
-        if (conditionMatrix.value === ifValue) {
-            return valueMatrix
-        }
-    }
-    return []
+    return multiMapMatrix(
+        (i, value, condition) =>
+            !Array.isArray(condition) && condition != null && condition.value === ifValue ? value : undefined,
+        valueMatrix,
+        conditionMatrix
+    )
 }
 
 const returnOperation = map<Matrix<InterpretionValue<any>>, Matrix<InterpretionValue<any>>>((matrix) =>
-    mapMatrix(matrix, (value) => ({ ...value, terminated: true }))
+    mapMatrix((i, value) => ({ ...value, terminated: true }), matrix)
 )
 
 function computeGetVariable<T>(
@@ -305,7 +228,6 @@ function computeGetVariable<T>(
     return matrix.pipe(
         operation(
             (input) => {
-
                 const eventDepthMap = maxEventDepth(input)
                 const parameters: Parameters = input.reduce((prev, cur) => ({ ...prev, ...cur.parameters }), {})
 

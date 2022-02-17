@@ -14,7 +14,9 @@ export function ShapeEditor({ matrix }: { matrix: Observable<Matrix<Interpretion
         }
         const subscription = matrix.pipe(matrixObject3D()).subscribe({
             next: (object) => setState([object, undefined]),
-            error: (error) => setState([undefined, error.message]),
+            error: (error) => {
+                console.error(error)
+                setState([undefined, error.message])},
         })
         return () => subscription.unsubscribe()
     }, [matrix])
