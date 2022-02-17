@@ -36,9 +36,18 @@ The grammar is defined in [grammar.ne](./grammar.ne).
     -   followed by opening bracket `(`, the **`Parameters`** and a closing bracket `)`
 -   **`Parameters`** - like in CGA ("s(**1,1,0.1**)")
     -   seperates **`Parallel Executions`** using commas `,`
--   **`Constants`** (_work in progress_)
-    -   currently wrapped in quotation `"`
--   **`Variables`** (_work in progress_)
+-   **`Constants`**
+    -   constants can be numbers (`1`, `10.12`), strings (using quotation `""`) and booleans (true/false)
+-   **`Variables`**
+    -   using `this.<name>` the variable with the name `name` can be retriveved
+    -   *WIP* writing to a variable called `name` can be done using `this.<name> = 1`
+-   **`Special Tokens`**
+    -   `this` - *does nothing* - used to represent the current value (similar to this in OOP)
+    -   `return` - *jumps out of the execution* - terminates the execution prematurely (similar to most programming lanuages)
+    -   `+ - * /` - arithemtic operators (similar to most programming languages)
+    -   `> < == <= >=` - comparison operators (similar to most programming languages)
+    -   `&& || !` - boolean operators (similar to most programming languages)
+    -   `if then else switch case` - conditional operators (similar to most programming languages)
 
 ### Operator Precendence
 
@@ -46,8 +55,8 @@ Except for the parallel and sequential execution the precendence of all operator
 
 ## Language Features ToDo
 
--   Domain Constants (e.g. `1` instead of `"1"`)
--   "Scoped" Variables (e.g. this.type)
+-   writing to variables
+-   differentiation between replacing the current value (only changing the leaves) and replacing all the values (changing the complete tree)
 
 ## Glossary
 
@@ -55,7 +64,8 @@ Except for the parallel and sequential execution the precendence of all operator
 -   rule - a sequence of steps
 -   step - alters the current value done by a operator/constant/symbol
 -   operators - identifies a function defined in the domain, which take the current value and the given parameters and returns the new current value
--   constant - identifies a constant defined in the domain
+-   constant - identifies a constant
+-   variable - memorized value bound to the current value/context and identified with a name
 -   symbol - executes the rule identified by the symbol and sets the result as the new current value
 
 -   domain - set of operations and valid constants in a certain area of knowledge (e.g. 3d objects / shapes with operators like extrude)
@@ -76,12 +86,20 @@ Except for the parallel and sequential execution the precendence of all operator
 
 ### Arithmetic
 
+*Premature termination*
+
+
+*the following example returns 10 since the execution is terminated before the current value is changed to 20*
+```
+a -> 10 return 20
+```
+
 _currently not working, cause the event operator is missing_
 
 ```
-a -> sum("1", "2") max | "4" max
+a -> 1 + 2 max | 4 max
 
-max -> event("'a => {
+max -> event("a => {
    let max = 0
    let maxI = 0
    let maxII = 0;
@@ -93,7 +111,7 @@ max -> event("'a => {
       }
    }))
    return a.map((b, i) => maxI === i ? b.filter((c,ii) => maxII === ii) : [])
-}"')
+}")
 ```
 
 ### Shape
@@ -101,23 +119,23 @@ max -> event("'a => {
 `Recursion`
 
 ```
-a -> translate("0", "10", "0") if (random(0,1) > 0.5) then a else this
+a -> translate(0, 10, 0) if (random(0,1) > 0.5) then a else this
 ```
 
 `Forest` (currently not working - reimplementation of sample and load)
 
 ```
-Forest -> sample2d("10") load("'/tree.gltf'")
+Forest -> sample2d(10) replace("/tree.gltf")
 ```
 
 `City 1` (currently not working - reimplementation of expand and sample)
 
 ```
-City -> switchType(Road, Building)
+City -> if(this.type == "road") then Road else Building
 
-Road -> expand2d("20") (this | sample2d("30") replace("'/tree.gltf'"))
+Road -> expand(20) (this | sample(30) load("/tree.gltf"))
 
-Building -> translate("0", "100", "0") | lines() connect(translate("0", "100", "0"), this)
+Building -> expand(200)
 ```
 
 `Task 1`
