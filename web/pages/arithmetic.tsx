@@ -2,7 +2,7 @@ import Head from "next/head"
 import React, { useEffect, useState } from "react"
 import { parse, interprete, matrixToArray } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { interval, map, startWith } from "rxjs"
+import { interval, map, NEVER, startWith } from "rxjs"
 
 export default function Index() {
     const [text, setText] = useState("")
@@ -12,23 +12,21 @@ export default function Index() {
         try {
             const grammar = parse(text)
             setState([undefined, undefined])
-            const subscription = interval(1000)
-                .pipe(
-                    map((val) => val + 1),
-                    startWith(0),
-                    map((value) => ({
-                        value,
-                        eventDepthMap: {},
-                        parameters: {},
-                        terminated: false,
-                    })),
-                    interprete(grammar, operations),
-                    matrixToArray()
-                )
-                .subscribe({
-                    next: (results) => setState([JSON.stringify(results.map(({ value }) => value)), undefined]),
-                    error: (error) => setState([undefined, error.message]),
-                })
+            const subscription = interval(1000).pipe(
+                map((val) => val + 1),
+                startWith(0),
+                map((value) => ({
+                    value,
+                    eventDepthMap: {},
+                    parameters: {},
+                    terminated: false,
+                })),
+                interprete(grammar, operations),
+                matrixToArray()
+            ).subscribe({
+                next: (results) => setState([JSON.stringify(results.map(({ value }) => value)), undefined]),
+                error: (error) => setState([undefined, error.message]),
+            })
             return () => subscription.unsubscribe()
         } catch (error: any) {
             setState([undefined, error.message])

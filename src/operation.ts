@@ -90,12 +90,12 @@ export function operation<Input, Output>(
 ): OperatorFunction<Matrix<Input>, Matrix<Output>> {
     //TODO: throw error when inputAmount != parameters.length
 
-    const computeCachedValue: OperatorFunction<Array<Input> | undefined, Matrix<Output> | undefined> =
+    const computeCachedValue: OperatorFunction<Array<Input> | undefined, Matrix<Output>> =
         getDependencies == null
-            ? (input) => input.pipe(switchMap((val) => (val == null ? of<Matrix<Output>>([]) : compute(val))))
+            ? (input) => input.pipe(switchMap((val) => (val == null ? of<Matrix<Output>>(undefined) : compute(val))))
             : cache(
                   (input) => getDependencies(input),
-                  (val) => (val == null ? of<Matrix<Output>>([]) : compute(val))
+                  (val) => (val == null ? of<Matrix<Output>>(undefined) : compute(val))
               )
 
     return (matrix) =>
@@ -107,8 +107,7 @@ export function operation<Input, Output>(
                 value: change.value.pipe(
                     matrixToArray(),
                     map((array) => (parameters.length === array.length ? array : undefined)),
-                    computeCachedValue,
-                    map((value) => (value == null ? [] : value))
+                    computeCachedValue
                 ),
             })),
             switchAllMatrixChanges(debounceTime),

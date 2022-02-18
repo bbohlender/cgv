@@ -54,6 +54,15 @@ const indexOperation: OperatorFunction<Matrix<InterpretionValue<any>>, Matrix<In
 
 const valueMatrixChangeGetValue = map<MatrixChangeSet<Array<Matrix<any>>>, Matrix<any>>(({ value: [value] }) => value)
 
+function computeRandom([min, max, step]: Array<any>): Observable<Matrix<any>> {
+    const distance = max - min
+    let value = Math.random() * distance + min
+    if (step != null) {
+        value = Math.floor(value / step) * step
+    }
+    return of(value)
+}
+
 function selectOperation<T>(
     parameters: Array<OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>>>,
     matrix: Observable<Matrix<InterpretionValue<T>>>
@@ -95,7 +104,7 @@ function matrixSelect<T>(
             minM.value <= i &&
             i < maxM.value
                 ? value
-                : undefined,
+                : null,
         valueMatrix,
         minMatrix,
         maxMatrix
@@ -160,7 +169,7 @@ function matrixSwitch<T, K>(
             caseMatrix != null &&
             compareMatrix.value === caseMatrix.value
                 ? value
-                : undefined,
+                : null,
         valueMatrix,
         compareMatrix,
         caseMatrix
@@ -211,7 +220,7 @@ function matrixIf<T>(
 ): Matrix<T> {
     return multiMapMatrix(
         (i, value, condition) =>
-            !Array.isArray(condition) && condition != null && condition.value === ifValue ? value : undefined,
+            !Array.isArray(condition) && condition != null && condition.value === ifValue ? value : null,
         valueMatrix,
         conditionMatrix
     )
@@ -279,4 +288,6 @@ export const operations: Operations = {
     return: () => returnOperation,
     getVariable: (parameters) => computeGetVariable.bind(null, [thisParameter, ...parameters]),
     setVariable: (parameters) => computeSetVariable.bind(null, [thisParameter, ...parameters]),
+    random: (parameters) => (changes) => changes.pipe(operationInterpretion(computeRandom, undefined, [...parameters])),
+
 }

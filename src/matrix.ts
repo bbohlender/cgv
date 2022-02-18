@@ -5,6 +5,7 @@ import {
     groupBy,
     GroupedObservable,
     map,
+    merge,
     mergeMap,
     Observable,
     of,
@@ -12,6 +13,7 @@ import {
     pairwise,
     ReplaySubject,
     scan,
+    shareReplay,
     startWith,
     switchMap,
     tap,
@@ -19,7 +21,7 @@ import {
 
 export type ArrayOrSingle<T> = T | ReadonlyArray<T>
 
-export type Matrix<T> = T | ReadonlyArray<Matrix<T>>
+export type Matrix<T> = T | ReadonlyArray<Matrix<T>> | undefined
 
 export function switchAllMatrixChanges<T>(
     debounceTime: number
@@ -119,41 +121,56 @@ export function matrixEqual<T>(m1: Matrix<T>, m2: Matrix<T>): boolean {
     return false
 }
 
+
+export function mergeMatrixOperators<T, K = T>(
+    operators: Array<OperatorFunction<T, Matrix<K>>>
+): OperatorFunction<T, Matrix<K>> {
+    return (observable) => {
+        const shared = observable.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
+        return merge(...operators.map((operator, i) => shared.pipe(operator, asChangeSet([i])))).pipe(
+            changesToMatrix<Matrix<K>>()
+        )
+    }
+}
+
 export function mapMatrix<T, K = T>(
-    fn: (index: number, val: T) => Matrix<K> | undefined,
+    fn: (index: number, val: T) => Matrix<K> | null,
     matrix: Matrix<T>
 ): Matrix<K> {
-    return multiMapUndefinedMatrix(fn, 0, matrix) ?? []
+    return multiMapNullMatrix(fn, 0, matrix) ?? undefined
 }
 
 /**
  * reproduces the structure of the main matrix while offering the value of the other matrices at the same position in their matrix (undefined if the position is not exisiting)
  */
 export function multiMapMatrix<T, M extends Array<unknown>, K = T>(
-    fn: (index: number, main: T, ...values: { [Key in keyof M]: Matrix<M[Key]> | undefined }) => Matrix<K> | undefined,
+    fn: (index: number, main: T, ...values: { [Key in keyof M]: Matrix<M[Key]> | null }) => Matrix<K> | null,
     mainMatrix: Matrix<T>,
     ...matrices: { [Key in keyof M]: Matrix<M[Key]> }
 ): Matrix<K> {
-    return multiMapUndefinedMatrix<T, M, K>(fn, 0, mainMatrix, ...matrices) ?? []
+    return multiMapNullMatrix<T, M, K>(fn, 0, mainMatrix, ...matrices) ?? undefined
 }
 
-function multiMapUndefinedMatrix<T, M extends Array<unknown>, K>(
-    fn: (index: number, main: T, ...values: { [Key in keyof M]: Matrix<M[Key]> | undefined }) => Matrix<K> | undefined,
+function multiMapNullMatrix<T, M extends Array<unknown>, K>(
+    fn: (index: number, main: T, ...values: { [Key in keyof M]: Matrix<M[Key]> | null }) => Matrix<K> | null,
     index: number,
     mainMatrix: Matrix<T>,
-    ...otherMatrices: { [Key in keyof M]: Matrix<M[Key]> }
-): Matrix<K> | undefined {
+    ...otherMatrices: { [Key in keyof M]: Matrix<M[Key]> | null }
+): Matrix<K> | null {
     if (Array.isArray(mainMatrix)) {
         const array: Array<Matrix<K>> = []
         for (let i = 0; i < mainMatrix.length; i++) {
             const mainElement = mainMatrix[i]
-            const otherElements: any = otherMatrices.map((matrix) => (Array.isArray(matrix) ? matrix[i] : undefined))
-            const mappedElement = multiMapUndefinedMatrix<T, M, K>(fn, i, mainElement, ...otherElements)
-            if (mappedElement != null) {
+            const otherElements: any = otherMatrices.map((matrix) => (Array.isArray(matrix) ? matrix[i] : null))
+            const mappedElement = multiMapNullMatrix<T, M, K>(fn, i, mainElement, ...otherElements)
+            if (mappedElement !== null) {
                 array.push(mappedElement)
             }
         }
-        return array.length > 0 ? array : undefined
+        return array.length > 0 ? array : null
+    }
+    if(mainMatrix === undefined) {
+        return undefined
     }
     return fn(index, mainMatrix, ...otherMatrices)
 }
@@ -177,8 +194,8 @@ export type MatrixChange<T> = MatrixChangeSet<T> | MatrixChangeUnset
 const EMPTY_ARRAY: Array<any> = []
 
 function computeChanges<T>(
-    from: Matrix<T> | undefined,
-    to: Matrix<T> | undefined,
+    from: Matrix<T>,
+    to: Matrix<T>,
     prefixIndex: Array<number> = []
 ): Array<MatrixChange<T>> {
     if (to == null) {
@@ -221,11 +238,10 @@ function applyChanges<T>(to: Matrix<T>, changes: ArrayOrSingle<MatrixChange<T>>)
     return to
 }
 
-//TODO: ignore setting empty arrays (will be deleted afterwards anyways)
 //TODO: clear empty arrays
 function applyChange<T>(to: Matrix<T>, index: Array<number>, change: MatrixChange<T>): Matrix<T> {
     if (index.length === 0) {
-        return change.type === ChangeType.SET ? change.value : []
+        return change.type === ChangeType.SET ? change.value : undefined
     }
 
     if (!Array.isArray(to)) {
@@ -250,7 +266,7 @@ export function getMatrixChangeIndexKey<T>(entry: MatrixChange<T>): string {
 export function matrixToChanges<T>(): OperatorFunction<Matrix<T>, Array<MatrixChange<T>>> {
     return (matrix) =>
         matrix.pipe(
-            startWith<Matrix<T> | undefined>(undefined),
+            startWith<Matrix<T>>(undefined),
             pairwise(),
             map(([from, to]) => computeChanges(from, to))
         )
@@ -265,7 +281,7 @@ export function asChangeSet<T>(index: Array<number>): OperatorFunction<T, Matrix
 }
 
 export function changesToMatrix<T>(): OperatorFunction<ArrayOrSingle<MatrixChange<T>>, Matrix<T>> {
-    return scan<ArrayOrSingle<MatrixChange<T>>, Matrix<T>>((acc, changes) => applyChanges(acc, changes), [])
+    return scan<ArrayOrSingle<MatrixChange<T>>, Matrix<T>>((acc, changes) => applyChanges(acc, changes), undefined)
 }
 
 export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
@@ -280,6 +296,8 @@ export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Arra
 }
 
 /*** COUNTED MATRIX - INTERNAL IMPLEMENTATION FOR EFFICIENT MATRIX TO ARRAY/... ***/
+
+//TODO: integrate into normal matrix???
 
 /**
  */
@@ -298,7 +316,7 @@ export function changesToArrayChanges<T>(): OperatorFunction<Array<MatrixChange<
         )
 }
 
-type CountedMatrix<T> = { amount: number; value: T | Array<CountedMatrix<T>> }
+type CountedMatrix<T> = { amount: number; value: T | Array<CountedMatrix<T>> | undefined }
 
 export type ArrayChange<T> = {
     index: number
@@ -390,5 +408,5 @@ function flattenMatrix<T>(matrix: Matrix<T>): Array<T> {
     if (Array.isArray(matrix)) {
         return matrix.reduce<Array<T>>((v1, v2) => v1.concat(flattenMatrix(v2)), [])
     }
-    return [matrix]
+    return matrix == null ? [] : [matrix]
 }

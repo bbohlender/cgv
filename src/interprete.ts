@@ -1,5 +1,13 @@
 import { defer, delay, map, merge, MonoTypeOperatorFunction, Observable, OperatorFunction, shareReplay } from "rxjs"
-import { asChangeSet, changesToMatrix, mapMatrix, Matrix, ParsedGrammarDefinition, ParsedStep } from "."
+import {
+    asChangeSet,
+    changesToMatrix,
+    mapMatrix,
+    Matrix,
+    mergeMatrixOperators,
+    ParsedGrammarDefinition,
+    ParsedStep,
+} from "."
 
 export type EventDepthMap = Readonly<{ [identifier in string]?: number }>
 
@@ -30,6 +38,7 @@ export type Operations = {
     getVariable: Operation<any>
     setVariable: Operation<any>
     return: Operation<any>
+    random: Operation<number>
 } & {
     [name in string]?: Operation<any>
 }
@@ -56,17 +65,6 @@ export function interprete<T>(
     return interpreteStep<T>(rules[0], grammar, operations, ruleOperatorMap)
 }
 
-export function mergeMatrixOperators<T, K = T>(
-    operators: Array<OperatorFunction<T, Matrix<K>>>
-): OperatorFunction<T, Matrix<K>> {
-    return (observable) => {
-        const shared = observable.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
-        return merge(...operators.map((operator, i) => shared.pipe(operator, asChangeSet([i])))).pipe(
-            changesToMatrix<Matrix<K>>()
-        )
-    }
-}
-
 export function interpreteStep<T>(
     step: ParsedStep,
     grammar: ParsedGrammarDefinition,
@@ -91,13 +89,18 @@ export function interpreteStep<T>(
                 step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, ruleOperatorMap))
             )
         case "raw": {
-            const value: InterpretionValue<T> = {
-                eventDepthMap: {},
-                terminated: false,
-                value: step.value,
-                parameters: {},
-            }
-            return (matrix) => matrix.pipe(map((matrix) => mapMatrix(() => value, matrix)))
+            return (matrix) =>
+                matrix.pipe(
+                    map((matrix) =>
+                        mapMatrix(
+                            (index, value) => ({
+                                ...value,
+                                value: step.value,
+                            }),
+                            matrix
+                        )
+                    )
+                )
         }
         case "sequential":
             return (input) => {

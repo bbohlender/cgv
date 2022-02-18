@@ -86,6 +86,15 @@ Except for the parallel and sequential execution the precendence of all operator
 
 ### Arithmetic
 
+*Recursion*
+
+```
+a -> if (random(0,1) > 0.1) then a1 else a2
+
+a1 -> 1 | a 
+a2 -> 0
+```
+
 *Premature termination*
 
 

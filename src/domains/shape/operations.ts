@@ -14,14 +14,7 @@ function computeSize([instance, axis]: Array<any>): Observable<Matrix<any>> {
     return of(size[axis as keyof Vector3])
 }
 
-function computeRandom([min, max, step]: Array<any>): Observable<Matrix<any>> {
-    const distance = max - min
-    let value = Math.random() * distance + min
-    if (step != null) {
-        value = Math.floor(value / step) * step
-    }
-    return of(value)
-}
+
 
 function computeScale([instance, x, y, z]: Array<any>): Observable<Matrix<Instance>> {
     return of({
@@ -178,11 +171,9 @@ export const operations: Operations = {
     faces: (parameters) => (changes) =>
         changes.pipe(operationInterpretion(computeFaces, (values) => values, [thisParameter, ...parameters])),
 
-    random: (parameters) => (changes) => changes.pipe(operationInterpretion(computeRandom, undefined, [...parameters])),
-
     color: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeColorChange, undefined, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeColorChange, values => values, [thisParameter, ...parameters])),
 
     size: (parameters) => (matrix) =>
-        matrix.pipe(operationInterpretion(computeSize, undefined, [thisParameter, ...parameters])),
+        matrix.pipe(operationInterpretion(computeSize, values => values, [thisParameter, ...parameters])),
 }
