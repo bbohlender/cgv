@@ -1,4 +1,4 @@
-import { filter, map, merge, Observable, of, OperatorFunction, shareReplay } from "rxjs"
+import { filter, map, merge, Observable, of, OperatorFunction, shareReplay, tap } from "rxjs"
 import {
     changesToMatrix,
     ChangeType,
@@ -17,6 +17,9 @@ import {
     maxEventDepth,
     multiMapMatrix,
     ArrayOrSingle,
+    ReadonlySizedArray,
+    getMatrixSize,
+    createMatrixFromArray,
 } from ".."
 
 function basicOperation<T>(calculation: (v1: T, v2: T) => T): Operation<T> {
@@ -52,7 +55,9 @@ const indexOperation: OperatorFunction<Matrix<InterpretionValue<any>>, Matrix<In
         )
 )
 
-const valueMatrixChangeGetValue = map<MatrixChangeSet<Array<Matrix<any>>>, Matrix<any>>(({ value: [value] }) => value)
+const valueMatrixChangeGetValue = map<MatrixChangeSet<ReadonlySizedArray<Matrix<any>>>, Matrix<any>>(
+    ({ value: [value] }) => value
+)
 
 function computeRandom([min, max, step]: Array<any>): Observable<Matrix<any>> {
     const distance = max - min
@@ -71,7 +76,7 @@ function selectOperation<T>(
         OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<number>>>
     >
     const shared = matrix.pipe(
-        map((matrix) => [matrix]),
+        map((matrix) => createMatrixFromArray([matrix], getMatrixSize)),
         asChangeSet([]),
         shareReplay({ bufferSize: 1, refCount: true })
     )
@@ -83,10 +88,20 @@ function selectOperation<T>(
     ).pipe(
         changesToMatrix() as OperatorFunction<
             ArrayOrSingle<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
-            Array<Matrix<InterpretionValue<any>>>
+            ReadonlySizedArray<Matrix<InterpretionValue<any>>> | undefined
         >,
-        filter((array) => array.reduce((acc, val) => (val ? acc + 1 : acc), 0) === 3),
+        filterSizeAtTheFirstDepth(3),
         map(([valueMatrix, minMatrix, maxMatrix]) => matrixSelect(valueMatrix, minMatrix, maxMatrix))
+    )
+}
+
+type FilterSizeAndUndefined<T> = (matrix: ReadonlySizedArray<T> | undefined) => matrix is ReadonlySizedArray<T>
+
+function filterSizeAtTheFirstDepth<T>(size: number) {
+    return filter(
+        ((matrix) =>
+            matrix != null &&
+            size === matrix.reduce((acc, val) => (val != null ? acc + 1 : acc), 0)) as FilterSizeAndUndefined<T>
     )
 }
 
@@ -118,7 +133,7 @@ function switchOperation<T>(
     const compare = parameters[0] as OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<any>>>
 
     const shared = matrix.pipe(
-        map((matrix) => [matrix]),
+        map((matrix) => createMatrixFromArray([matrix], getMatrixSize)),
         asChangeSet([]),
         shareReplay({ bufferSize: 1, refCount: true })
     )
@@ -139,9 +154,9 @@ function switchOperation<T>(
             ).pipe(
                 changesToMatrix() as OperatorFunction<
                     ArrayOrSingle<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
-                    Array<Matrix<InterpretionValue<any>>>
+                    ReadonlySizedArray<Matrix<InterpretionValue<any>>> | undefined
                 >,
-                filter((array) => array.reduce((acc, val) => (val ? acc + 1 : acc), 0) === 3),
+                filterSizeAtTheFirstDepth(3),
                 map(([valueMatrix, compareMatrix, caseMatrix]) => matrixSwitch(valueMatrix, compareMatrix, caseMatrix)),
                 parameters[i * 2 + 2],
                 map<Matrix<InterpretionValue<T>>, Array<MatrixChangeSet<Matrix<InterpretionValue<T>>>>>((matrix) => [
@@ -187,7 +202,7 @@ function ifOperation<T>(
     const [, ifOperator, elseOperator] = parameters
 
     const shared = matrix.pipe(
-        map((matrix) => [matrix]),
+        map((matrix) => createMatrixFromArray([matrix], getMatrixSize)),
         asChangeSet([]),
         shareReplay({ bufferSize: 1, refCount: true })
     )
@@ -195,9 +210,9 @@ function ifOperation<T>(
     return merge(shared, shared.pipe(valueMatrixChangeGetValue, condition, asChangeSet([1]))).pipe(
         changesToMatrix() as OperatorFunction<
             ArrayOrSingle<MatrixChangeSet<Matrix<InterpretionValue<any>>>>,
-            Array<Matrix<InterpretionValue<any>>>
+            ReadonlySizedArray<Matrix<InterpretionValue<any>>> | undefined
         >,
-        filter((array) => array.reduce((acc, val) => (val ? acc + 1 : acc), 0) === 2),
+        filterSizeAtTheFirstDepth(2),
         mergeMatrixOperators([
             (matrix) =>
                 matrix.pipe(
@@ -289,5 +304,4 @@ export const operations: Operations = {
     getVariable: (parameters) => computeGetVariable.bind(null, [thisParameter, ...parameters]),
     setVariable: (parameters) => computeSetVariable.bind(null, [thisParameter, ...parameters]),
     random: (parameters) => (changes) => changes.pipe(operationInterpretion(computeRandom, undefined, [...parameters])),
-
 }

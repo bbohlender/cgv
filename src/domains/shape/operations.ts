@@ -1,6 +1,6 @@
 import { Observable, of } from "rxjs"
 import { Instance } from "."
-import { Matrix, operationInterpretion, Operations, thisParameter } from "../.."
+import { createMatrixFromArray, Matrix, operationInterpretion, Operations, thisParameter } from "../.."
 import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix } from "./math"
 import { createPhongMaterialGenerator, FacePrimitive } from "./primitive"
 import { Axis, Split } from "./primitive-utils"
@@ -13,8 +13,6 @@ function computeSize([instance, axis]: Array<any>): Observable<Matrix<any>> {
     instance.primitive.getGeometrySize(size)
     return of(size[axis as keyof Vector3])
 }
-
-
 
 function computeScale([instance, x, y, z]: Array<any>): Observable<Matrix<Instance>> {
     return of({
@@ -57,86 +55,46 @@ function computeExtrude([instance, by]: Array<any>): Observable<Matrix<Instance>
 function computeComponents(
     type: "points" | "lines" | "faces",
     instances: Array<Instance>
-): Observable<Array<Instance>> {
-    return of(
-        instances.reduce<Array<Instance>>(
-            (instances, instance) => [
-                ...instances,
-                ...instance.primitive
-                    .components(type)
-                    .map<Instance>((primitive) => ({ attributes: { ...instance.attributes }, primitive })),
-            ],
-            []
-        )
+): Observable<Matrix<Instance>> {
+    const components = instances.reduce<Array<Instance>>(
+        (instances, instance) => [
+            ...instances,
+            ...instance.primitive
+                .components(type)
+                .map<Instance>((primitive) => ({ attributes: { ...instance.attributes }, primitive })),
+        ],
+        []
     )
+    return of(createMatrixFromArray(components, components.length))
 }
 
-const computePoints = computeComponents.bind(null, "points")
-const computeLines = computeComponents.bind(null, "lines")
-const computeFaces = computeComponents.bind(null, "faces")
-
-function computeSplitZ([instance, at, limit]: Array<any>): Observable<Array<Instance>> {
-    return of(
-        Split(instance.primitive, Axis.Z, (matrix, index, x, y, z) => {
-            if (limit == null || index < limit) {
-                const size = Math.min(at, z)
-                return FacePrimitive.fromLengthAndHeight(matrix, x, size, false, instance.primitive.materialGenerator)
-            } else {
-                return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.primitive.materialGenerator)
-            }
-        }).map((primitive) => ({
-            attributes: { ...instance.attributes },
-            primitive,
-        }))
-    )
+function computeSplit(axis: Axis, [instance, at, limit]: Array<any>): Observable<Matrix<Instance>> {
+    const splits = Split(instance.primitive, axis, (matrix, index, x, y, z) => {
+        if (limit == null || index < limit) {
+            const sizeX = axis === Axis.X ? Math.min(at, x) : x
+            const sizeZ = axis === Axis.Z ? Math.min(at, z) : z
+            return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.primitive.materialGenerator)
+        } else {
+            return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.primitive.materialGenerator)
+        }
+    }).map((primitive) => ({
+        attributes: { ...instance.attributes },
+        primitive,
+    }))
+    return of(createMatrixFromArray(splits, splits.length))
 }
 
-function computeSplitX([instance, at, limit]: Array<any>): Observable<Array<Instance>> {
-    return of(
-        Split(instance.primitive, Axis.X, (matrix, index, x, y, z) => {
-            if (limit == null || index < limit) {
-                const size = Math.min(at, x)
-                return FacePrimitive.fromLengthAndHeight(matrix, size, z, false, instance.primitive.materialGenerator)
-            } else {
-                return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.primitive.materialGenerator)
-            }
-        }).map((primitive) => ({
-            attributes: { ...instance.attributes },
-            primitive,
-        }))
-    )
-}
+function computeMultiSplit(axis: Axis, [instance, ...distances]: Array<any>) {
+    const splits = Split(instance.primitive, axis, (matrix, index, x, y, z) => {
+        const sizeX = axis === Axis.X && distances[index] != null ? Math.min(distances[index], x) : x
+        const sizeZ = axis === Axis.Z && distances[index] != null ? Math.min(distances[index], z) : z
 
-function computeMultiSplitX([instance, ...distances]: Array<any>) {
-    return of(
-        Split(instance.primitive, Axis.X, (matrix, index, x, y, z) => {
-            const size = distances[index]
-            if (size != null && x > size) {
-                return FacePrimitive.fromLengthAndHeight(matrix, size, z, false, instance.primitive.materialGenerator)
-            } else {
-                return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.primitive.materialGenerator)
-            }
-        }).map((primitive) => ({
-            attributes: { ...instance.attributes },
-            primitive,
-        }))
-    )
-}
-
-function computeMultiSplitZ([instance, ...distances]: Array<any>) {
-    return of(
-        Split(instance.primitive, Axis.Z, (matrix, index, x, y, z) => {
-            const size = distances[index]
-            if (size != null && z > size) {
-                return FacePrimitive.fromLengthAndHeight(matrix, x, size, false, instance.primitive.materialGenerator)
-            } else {
-                return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.primitive.materialGenerator)
-            }
-        }).map((primitive) => ({
-            attributes: { ...instance.attributes },
-            primitive,
-        }))
-    )
+        return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.primitive.materialGenerator)
+    }).map((primitive) => ({
+        attributes: { ...instance.attributes },
+        primitive,
+    }))
+    return of(createMatrixFromArray(splits, splits.length))
 }
 
 export const operations: Operations = {
@@ -154,26 +112,41 @@ export const operations: Operations = {
         changes.pipe(operationInterpretion(computeExtrude, (values) => values, [thisParameter, ...parameters])),
 
     splitX: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeSplitX, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeSplit.bind(null, Axis.X), (values) => values, [thisParameter, ...parameters])),
     splitZ: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeSplitZ, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeSplit.bind(null, Axis.Z), (values) => values, [thisParameter, ...parameters])),
 
     multiSplitX: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeMultiSplitX, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeMultiSplit.bind(null, Axis.X), (values) => values, [thisParameter, ...parameters])),
 
     multiSplitZ: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeMultiSplitZ, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeMultiSplit.bind(null, Axis.Z), (values) => values, [thisParameter, ...parameters])),
 
     points: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computePoints, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeComponents.bind(null, "points"), (values) => values, [
+                thisParameter,
+                ...parameters,
+            ])
+        ),
     lines: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeLines, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeComponents.bind(null, "lines"), (values) => values, [
+                thisParameter,
+                ...parameters,
+            ])
+        ),
     faces: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeFaces, (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeComponents.bind(null, "faces"), (values) => values, [
+                thisParameter,
+                ...parameters,
+            ])
+        ),
 
     color: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeColorChange, values => values, [thisParameter, ...parameters])),
+        changes.pipe(operationInterpretion(computeColorChange, (values) => values, [thisParameter, ...parameters])),
 
     size: (parameters) => (matrix) =>
-        matrix.pipe(operationInterpretion(computeSize, values => values, [thisParameter, ...parameters])),
+        matrix.pipe(operationInterpretion(computeSize, (values) => values, [thisParameter, ...parameters])),
 }

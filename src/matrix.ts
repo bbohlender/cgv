@@ -21,7 +21,9 @@ import {
 
 export type ArrayOrSingle<T> = T | ReadonlyArray<T>
 
-export type Matrix<T> = T | ReadonlyArray<Matrix<T>> | undefined
+export type Matrix<T> = T | (ReadonlyArray<Matrix<T>> & { size: number }) | undefined
+
+export type ReadonlySizedArray<T> = ReadonlyArray<T> & { size: number }
 
 export function switchAllMatrixChanges<T>(
     debounceTime: number
@@ -81,8 +83,8 @@ export function nestMatrix<T>(
                 const outerIndex = keyMap.get(group.key)!
                 const innerMatrix = group.pipe(
                     scan<{ outer: Array<number>; changes: Array<MatrixChange<T>> }, Matrix<T>>(
-                        (acc, { changes }) => applyChanges(acc, changes),
-                        []
+                        (acc, { changes }) => applyChangesToMatrix(acc, changes),
+                        undefined
                     )
                 )
                 return {
@@ -121,7 +123,6 @@ export function matrixEqual<T>(m1: Matrix<T>, m2: Matrix<T>): boolean {
     return false
 }
 
-
 export function mergeMatrixOperators<T, K = T>(
     operators: Array<OperatorFunction<T, Matrix<K>>>
 ): OperatorFunction<T, Matrix<K>> {
@@ -133,10 +134,7 @@ export function mergeMatrixOperators<T, K = T>(
     }
 }
 
-export function mapMatrix<T, K = T>(
-    fn: (index: number, val: T) => Matrix<K> | null,
-    matrix: Matrix<T>
-): Matrix<K> {
+export function mapMatrix<T, K = T>(fn: (index: number, val: T) => Matrix<K> | null, matrix: Matrix<T>): Matrix<K> {
     return multiMapNullMatrix(fn, 0, matrix) ?? undefined
 }
 
@@ -159,17 +157,21 @@ function multiMapNullMatrix<T, M extends Array<unknown>, K>(
 ): Matrix<K> | null {
     if (Array.isArray(mainMatrix)) {
         const array: Array<Matrix<K>> = []
+        let size = 0
         for (let i = 0; i < mainMatrix.length; i++) {
             const mainElement = mainMatrix[i]
             const otherElements: any = otherMatrices.map((matrix) => (Array.isArray(matrix) ? matrix[i] : null))
             const mappedElement = multiMapNullMatrix<T, M, K>(fn, i, mainElement, ...otherElements)
             if (mappedElement !== null) {
+                if (mappedElement !== undefined) {
+                    ++size
+                }
                 array.push(mappedElement)
             }
         }
-        return array.length > 0 ? array : null
+        return size > 0 ? createMatrixFromArray(array, size) : null
     }
-    if(mainMatrix === undefined) {
+    if (mainMatrix === undefined) {
         return undefined
     }
     return fn(index, mainMatrix, ...otherMatrices)
@@ -193,11 +195,7 @@ export type MatrixChange<T> = MatrixChangeSet<T> | MatrixChangeUnset
 
 const EMPTY_ARRAY: Array<any> = []
 
-function computeChanges<T>(
-    from: Matrix<T>,
-    to: Matrix<T>,
-    prefixIndex: Array<number> = []
-): Array<MatrixChange<T>> {
+function computeChanges<T>(from: Matrix<T>, to: Matrix<T>, prefixIndex: Array<number> = []): Array<MatrixChange<T>> {
     if (to == null) {
         return [
             {
@@ -227,29 +225,51 @@ function computeChanges<T>(
     ]
 }
 
-function applyChanges<T>(to: Matrix<T>, changes: ArrayOrSingle<MatrixChange<T>>): Matrix<T> {
+function applyChangesToMatrix<T>(to: Matrix<T>, changes: ArrayOrSingle<MatrixChange<T>>): Matrix<T> {
     if (!Array.isArray(changes)) {
-        return applyChange(to, changes.index, changes)
+        return applyChangeToMatrix(to, changes.index, changes)
     }
     for (const change of changes) {
-        to = applyChange(to, change.index, change)
+        to = applyChangeToMatrix(to, change.index, change)
     }
 
     return to
 }
 
-//TODO: clear empty arrays
-function applyChange<T>(to: Matrix<T>, index: Array<number>, change: MatrixChange<T>): Matrix<T> {
+export function createMatrixFromArray<T>(array: ReadonlyArray<T>, computeSize: ((entry: T) => number) | number): ReadonlySizedArray<T> {
+    const size = typeof computeSize === "number" ? computeSize : array.reduce((acc, value) => acc + computeSize(value), 0)
+    return Object.assign(array, { size })
+}
+
+export function getMatrixSize<T>(matrix: Matrix<T>): number {
+    return matrix == null ? 0 : Array.isArray(matrix) ? matrix.size : 1
+}
+
+function applyChangeToMatrix<T>(to: Matrix<T>, index: Array<number>, change: MatrixChange<T>): Matrix<T> {
     if (index.length === 0) {
         return change.type === ChangeType.SET ? change.value : undefined
     }
 
-    if (!Array.isArray(to)) {
-        to = []
-    }
     const i = index[0]
 
-    return [...fill(to.slice(0, i), i), applyChange(to[i], index.slice(1), change), ...to.slice(i + 1)]
+    const toArray = Array.isArray(to) ? to : []
+
+    const element = toArray[i]
+    const prevElementSize = getMatrixSize(element)
+    const prevSize = getMatrixSize(to)
+
+    const newElement = applyChangeToMatrix(element, index.slice(1), change)
+    const newElementSize = getMatrixSize(newElement)
+
+    const newSize = prevSize + newElementSize - prevElementSize
+
+    if (newSize === 0) {
+        return undefined
+    }
+
+    const array = [...fill(toArray.slice(0, i), i), newElement, ...toArray.slice(i + 1)]
+
+    return createMatrixFromArray(array, newSize)
 }
 
 function fill<T>(array: Array<T>, length: number): Array<T> {
@@ -281,42 +301,11 @@ export function asChangeSet<T>(index: Array<number>): OperatorFunction<T, Matrix
 }
 
 export function changesToMatrix<T>(): OperatorFunction<ArrayOrSingle<MatrixChange<T>>, Matrix<T>> {
-    return scan<ArrayOrSingle<MatrixChange<T>>, Matrix<T>>((acc, changes) => applyChanges(acc, changes), undefined)
+    return scan<ArrayOrSingle<MatrixChange<T>>, Matrix<T>>(
+        (acc, changes) => applyChangesToMatrix(acc, changes),
+        undefined
+    )
 }
-
-export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
-    return (observable) => {
-        const subject = new ReplaySubject<void>(1)
-        return observable.pipe(
-            tap(() => subject.next()),
-            buffer(subject.pipe(debounceTime(dueTime))),
-            finalize(() => subject.complete())
-        )
-    }
-}
-
-/*** COUNTED MATRIX - INTERNAL IMPLEMENTATION FOR EFFICIENT MATRIX TO ARRAY/... ***/
-
-//TODO: integrate into normal matrix???
-
-/**
- */
-export function changesToArrayChanges<T>(): OperatorFunction<Array<MatrixChange<T>>, Array<ArrayChange<T>>> {
-    return (changes) =>
-        changes.pipe(
-            scan<Array<MatrixChange<T>>, [CountedMatrix<T>, Array<ArrayChange<T>>]>(
-                (cache, changes) => {
-                    cache[1] = []
-                    cache[0] = computeArrayChanges(cache[0], changes, cache[1])
-                    return cache
-                },
-                [{ amount: 0, value: [] }, []]
-            ),
-            map(([, array]) => array)
-        )
-}
-
-type CountedMatrix<T> = { amount: number; value: T | Array<CountedMatrix<T>> | undefined }
 
 export type ArrayChange<T> = {
     index: number
@@ -328,76 +317,60 @@ export type ArrayChange<T> = {
       }
 )
 
-function computeArrayChanges<T>(
-    matrix: CountedMatrix<T>,
-    changes: Array<MatrixChange<T>>,
-    arrayChanges: Array<ArrayChange<T>>
-): CountedMatrix<T> {
-    for (const change of changes) {
-        matrix = computeArrayChange(matrix, arrayChanges, change.index, change, 0)
-    }
-    return matrix
+export function changesToArrayChanges<T>(): OperatorFunction<
+    ArrayOrSingle<MatrixChange<T>>,
+    ArrayOrSingle<ArrayChange<T>>
+> {
+    return (changes) =>
+        changes.pipe(
+            scan<ArrayOrSingle<MatrixChange<T>>, [Matrix<T>, ArrayOrSingle<ArrayChange<T>>]>(
+                (data, changes) => {
+                    let arrayChanges: ArrayOrSingle<ArrayChange<T>>
+                    if(Array.isArray(changes)) {
+                        arrayChanges = changes.map(change => {
+                            const arrayChange = martrixChangeToArrayChange(data[0], change.index, change, 0)
+                            data[0] = applyChangesToMatrix(data[0], change)
+                            return arrayChange
+                        })
+                    } else {
+                        arrayChanges = martrixChangeToArrayChange(data[0], changes.index, changes, 0)
+                        data[0] = applyChangesToMatrix(data[0], changes)
+                    }
+                    data[1] = arrayChanges
+                    return data
+                },
+                [undefined, []]
+            ),
+            map(([, changes]) => changes)
+        )
 }
 
-//TODO: clear empty arrays
-function computeArrayChange<T>(
-    matrix: CountedMatrix<T>,
-    arrayChanges: Array<ArrayChange<T>>,
-    index: Array<number>,
-    change: MatrixChange<T>,
-    prefixIndex: number
-): CountedMatrix<T> {
-    if (index.length === 0) {
-        if (change.type === ChangeType.SET) {
-            arrayChanges.push({
-                index: prefixIndex,
-                type: ChangeType.SET,
-                value: change.value,
-                deleteAmount: matrix.amount,
-            })
-            return { amount: 1, value: change.value }
-        } else {
-            arrayChanges.push({
-                index: prefixIndex,
-                type: ChangeType.UNSET,
-                deleteAmount: matrix.amount,
-            })
-            return { amount: 0, value: [] }
+function martrixChangeToArrayChange<T>(matrix: Matrix<T>, index: Array<number>, change: MatrixChange<T>, prefixIndex: number): ArrayChange<T> {
+    if(index.length === 0 || !Array.isArray(matrix)) {
+        return {
+            ...change,
+            deleteAmount: getMatrixSize(matrix),
+            index: prefixIndex
         }
     }
-
-    if (!Array.isArray(matrix.value)) {
-        matrix.amount = 0
-        matrix.value = []
+    
+    const nextMatrixIndex = index[0]
+    for(let i = 0; i < nextMatrixIndex; i++) {
+        prefixIndex += getMatrixSize(matrix[i])
     }
 
-    const firstIndex = index[0]
-    let offset = 0
-    for (let i = 0; i < firstIndex; i++) {
-        offset += matrix.value[i]?.amount ?? 0
-    }
-    const prevSize = matrix.value[firstIndex]?.amount ?? 0
-    matrix.value[firstIndex] = computeArrayChange(
-        matrix.value[firstIndex] ?? { amount: 0, value: [] },
-        arrayChanges,
-        index.slice(1),
-        change,
-        prefixIndex + offset
-    )
-    matrix.amount += matrix.value[firstIndex].amount - prevSize
-
-    return matrix
+    return martrixChangeToArrayChange(matrix[nextMatrixIndex], index.slice(1), change, prefixIndex)
 }
 
-function applyArrayChanges<T>(array: Array<T>, changes: Array<ArrayChange<T>>): Array<T> {
-    for (const change of changes) {
-        if (change.type === ChangeType.UNSET) {
-            array.splice(change.index, change.deleteAmount)
-        } else {
-            array.splice(change.index, change.deleteAmount, change.value)
-        }
+export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
+    return (observable) => {
+        const subject = new ReplaySubject<void>(1)
+        return observable.pipe(
+            tap(() => subject.next()),
+            buffer(subject.pipe(debounceTime(dueTime))),
+            finalize(() => subject.complete())
+        )
     }
-    return array
 }
 
 export function matrixToArray<T>(): OperatorFunction<Matrix<T>, Array<T>> {
