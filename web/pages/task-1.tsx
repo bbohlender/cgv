@@ -10,27 +10,20 @@ import { createPhongMaterialGenerator, FacePrimitive } from "cgv/domains/shape/p
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
-const lot: Observable<Matrix<InterpretionValue<Instance>>> = of([
-    ({
-        terminated: false,
-        eventDepthMap: {},
-        parameters: {},
-        value: {
-            path: [],
-            attributes: {},
-            primitive: new FacePrimitive(
-                new Matrix4(),
-                new Shape([
-                    new Vector2(200, 300),
-                    new Vector2(-200, 200),
-                    new Vector2(-300, -200),
-                    new Vector2(200, -300),
-                ]),
-                redMaterialGenerator
-            ),
-        },
-    }),
-])
+const lot: Observable<Matrix<InterpretionValue<Instance>>> = of({
+    terminated: false,
+    eventDepthMap: {},
+    parameters: {},
+    value: {
+        path: [],
+        attributes: {},
+        primitive: new FacePrimitive(
+            new Matrix4(),
+            new Shape([new Vector2(200, 300), new Vector2(-200, 200), new Vector2(-300, -200), new Vector2(200, -300)]),
+            redMaterialGenerator
+        ),
+    },
+})
 
 export default function Index() {
     const [text, setText] = useState("")

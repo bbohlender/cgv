@@ -5,7 +5,7 @@ import { useInterpretion } from "../src/use-interpretion"
 import { ShapeEditor } from "../src/shape-editor"
 import { Instance, operations } from "cgv/domains/shape"
 import { Color, Matrix4, Plane, Shape, Vector2, Vector3 } from "three"
-import { InterpretionValue, Matrix } from "cgv"
+import { createMatrixFromArray, InterpretionValue, Matrix } from "cgv"
 import { createPhongMaterialGenerator, FacePrimitive } from "cgv/domains/shape/primitive"
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
@@ -18,8 +18,8 @@ const lotsVertecies: Array<Array<Vector2>> = [
 ]
 
 const lots: Observable<Matrix<InterpretionValue<Instance>>> = of(
-    lotsVertecies.map((vertecies, i) =>
-        ({
+    createMatrixFromArray(
+        lotsVertecies.map((vertecies, i) => ({
             terminated: false,
             eventDepthMap: {},
             parameters: {},
@@ -28,7 +28,8 @@ const lots: Observable<Matrix<InterpretionValue<Instance>>> = of(
                 attributes: {},
                 primitive: new FacePrimitive(new Matrix4(), new Shape(vertecies), redMaterialGenerator),
             },
-        })
+        })),
+        lotsVertecies.length
     )
 )
 

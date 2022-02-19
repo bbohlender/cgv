@@ -1,4 +1,4 @@
-import { InterpretionValue, Parameters } from "cgv"
+import { createMatrixFromArray, InterpretionValue, Parameters } from "cgv"
 import { useMemo } from "react"
 import { Color, Matrix4, Shape, Vector2 } from "three"
 import { Layers, loadLayers } from "./api"
@@ -31,7 +31,7 @@ export function useMapbox() {
                       map((layers) => {
                           const roads = getRoads(layers)
                           const buildings = getBuildings(layers)
-                          const matrix = [...roads, ...buildings].map<InterpretionValue<Instance>>(
+                          const values = [...roads, ...buildings].map<InterpretionValue<Instance>>(
                               ([primitive, parameters], i) => ({
                                   terminated: false,
                                   eventDepthMap: {},
@@ -43,7 +43,7 @@ export function useMapbox() {
                                   },
                               })
                           )
-                          return matrix
+                          return createMatrixFromArray(values, values.length)
                       })
                   ),
         []

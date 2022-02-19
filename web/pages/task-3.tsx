@@ -5,7 +5,7 @@ import { useInterpretion } from "../src/use-interpretion"
 import { ShapeEditor } from "../src/shape-editor"
 import { Instance, operations } from "cgv/domains/shape"
 import { Color, Matrix4, Shape, Vector2 } from "three"
-import { InterpretionValue, Matrix } from "cgv"
+import { createMatrixFromArray, InterpretionValue, Matrix } from "cgv"
 import { FacePrimitive, createPhongMaterialGenerator } from "cgv/domains/shape/primitive"
 
 const blocksLotsVertecies: Array<Array<Array<Vector2>>> = [
@@ -26,21 +26,25 @@ const blocksLotsVertecies: Array<Array<Array<Vector2>>> = [
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
 const lots: Observable<Matrix<InterpretionValue<Instance>>> = of(
-    blocksLotsVertecies.map((lotsVertecies, blockId) =>
-        lotsVertecies.map((vertecies, i) =>
-            ({
-                terminated: false,
-                eventDepthMap: {},
-                parameters: {
-                    blockId: of(blockId),
-                },
-                value: {
-                    path: [blockId, i],
-                    attributes: {},
-                    primitive: new FacePrimitive(new Matrix4(), new Shape(vertecies), redMaterialGenerator),
-                },
-            })
-        )
+    createMatrixFromArray(
+        blocksLotsVertecies.map((lotsVertecies, blockId) =>
+            createMatrixFromArray(
+                lotsVertecies.map((vertecies, i) => ({
+                    terminated: false,
+                    eventDepthMap: {},
+                    parameters: {
+                        blockId: of(blockId),
+                    },
+                    value: {
+                        path: [blockId, i],
+                        attributes: {},
+                        primitive: new FacePrimitive(new Matrix4(), new Shape(vertecies), redMaterialGenerator),
+                    },
+                })),
+                lotsVertecies.length
+            )
+        ),
+        blocksLotsVertecies.length
     )
 )
 
