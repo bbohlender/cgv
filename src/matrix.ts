@@ -236,8 +236,12 @@ function applyChangesToMatrix<T>(to: Matrix<T>, changes: ArrayOrSingle<MatrixCha
     return to
 }
 
-export function createMatrixFromArray<T>(array: ReadonlyArray<T>, computeSize: ((entry: T) => number) | number): ReadonlySizedArray<T> {
-    const size = typeof computeSize === "number" ? computeSize : array.reduce((acc, value) => acc + computeSize(value), 0)
+export function createMatrixFromArray<T>(
+    array: ReadonlyArray<T>,
+    computeSize: ((entry: T) => number) | number
+): ReadonlySizedArray<T> {
+    const size =
+        typeof computeSize === "number" ? computeSize : array.reduce((acc, value) => acc + computeSize(value), 0)
     return Object.assign(array, { size })
 }
 
@@ -326,8 +330,8 @@ export function changesToArrayChanges<T>(): OperatorFunction<
             scan<ArrayOrSingle<MatrixChange<T>>, [Matrix<T>, ArrayOrSingle<ArrayChange<T>>]>(
                 (data, changes) => {
                     let arrayChanges: ArrayOrSingle<ArrayChange<T>>
-                    if(Array.isArray(changes)) {
-                        arrayChanges = changes.map(change => {
+                    if (Array.isArray(changes)) {
+                        arrayChanges = changes.map((change) => {
                             const arrayChange = martrixChangeToArrayChange(data[0], change.index, change, 0)
                             data[0] = applyChangesToMatrix(data[0], change)
                             return arrayChange
@@ -345,17 +349,22 @@ export function changesToArrayChanges<T>(): OperatorFunction<
         )
 }
 
-function martrixChangeToArrayChange<T>(matrix: Matrix<T>, index: Array<number>, change: MatrixChange<T>, prefixIndex: number): ArrayChange<T> {
-    if(index.length === 0 || !Array.isArray(matrix)) {
+function martrixChangeToArrayChange<T>(
+    matrix: Matrix<T>,
+    index: Array<number>,
+    change: MatrixChange<T>,
+    prefixIndex: number
+): ArrayChange<T> {
+    if (index.length === 0 || !Array.isArray(matrix)) {
         return {
             ...change,
             deleteAmount: getMatrixSize(matrix),
-            index: prefixIndex
+            index: prefixIndex,
         }
     }
-    
+
     const nextMatrixIndex = index[0]
-    for(let i = 0; i < nextMatrixIndex; i++) {
+    for (let i = 0; i < nextMatrixIndex; i++) {
         prefixIndex += getMatrixSize(matrix[i])
     }
 

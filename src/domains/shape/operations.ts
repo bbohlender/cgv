@@ -112,15 +112,29 @@ export const operations: Operations = {
         changes.pipe(operationInterpretion(computeExtrude, (values) => values, [thisParameter, ...parameters])),
 
     splitX: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeSplit.bind(null, Axis.X), (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeSplit.bind(null, Axis.X), (values) => values, [thisParameter, ...parameters])
+        ),
     splitZ: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeSplit.bind(null, Axis.Z), (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeSplit.bind(null, Axis.Z), (values) => values, [thisParameter, ...parameters])
+        ),
 
     multiSplitX: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeMultiSplit.bind(null, Axis.X), (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeMultiSplit.bind(null, Axis.X), (values) => values, [
+                thisParameter,
+                ...parameters,
+            ])
+        ),
 
     multiSplitZ: (parameters) => (changes) =>
-        changes.pipe(operationInterpretion(computeMultiSplit.bind(null, Axis.Z), (values) => values, [thisParameter, ...parameters])),
+        changes.pipe(
+            operationInterpretion(computeMultiSplit.bind(null, Axis.Z), (values) => values, [
+                thisParameter,
+                ...parameters,
+            ])
+        ),
 
     points: (parameters) => (changes) =>
         changes.pipe(

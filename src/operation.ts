@@ -49,7 +49,6 @@ export function operationInterpretion<Input, Output>(
     getParameterIndex: (index: Array<number>) => [outer: Array<number>, inner: Array<number>] = defaultParameterIndex,
     debounceTime = 0
 ): OperatorFunction<Matrix<InterpretionValue<Input>>, Matrix<InterpretionValue<Output>>> {
-
     const computeInterpretationValue: (
         input: Array<InterpretionValue<Input>>
     ) => Observable<Matrix<InterpretionValue<Output>>> = (input) => {
@@ -90,13 +89,12 @@ export function operation<Input, Output>(
 ): OperatorFunction<Matrix<Input>, Matrix<Output>> {
     //TODO: throw error when inputAmount != parameters.length
 
-    const computeCachedValue: OperatorFunction<Array<Input> | undefined, Matrix<Output>> =
-        getDependencies == null
-            ? (input) => input.pipe(switchMap((val) => (val == null ? of<Matrix<Output>>(undefined) : compute(val))))
-            : cache(
-                  (input) => getDependencies(input),
-                  (val) => (val == null ? of<Matrix<Output>>(undefined) : compute(val))
-              )
+    const computeCachedValue: OperatorFunction<Array<Input> | undefined, Matrix<Output>> = getDependencies == null
+        ? (input) => input.pipe(switchMap((val) => (val == null ? of<Matrix<Output>>(undefined) : compute(val))))
+        : cache(
+              (input) => getDependencies(input),
+              (val) => (val == null ? of<Matrix<Output>>(undefined) : compute(val))
+          )
 
     return (matrix) =>
         matrix.pipe(

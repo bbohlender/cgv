@@ -275,7 +275,9 @@ function computeGetVariable<T>(
 }
 
 function computeSetVariable<T>(
-    []: Array<OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>>>,
+    [instance, parameterName, value]: Array<
+        OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>>
+    >,
     matrix: Observable<Matrix<InterpretionValue<T>>>
 ) {
     //TODO: set parameter
