@@ -42,7 +42,7 @@ const lexer = moo.compile({
 @lexer lexer
 
 GrammarDefinition   ->  ws RuleDefinition ws                                        {% ([,[identifier, steps]]) => ({ [identifier]: steps }) %}
-                    |   ws RuleDefinition %ws GrammarDefinition                     {% ([,[identifier, steps],,prev]) => ({ [identifier]: steps, ...prev }) %}
+                    |   ws RuleDefinition %ws GrammarDefinition                     {% ([,[identifier, steps],,prev]) => { if(identifier in prev) { throw new Error(`rule "${identifier}" is already defined`) } else { return { [identifier]: steps, ...prev } } } %}
                     |   ws                                                          {% () => ({ }) %}
 
 RuleDefinition      ->  %identifier ws %arrow ws Steps                              {% ([{ value },,,,steps]) => [value, steps] %}

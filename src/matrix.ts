@@ -106,23 +106,6 @@ export function getIndexKey(index: Array<number>) {
     return ""
 }
 
-//export const distinctUntilChangedMatrix = distinctUntilChanged<Matrix<any>>(matrixEqual)
-
-export function matrixEqual<T>(m1: Matrix<T>, m2: Matrix<T>): boolean {
-    if (m1 === m2) {
-        return true
-    }
-    if (Array.isArray(m1) && Array.isArray(m2) && m1.length === m2.length) {
-        for (let i = 0; i < m1.length; i++) {
-            if (!matrixEqual(m1[i], m2[i])) {
-                return false
-            }
-        }
-        return true
-    }
-    return false
-}
-
 export function mergeMatrixOperators<T, K = T>(
     operators: Array<OperatorFunction<T, Matrix<K>>>
 ): OperatorFunction<T, Matrix<K>> {
