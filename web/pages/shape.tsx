@@ -1,14 +1,28 @@
-import { operations } from "cgv/domains/shape"
+import { InterpretionValue, Matrix } from "cgv"
+import { createPhongMaterialGenerator, Instance, operations, PointPrimitive } from "cgv/domains/shape"
 import Head from "next/head"
 import React, { useState } from "react"
-import { useMapbox } from "../src/use-mapbox"
+import { Observable, of } from "rxjs"
+import { Color, Matrix4 } from "three"
 import { ShapeEditor } from "../src/shape-editor"
+import { TextEditor } from "../src/text-editor"
 import { useInterpretion } from "../src/use-interpretion"
+
+const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
+
+const input: Observable<Matrix<InterpretionValue<Instance>>> = of({
+    value: {
+        attributes: {},
+        primitive: new PointPrimitive(new Matrix4(), redMaterialGenerator),
+    },
+    eventDepthMap: {},
+    parameters: {},
+    terminated: false,
+})
 
 export default function Index() {
     const [text, setText] = useState("")
 
-    const input = useMapbox()
     const [matrix, error] = useInterpretion(text, input, operations)
 
     return (
@@ -21,13 +35,7 @@ export default function Index() {
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
                 <ShapeEditor matrix={matrix} />
                 <div className="d-flex flex-column flex-basis-0 flex-grow-1">
-                    <textarea
-                        style={{ resize: "none", outline: 0 }}
-                        value={text}
-                        spellCheck={false}
-                        onChange={(e) => setText(e.target.value)}
-                        className="overflow-auto p-3 flex-basis-0 h3 mb-0 text-light border-0 bg-dark flex-grow-1"
-                    />
+                    <TextEditor text={text} setText={setText} />
                     <div
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 bg-black flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300 }}>

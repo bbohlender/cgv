@@ -40,10 +40,10 @@ The grammar is defined in [grammar.ne](./grammar.ne).
     -   constants can be numbers (`1`, `10.12`), strings (using quotation `""`) and booleans (true/false)
 -   **`Variables`**
     -   using `this.<name>` the variable with the name `name` can be retriveved
-    -   *WIP* writing to a variable called `name` can be done using `this.<name> = 1`
+    -   _WIP_ writing to a variable called `name` can be done using `this.<name> = 1`
 -   **`Special Tokens`**
-    -   `this` - *does nothing* - used to represent the current value (similar to this in OOP)
-    -   `return` - *jumps out of the execution* - terminates the execution prematurely (similar to most programming lanuages)
+    -   `this` - _does nothing_ - used to represent the current value (similar to this in OOP)
+    -   `return` - _jumps out of the execution_ - terminates the execution prematurely (similar to most programming lanuages)
     -   `+ - * /` - arithemtic operators (similar to most programming languages)
     -   `> < == <= >=` - comparison operators (similar to most programming languages)
     -   `&& || !` - boolean operators (similar to most programming languages)
@@ -86,19 +86,19 @@ Except for the parallel and sequential execution the precendence of all operator
 
 ### Arithmetic
 
-*Recursion*
+_Recursion_
 
 ```
 a -> if (random(0,1) > 0.1) then a1 else a2
 
-a1 -> 1 | a 
+a1 -> 1 | a
 a2 -> 0
 ```
 
-*Premature termination*
+_Premature termination_
 
+_the following example returns 10 since the execution is terminated before the current value is changed to 20_
 
-*the following example returns 10 since the execution is terminated before the current value is changed to 20*
 ```
 a -> 10 return 20
 ```
@@ -125,6 +125,35 @@ max -> event("a => {
 
 ### Shape
 
+`Building a Cube`
+
+```
+a -> face(
+	point(0,0,100),
+	point(0,0,0),
+	point(100,0,00),
+	point(100,0,100)
+)
+
+extrude(100)
+```
+
+`Streets`
+
+```
+a -> point(0,0,0) right
+(this | toPoints() select(1,2) (right | left)
+(this | toPoints() select(1,2) left
+(this | toPoints() select(1,2) right
+(this | toPoints() select(1,2) left))))
+
+left -> rotate(0, 45, 0) extrude(300)
+
+right -> rotate(0, -45, 0) extrude(300)
+
+forward -> extrude(300)
+```
+
 `Recursion`
 
 ```
@@ -150,13 +179,20 @@ Building -> expand(200)
 `Task 1`
 
 ```
-City -> color(0x333343) extrude(600) faces() (select(0, 4) Wall | select(4, 5) Roof)
+Start -> face(
+	point(100,0,900),
+	point(-300,0,0),
+	point(800,0,100),
+	point(600,0,600)
+) Lot
+
+Lot -> color(0x333343) extrude(600) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
 Wall -> splitZ(200) Floor
 
 Roof -> color(0x8881111)
 
-Floor -> splitX(200) WindowFrame 
+Floor -> splitX(200) WindowFrame
 
 WindowFrame -> if (size("x") >= 200)
 	then (
@@ -178,7 +214,7 @@ Window -> color(0xEEEEEE)
 `Task 2`
 
 ```
-City -> color(0x333343) extrude(random(400, 600)) faces() (select(0, 4) Wall | select(4, 5) Roof)
+City -> color(0x333343) extrude(random(400, 600)) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
 Wall -> splitZ(random(150, 250)) Floor
 
@@ -216,7 +252,7 @@ HighBuilding -> extrude(random(800, 1200)) Building
 
 LowBuilding -> extrude(random(200, 600)) Building
 
-Building -> faces() (select(0, 4) Wall | select(4, 5) Roof)
+Building -> toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
 Roof -> if (this.blockId == 0) then color(0x8881111) else color(0x111111)
 
@@ -256,5 +292,5 @@ SmallTile -> if (size("x") >= 180)
     )
     else this
 
-Window -> extrude(-20) faces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
+Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```

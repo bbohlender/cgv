@@ -7,6 +7,7 @@ import { Instance, operations } from "cgv/domains/shape"
 import { Color, Matrix4, Shape, Vector2 } from "three"
 import { createMatrixFromArray, InterpretionValue, Matrix } from "cgv"
 import { FacePrimitive, createPhongMaterialGenerator } from "cgv/domains/shape/primitive"
+import { TextEditor } from "../src/text-editor"
 
 const blocksLotsVertecies: Array<Array<Array<Vector2>>> = [
     [
@@ -63,13 +64,7 @@ export default function Index() {
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
                 <ShapeEditor matrix={changes} />
                 <div className="d-flex flex-column flex-basis-0 flex-grow-1">
-                    <textarea
-                        style={{ resize: "none", outline: 0 }}
-                        value={text}
-                        spellCheck={false}
-                        onChange={(e) => setText(e.target.value)}
-                        className="overflow-auto p-3 flex-basis-0 h3 mb-0 text-light border-0 bg-dark flex-grow-1"
-                    />
+                    <TextEditor text={text} setText={setText} />
                     <div
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 bg-black flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300 }}>

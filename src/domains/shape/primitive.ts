@@ -198,8 +198,10 @@ export class LinePrimitive extends Primitive {
             case "lines":
                 return [this.clone()]
             case "points": {
-                const end = new PointPrimitive(this.matrix, this.materialGenerator)
-                end.multiplyMatrix(helperMatrix.makeTranslation(0, this.length, 0))
+                const end = new PointPrimitive(
+                    this.matrix.clone().multiply(helperMatrix.makeTranslation(this.length, 0, 0)),
+                    this.materialGenerator
+                )
                 return [new PointPrimitive(this.matrix, this.materialGenerator), end]
             }
         }

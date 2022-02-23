@@ -1,11 +1,78 @@
-import { Observable, of } from "rxjs"
-import { Instance } from "."
-import { createMatrixFromArray, Matrix, operationInterpretion, Operations, thisParameter } from "../.."
+import { from, map, Observable, of, shareReplay, tap } from "rxjs"
+import { Instance, LinePrimitive, loadMap, PointPrimitive } from "."
+import {
+    createMatrixFromArray,
+    InterpretionValue,
+    Matrix,
+    operation,
+    operationInterpretion,
+    Operations,
+    thisParameter,
+} from "../.."
 import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix } from "./math"
 import { createPhongMaterialGenerator, FacePrimitive } from "./primitive"
 import { Axis, Split } from "./primitive-utils"
 import { operations as defaultOperations } from ".."
-import { Vector3 } from "three"
+import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
+
+const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
+
+function computeMapbox(/*[lat, lon]: ReadonlyArray<any>*/): Observable<Matrix<InterpretionValue<Instance>>> {
+    return from(loadMap()).pipe(
+        map(([roads, buildings]) => {
+            const values = [...roads, ...buildings].map<InterpretionValue<Instance>>(([primitive, parameters], i) => ({
+                terminated: false,
+                eventDepthMap: {},
+                parameters,
+                value: {
+                    path: [i],
+                    attributes: {},
+                    primitive,
+                },
+            }))
+            return createMatrixFromArray(values, values.length)
+        }),
+        shareReplay({ bufferSize: 1, refCount: true })
+    )
+}
+
+function computePoint([x, y, z]: ReadonlyArray<any>): Observable<Matrix<Instance>> {
+    return of({
+        attributes: {},
+        primitive: new PointPrimitive(makeTranslationMatrix(x, y, z, new Matrix4()), redMaterialGenerator),
+    })
+}
+
+const helperVector = new Vector3()
+
+//TODO: make capable of 3d (currently only 2d)
+function computeFace(points: ReadonlyArray<Instance>): Observable<Matrix<Instance>> {
+    const points2d = points.map((point) => {
+        helperVector.setFromMatrixPosition(point.primitive.matrix)
+        return new Vector2(helperVector.x, helperVector.z)
+    })
+    console.log(points2d)
+    return of({
+        attributes: {},
+        primitive: new FacePrimitive(
+            new Matrix4(),
+            new Shape(points2d),
+            redMaterialGenerator
+        ),
+    })
+}
+
+//TODO: make capable of 3d (currently only 2d)
+function computeLine(points: ReadonlyArray<Instance>): Observable<Matrix<Instance>> {
+    const [p1, p2] = points.map((point) => {
+        helperVector.setFromMatrixPosition(point.primitive.matrix)
+        return new Vector2(helperVector.x, helperVector.z)
+    })
+    return of({
+        attributes: {},
+        primitive: LinePrimitive.fromPoints(new Matrix4(), p1, p2, redMaterialGenerator),
+    })
+}
 
 const size = new Vector3()
 
@@ -136,21 +203,21 @@ export const operations: Operations = {
             ])
         ),
 
-    points: (parameters) => (changes) =>
+    toPoints: (parameters) => (changes) =>
         changes.pipe(
             operationInterpretion(computeComponents.bind(null, "points"), (values) => values, [
                 thisParameter,
                 ...parameters,
             ])
         ),
-    lines: (parameters) => (changes) =>
+    toLines: (parameters) => (changes) =>
         changes.pipe(
             operationInterpretion(computeComponents.bind(null, "lines"), (values) => values, [
                 thisParameter,
                 ...parameters,
             ])
         ),
-    faces: (parameters) => (changes) =>
+    toFaces: (parameters) => (changes) =>
         changes.pipe(
             operationInterpretion(computeComponents.bind(null, "faces"), (values) => values, [
                 thisParameter,
@@ -163,4 +230,10 @@ export const operations: Operations = {
 
     size: (parameters) => (matrix) =>
         matrix.pipe(operationInterpretion(computeSize, (values) => values, [thisParameter, ...parameters])),
+
+    mapbox: (parameters) => (matrix) => matrix.pipe(operation(computeMapbox, (values) => values, parameters)),
+
+    point: (parameters) => (matrix) => matrix.pipe(operationInterpretion(computePoint, (values) => values, parameters)),
+    line: (parameters) => (matrix) => matrix.pipe(operationInterpretion(computeLine, (values) => values, parameters)),
+    face: (parameters) => (matrix) => matrix.pipe(operationInterpretion(computeFace, (values) => values, parameters)),
 }

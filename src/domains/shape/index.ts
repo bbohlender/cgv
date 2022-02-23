@@ -8,6 +8,9 @@ export type Instance = {
     primitive: Primitive
 }
 
+export * from "./primitive"
+export * from "./primitive-utils"
 export * from "./attribute"
+export * from "./mapbox"
 export * from "./operations"
 export * from "./to-object3d"

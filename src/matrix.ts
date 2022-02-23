@@ -5,6 +5,7 @@ import {
     groupBy,
     GroupedObservable,
     map,
+    mapTo,
     merge,
     mergeMap,
     Observable,
@@ -110,6 +111,9 @@ export function mergeMatrixOperators<T, K = T>(
     operators: Array<OperatorFunction<T, Matrix<K>>>
 ): OperatorFunction<T, Matrix<K>> {
     return (observable) => {
+        if(operators.length === 0) {
+            return observable.pipe(mapTo(undefined))
+        }
         const shared = observable.pipe(shareReplay({ refCount: true, bufferSize: 1 }))
         return merge(...operators.map((operator, i) => shared.pipe(operator, asChangeSet([i])))).pipe(
             changesToMatrix<Matrix<K>>()

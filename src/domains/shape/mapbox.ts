@@ -1,16 +1,46 @@
-import { createMatrixFromArray, InterpretionValue, Parameters } from "cgv"
-import { useMemo } from "react"
+import { from, map, of, shareReplay } from "rxjs"
 import { Color, Matrix4, Shape, Vector2 } from "three"
-import { Layers, loadLayers } from "./api"
-import { Instance } from "cgv/domains/shape"
-import { from, map, NEVER, of, shareReplay } from "rxjs"
-import {
-    CombinedPrimitive,
-    createPhongMaterialGenerator,
-    FacePrimitive,
-    LinePrimitive,
-    Primitive,
-} from "cgv/domains/shape/primitive"
+import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, Instance, LinePrimitive, Primitive } from "."
+import { createMatrixFromArray, InterpretionValue, Parameters } from "../.."
+
+//https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/16/33196/22545.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
+
+//@ts-ignore
+import { VectorTile } from "vector-tile"
+import Protobuf from "pbf"
+
+export type Layers = {
+    [Layer in string]: Array<{
+        properties: any
+        geometry: Array<Array<{ x: number; y: number }>>
+    }>
+}
+
+export async function loadMap() {
+    const layers = await loadMapLayers()
+    const roads = getRoads(layers)
+    const buildings = getBuildings(layers)
+    return [roads, buildings]
+}
+
+async function loadMapLayers(): Promise<Layers> {
+    const response = await fetch(`/cgv/22545.mvt`)
+    const data = await response.arrayBuffer()
+    const vectorTile = new VectorTile(new Protobuf(data))
+    return Object.entries(vectorTile.layers).reduce((prev, [name, layer]: [string, any]) => {
+        return {
+            ...prev,
+            [name]: new Array(layer.length).fill(null).map((_, i) => {
+                const feature = layer.feature(i)
+                return {
+                    properties: feature.properties,
+                    geometry: feature.loadGeometry(),
+                }
+            }),
+        }
+    }, {})
+}
+
 
 const roadParameters: Parameters = {
     layer: of("road"),
@@ -20,35 +50,6 @@ const buildingParameters: Parameters = {
 }
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
-
-export function useMapbox() {
-    return useMemo(
-        () =>
-            global.window == null
-                ? NEVER
-                : from(loadLayers()).pipe(
-                      shareReplay({ bufferSize: 1, refCount: true }),
-                      map((layers) => {
-                          const roads = getRoads(layers)
-                          const buildings = getBuildings(layers)
-                          const values = [...roads, ...buildings].map<InterpretionValue<Instance>>(
-                              ([primitive, parameters], i) => ({
-                                  terminated: false,
-                                  eventDepthMap: {},
-                                  parameters,
-                                  value: {
-                                      path: [i],
-                                      attributes: {},
-                                      primitive,
-                                  },
-                              })
-                          )
-                          return createMatrixFromArray(values, values.length)
-                      })
-                  ),
-        []
-    )
-}
 
 function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
     return layers["building"].reduce<Array<[Primitive, Parameters]>>(
