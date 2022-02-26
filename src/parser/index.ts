@@ -12,44 +12,96 @@ export function parse(text: string): ParsedGrammarDefinition {
     return parser.results[0]
 }
 
-export type ParsedStep =
-    | ParsedParallelValues
-    | ParsedSequantialValues
+export type ParsedSteps =
+    | ParsedParallel
+    | ParsedSequantial
     | ParsedOperation
     | ParsedSymbol
     | ParsedRaw
     | ParsedThis
+    | ParsedBracket
+    | ParsedBinaryOperator
+    | ParsedUnaryOperator
+    | ParsedIf
+    | ParsedSwitch
+    | ParsedSetVariable
+    | ParsedGetVariable
+    | ParsedReturn
 
-export type ParsedParallelValues = {
+export type ParsedParallel = {
     type: "parallel"
-    steps: Array<ParsedStep>
+    children: Array<ParsedSteps>
 }
 
-export type ParsedSequantialValues = {
+export type ParsedSequantial = {
     type: "sequential"
-    steps: Array<ParsedStep>
+    children: Array<ParsedSteps>
 }
-
+export type ParsedBracket = {
+    type: "bracket"
+    children: [value: ParsedSteps]
+}
 export type ParsedOperation = {
     type: "operation"
-    parameters: Array<ParsedStep>
+    children: Array<ParsedSteps>
     identifier: string
 }
 export type ParsedSymbol = {
     type: "symbol"
     identifier: string
+    children: undefined
 }
 export type ParsedRaw = {
     type: "raw"
     value: any
+    children: undefined
 }
 export type ParsedThis = {
     type: "this"
+    children: undefined
 }
 export type ParsedReturn = {
     type: "return"
+    children: undefined
+}
+export type ParsedUnaryOperator = {
+    type: "not" | "invert"
+    children: [value: ParsedSteps]
+}
+export type ParsedBinaryOperator = {
+    type:
+        | "add"
+        | "subtract"
+        | "multiply"
+        | "divide"
+        | "modulo"
+        | "and"
+        | "or"
+        | "equal"
+        | "unequal"
+        | "smaller"
+        | "smallerEqual"
+        | "greater"
+        | "greaterEqual"
+    children: [op1: ParsedSteps, op2: ParsedSteps]
+}
+export type ParsedIf = {
+    type: "if"
+    children: [condition: ParsedSteps, value: ParsedSteps]
+}
+export type ParsedSwitch = {
+    type: "switch"
+    children: Array<ParsedSteps>
+}
+export type ParsedSetVariable = {
+    type: "setVariable"
+    children: [name: ParsedSteps, value: ParsedSteps]
+}
+export type ParsedGetVariable = {
+    type: "getVariable"
+    children: [name: ParsedSteps]
 }
 
 export type ParsedGrammarDefinition = {
-    [Symbol in string]: ParsedStep
+    [Symbol in string]: ParsedSteps
 }

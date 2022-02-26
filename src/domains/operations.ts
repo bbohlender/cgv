@@ -296,6 +296,8 @@ export const operations: Operations = {
     "||": basicOperation((v1, v2) => v1 || v2),
     "<": basicOperation((v1, v2) => v1 < v2),
     "<=": basicOperation((v1, v2) => v1 <= v2),
+    ">": basicOperation((v1, v2) => v1 > v2),
+    ">=": basicOperation((v1, v2) => v1 >= v2),
     "==": basicOperation((v1, v2) => v1 == v2),
     "!=": basicOperation((v1, v2) => v1 != v2),
     if: (parameters) => ifOperation.bind(null, parameters),

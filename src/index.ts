@@ -1,4 +1,5 @@
 export * from "./parser"
+export * from "./serializer"
 export * from "./matrix"
 export * from "./operation"
 export * from "./interprete"

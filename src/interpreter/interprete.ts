@@ -6,7 +6,7 @@ import {
     Matrix,
     mergeMatrixOperators,
     ParsedGrammarDefinition,
-    ParsedStep,
+    ParsedSteps,
 } from "."
 
 export type EventDepthMap = Readonly<{ [identifier in string]?: number }>
@@ -29,6 +29,8 @@ export type Operations = {
     "||": Operation<number>
     "<": Operation<any>
     "<=": Operation<any>
+    ">": Operation<any>
+    ">=": Operation<any>
     "==": Operation<any>
     "!=": Operation<any>
     if: Operation<any>
@@ -66,7 +68,7 @@ export function interprete<T>(
 }
 
 export function interpreteStep<T>(
-    step: ParsedStep,
+    steps: ParsedSteps,
     grammar: ParsedGrammarDefinition,
     operations: Operations,
     ruleOperatorMap: Map<
@@ -74,19 +76,21 @@ export function interpreteStep<T>(
         { ref: OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>> | undefined }
     >
 ): OperatorFunction<Matrix<InterpretionValue<T>>, Matrix<InterpretionValue<T>>> {
-    switch (step.type) {
+    switch (steps.type) {
+        case "bracket":
+            return interpreteStep(steps.steps, grammar, operations, ruleOperatorMap)
         case "operation": {
-            const operation = operations[step.identifier]
+            const operation = operations[steps.identifier]
             if (operation == null) {
-                throw new Error(`unknown operation "${step.identifier}"`)
+                throw new Error(`unknown operation "${steps.identifier}"`)
             }
             return operation(
-                step.parameters.map((parameter) => interpreteStep(parameter, grammar, operations, ruleOperatorMap))
+                steps.parameters.map((parameter) => interpreteStep(parameter, grammar, operations, ruleOperatorMap))
             )
         }
         case "parallel":
             return mergeMatrixOperators(
-                step.steps.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, ruleOperatorMap))
+                steps.stepsList.map((stepOfSteps) => interpreteStep(stepOfSteps, grammar, operations, ruleOperatorMap))
             )
         case "raw": {
             return (matrix) =>
@@ -95,7 +99,7 @@ export function interpreteStep<T>(
                         mapMatrix(
                             (index, value) => ({
                                 ...value,
-                                value: step.value,
+                                value: steps.value,
                             }),
                             matrix
                         )
@@ -106,7 +110,7 @@ export function interpreteStep<T>(
             return (input) => {
                 let current = input
                 const terminated: Array<Observable<Matrix<InterpretionValue<T>>>> = []
-                for (const stepOfSteps of step.steps) {
+                for (const stepOfSteps of steps.stepsList) {
                     const sharedCurrent = current.pipe(
                         //delay(10),
                         shareReplay({
@@ -129,14 +133,14 @@ export function interpreteStep<T>(
         case "this":
             return (input) => input
         case "symbol": {
-            let entry = ruleOperatorMap.get(step.identifier)
+            let entry = ruleOperatorMap.get(steps.identifier)
             if (entry == null) {
-                const rule = grammar[step.identifier]
+                const rule = grammar[steps.identifier]
                 if (rule == null) {
-                    throw new Error(`unknown rule "${step.identifier}"`)
+                    throw new Error(`unknown rule "${steps.identifier}"`)
                 }
                 entry = { ref: undefined }
-                ruleOperatorMap.set(step.identifier, entry)
+                ruleOperatorMap.set(steps.identifier, entry)
                 entry.ref = interpreteStep(rule, grammar, operations, ruleOperatorMap)
             }
             return (value) => defer(() => value.pipe(entry!.ref!))
