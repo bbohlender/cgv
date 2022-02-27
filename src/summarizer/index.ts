@@ -1,19 +1,21 @@
-import { ParsedBracket, ParsedGrammarDefinition, ParsedOperation, ParsedParallel, ParsedRaw, ParsedSteps } from ".."
+import { filterNull, ParsedGrammarDefinition, ParsedSteps, replaceSymbolsGrammar, trimGrammar } from ".."
 
 export function summarizer(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
-    const symbolFreeGrammars = grammarDefinitions.map(replaceSymbols).filter(filterNull)
+    const symbolFreeGrammars = grammarDefinitions.map(replaceSymbolsGrammar).map(trimGrammar).filter(filterNull)
 
-    //TODO: remove unnecassary brackets and unify unnecassary sequential and parallel splits (e.g. (1|2)|3 to 1|2|3)
+    const stepsList = symbolFreeGrammars.map((grammar) => Object.values(grammar)[0])
+
+    const [resultSteps] = summarize(stepsList)
 
     return {
-        [symbolFreeGrammars[0][0]]: summarize(symbolFreeGrammars.map(([, steps]) => steps))[0],
+        [Object.keys(symbolFreeGrammars[0])[0]]: resultSteps,
     }
 }
 
 function summarize(stepsList: Array<ParsedSteps>): [steps: ParsedSteps, matchingScore: number] {
     return summarizeOptions(stepsList).reduce((max, current) => (current[1] > max[1] ? current : max))
 }
-
+/*
 function summarizeOptions(stepsList: Array<ParsedSteps>): Array<[steps: ParsedSteps, matchingScore: number]> {
     const typeGroups = group(stepsList, (step) => step.type)
     typeGroups.map(([type, stepsList]) => {
@@ -146,37 +148,4 @@ function group<T, K>(
     return map
 }
 
-function filterNull<T>(val: T | undefined | null): val is T {
-    return val != null
-}
-
-function replaceSymbols(definition: ParsedGrammarDefinition): [string, ParsedSteps] | undefined {
-    const rules = Object.entries(definition)
-    if (rules.length === 0) {
-        return undefined
-    }
-    const [ruleName, steps] = rules[0]
-    return [ruleName, stepsReplaceSymbols(steps, definition)]
-}
-
-function stepsReplaceSymbols(
-    steps: ParsedSteps,
-    definition: ParsedGrammarDefinition,
-    visited: Set<string> = new Set()
-): ParsedSteps {
-    if (steps.type === "symbol") {
-        if (visited.has(steps.identifier)) {
-            throw new Error(`the summarizer does not yet support recursion`)
-        }
-        const rule = definition[steps.identifier]
-        if (rule == null) {
-            throw new Error(`unknown rule "${steps.identifier}"`)
-        }
-        return {
-            type: "bracket",
-            steps: stepsReplaceSymbols(rule, definition, new Set([...visited, steps.identifier])),
-        }
-    } else {
-        return steps
-    }
-}
+*/

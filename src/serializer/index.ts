@@ -1,13 +1,20 @@
 import {
+    ParsedBinaryOperator,
     ParsedBracket,
+    ParsedGetVariable,
     ParsedGrammarDefinition,
+    ParsedIf,
     ParsedOperation,
     ParsedParallel,
     ParsedRaw,
+    ParsedReturn,
     ParsedSequantial,
+    ParsedSetVariable,
     ParsedSteps,
+    ParsedSwitch,
     ParsedSymbol,
     ParsedThis,
+    ParsedUnaryOperator,
 } from ".."
 
 export function serialize(grammarDefinition: ParsedGrammarDefinition): string {
@@ -32,71 +39,124 @@ function serializeStep(step: ParsedSteps): string {
             return serializeThis(step)
         case "bracket":
             return serializeBracket(step)
+        case "invert":
+        case "not":
+            return serializeUnaryOperator(step)
+        case "add":
+        case "and":
+        case "divide":
+        case "equal":
+        case "greater":
+        case "greaterEqual":
+        case "modulo":
+        case "multiply":
+        case "or":
+        case "smaller":
+        case "smallerEqual":
+        case "subtract":
+        case "unequal":
+            return serializeBinaryOperator(step)
+        case "if":
+            return serializeIf(step)
+        case "switch":
+            return serializeSwitch(step)
+        case "getVariable":
+            return serializeGetVariable(step)
+        case "setVariable":
+            return serializeSetVariable(step)
+        case "return":
+            return serializeReturn(step)
     }
 }
 
 function serializeBracket(step: ParsedBracket): string {
-    return `(${serializeStep(step.steps)})`
+    return `(${serializeStep(step.children[0])})`
+}
+
+function serializeUnaryOperator(unaryOperatorStep: ParsedUnaryOperator): string {
+    const op1 = serializeStep(unaryOperatorStep.children[0])
+    switch (unaryOperatorStep.type) {
+        case "invert":
+            return `-${op1}`
+        case "not":
+            return `!${op1}`
+    }
+}
+
+function serializeBinaryOperator(binaryOperatorStep: ParsedBinaryOperator): string {
+    const op1 = serializeStep(binaryOperatorStep.children[0])
+    const op2 = serializeStep(binaryOperatorStep.children[1])
+
+    switch (binaryOperatorStep.type) {
+        case "add":
+            return `${op1} + ${op2}`
+        case "and":
+            return `${op1} && ${op2}`
+        case "divide":
+            return `${op1} / ${op2}`
+        case "equal":
+            return `${op1} == ${op2}`
+        case "greater":
+            return `${op1} > ${op2}`
+        case "greaterEqual":
+            return `${op1} >= ${op2}`
+        case "modulo":
+            return `${op1} % ${op2}`
+        case "multiply":
+            return `${op1} * ${op2}`
+        case "or":
+            return `${op1} || ${op2}`
+        case "smaller":
+            return `${op1} < ${op2}`
+        case "smallerEqual":
+            return `${op1} <= ${op2}`
+        case "subtract":
+            return `${op1} - ${op2}`
+        case "unequal":
+            return `${op1} != ${op2}`
+    }
+}
+
+function serializeReturn(returnStep: ParsedReturn): string {
+    return "return"
+}
+
+function serializeGetVariable(getVariableStep: ParsedGetVariable): string {
+    return `this.${serializeStep(getVariableStep.children[0])}`
+}
+
+function serializeSetVariable(setVariableStep: ParsedSetVariable): string {
+    return `this.${serializeStep(setVariableStep.children[0])} = ${serializeStep(setVariableStep.children[1])}`
 }
 
 function serializeOperation(operationStep: ParsedOperation): string {
-    switch (operationStep.identifier) {
-        case "if":
-            return serializeIf(operationStep.parameters)
-        case "switch":
-            return serializeSwitch(operationStep.parameters)
-        case "return":
-            return "return"
-        case "getVariable":
-            return `this.${serializeStep(operationStep.parameters[0])}`
-        case "setVariable":
-            return `this.${serializeStep(operationStep.parameters[0])} = ${serializeStep(operationStep.parameters[1])}`
-        case "+":
-        case "-":
-        case "/":
-        case "*":
-        case "%":
-        case "&&":
-        case "||":
-        case "<":
-        case "<=":
-        case ">":
-        case ">=":
-        case "==":
-        case "!=":
-            return `${serializeStep(operationStep.parameters[0])} ${operationStep.identifier} ${serializeStep(
-                operationStep.parameters[1]
-            )}`
-        case "!-":
-        case "!":
-            return `${operationStep.identifier}${serializeStep(operationStep.parameters[0])}`
-        default:
-            return `${operationStep.identifier}(${operationStep.parameters
-                .map((parameter) => serializeStep(parameter))
-                .join(", ")})`
-    }
+    return `${operationStep.identifier}(${operationStep.children
+        .map((parameter) => serializeStep(parameter))
+        .join(", ")})`
 }
 
-function serializeIf(steps: Array<ParsedSteps>): string {
-    return `if ${serializeStep(steps[0])} then ${serializeStep(steps[1])} else ${serializeStep(steps[2])}`
+function serializeIf(step: ParsedIf): string {
+    return `if ${serializeStep(step.children[0])} then ${serializeStep(step.children[1])} else ${serializeStep(
+        step.children[2]
+    )}`
 }
 
-function serializeSwitch(steps: Array<ParsedSteps>): string {
-    return `switch ${serializeStep(steps[0])} ${serializeCatches(steps.slice(1))}`
+function serializeSwitch(step: ParsedSwitch): string {
+    return `switch ${serializeStep(step.children[0])} ${serializeCatches(step.children.slice(1))}`
 }
 
 function serializeCatches(steps: Array<ParsedSteps>): string {
-    const result = ""
+    const results: Array<string> = []
     for (let i = 0; i < Math.floor(steps.length / 2); i++) {
         const compare = steps[i * 2]
         const value = steps[i * 2 + 1]
-        return `case ${serializeStep(compare)}: ${serializeStep(value)}`
+        results.push(`case ${serializeStep(compare)}: ${serializeStep(value)}`)
     }
-    return result
+    return results.join(" ")
 }
 
 function serializeParallel(parallelStep: ParsedParallel): string {
-    return parallelStep.stepsList.map(serializeStep).join(" | ")
+    return parallelStep.children.map(serializeStep).join(" | ")
 }
 
 function serializeRaw(rawStep: ParsedRaw): string {
@@ -112,7 +172,7 @@ function serializeRaw(rawStep: ParsedRaw): string {
 }
 
 function serializeSequential(sequentialStep: ParsedSequantial): string {
-    return sequentialStep.stepsList.map(serializeStep).join(" ")
+    return sequentialStep.children.map(serializeStep).join(" ")
 }
 
 function serializeSymbol(symbolStep: ParsedSymbol): string {

@@ -11,5 +11,6 @@
         "outDir": "dist",
         "experimentalDecorators": true
     },
-    "include": ["src/**/*"]
+    "include": ["src/**/*", "tests/**/*"],
+    "exclude": ["src/interpreter/**/*", "src/domains/**/*"]
 }

@@ -49,20 +49,20 @@ export type ParsedOperation = {
 export type ParsedSymbol = {
     type: "symbol"
     identifier: string
-    children: undefined
+    children?: undefined
 }
 export type ParsedRaw = {
     type: "raw"
     value: any
-    children: undefined
+    children?: undefined
 }
 export type ParsedThis = {
     type: "this"
-    children: undefined
+    children?: undefined
 }
 export type ParsedReturn = {
     type: "return"
-    children: undefined
+    children?: undefined
 }
 export type ParsedUnaryOperator = {
     type: "not" | "invert"
@@ -87,7 +87,7 @@ export type ParsedBinaryOperator = {
 }
 export type ParsedIf = {
     type: "if"
-    children: [condition: ParsedSteps, value: ParsedSteps]
+    children: [condition: ParsedSteps, ifValue: ParsedSteps, elseValue: ParsedSteps]
 }
 export type ParsedSwitch = {
     type: "switch"

@@ -1,8 +1,8 @@
-import { ParsedGrammarDefinition, ParsedSteps } from "."
+import { ParsedGrammarDefinition, ParsedSteps } from ".."
 
-export function stripGrammar(grammarDefinition: ParsedGrammarDefinition): ParsedGrammarDefinition {
+export function trimGrammar(grammarDefinition: ParsedGrammarDefinition): ParsedGrammarDefinition {
     return Object.entries(grammarDefinition).reduce<ParsedGrammarDefinition>(
-        (result, [key, steps]) => ({ ...result, [key]: stripSteps(steps) }),
+        (result, [key, steps]) => ({ ...result, [key]: trimSteps(steps) }),
         {}
     )
 }
@@ -31,16 +31,16 @@ const operatorPrecedenceMap = new Map<ParsedSteps["type"], number>(
     }, [])
 )
 
-export function stripSteps(steps: ParsedSteps): ParsedSteps {
-    const strippedFromBrackets = stripBrackets(steps, undefined)
-    return stripNestedMultistep(strippedFromBrackets)
+export function trimSteps(steps: ParsedSteps): ParsedSteps {
+    const strippedFromBrackets = trimBrackets(steps, undefined)
+    return trimNestedMultistep(strippedFromBrackets)
 }
 
-function stripBrackets(steps: ParsedSteps, parent: ParsedSteps | undefined): ParsedSteps {
+function trimBrackets(steps: ParsedSteps, parent: ParsedSteps | undefined): ParsedSteps {
     if (steps.children != null) {
         steps = {
             ...steps,
-            children: steps.children.map((child) => stripBrackets(child, steps)) as any,
+            children: steps.children.map((child) => trimBrackets(child, steps)) as any,
         }
     }
     if (steps.type != "bracket") {
@@ -49,10 +49,10 @@ function stripBrackets(steps: ParsedSteps, parent: ParsedSteps | undefined): Par
     if (parent == null) {
         return steps.children[0]
     }
-    return stripBracketsChildParent(steps, steps.children[0], parent.type)
+    return trimBracketsChildParent(steps, steps.children[0], parent.type)
 }
 
-function stripBracketsChildParent(
+function trimBracketsChildParent(
     bracket: ParsedSteps,
     childOfBracket: ParsedSteps,
     parentOfBracketType: ParsedSteps["type"]
@@ -65,7 +65,7 @@ function stripBracketsChildParent(
     return bracket
 }
 
-function stripNestedMultistep(steps: ParsedSteps): ParsedSteps {
+function trimNestedMultistep(steps: ParsedSteps): ParsedSteps {
     if (steps.type != "parallel" && steps.type != "sequential") {
         return steps
     }
@@ -75,7 +75,7 @@ function stripNestedMultistep(steps: ParsedSteps): ParsedSteps {
             if (nestedSteps.type === steps.type) {
                 return [...result, ...nestedSteps.children]
             }
-            return result
+            return [...result, nestedSteps]
         }, []),
     }
 }
