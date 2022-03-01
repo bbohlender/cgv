@@ -1,14 +1,12 @@
 import { ParsedGrammarDefinition, ParsedSteps } from ".."
 
-export function replaceSymbolsGrammar(definition: ParsedGrammarDefinition): ParsedGrammarDefinition {
+export function replaceSymbolsGrammar(definition: ParsedGrammarDefinition): [string, ParsedSteps] {
     const rules = Object.entries(definition)
     if (rules.length === 0) {
-        return {}
+        return ["unknown", { type: "this" }]
     }
     const [ruleName, steps] = rules[0]
-    return {
-        [ruleName]: replaceSymbolsSteps(steps, definition),
-    }
+    return [ruleName, replaceSymbolsSteps(steps, definition)]
 }
 
 export function replaceSymbolsSteps(

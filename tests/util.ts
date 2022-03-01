@@ -52,7 +52,16 @@ describe("trim grammar / steps", () => {
 
 describe("replace symbols in grammars / steps", () => {
     it("should remove all symbols", () => {
-
+        const grammar = parse(` a -> if true then c else (22 b)
+                                b -> switch this
+                                    case 0: ggg
+                                    case 1: (1 2 c)
+                                c -> this
+                                ggg -> this * 3`)
+        const [name, stepReplaced] = replaceSymbolsGrammar(grammar)
+        expect(serialize({ [name]: stepReplaced })).to.equal(
+            "a -> if true then (this) else (22 (switch this case 0: (this * 3) case 1: (1 2 (this))))"
+        )
     })
 
     it("should throw because of recursive symbol usage", () => {
@@ -60,7 +69,6 @@ describe("replace symbols in grammars / steps", () => {
         expect(() => replaceSymbolsGrammar(grammar)).to.throw("the summarizer does not yet support recursion")
     })
 
-    
     it("should throw because of unknown symbol", () => {
         const grammar = parse(`a -> 1+2 if (this == 3) then 1 else (1 | b)`)
         expect(() => replaceSymbolsGrammar(grammar)).to.throw('unknown rule "b"')

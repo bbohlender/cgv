@@ -1,20 +1,30 @@
-import { filterNull, ParsedGrammarDefinition, ParsedSteps, replaceSymbolsGrammar, trimGrammar } from ".."
+import { filterNull, ParsedGrammarDefinition, ParsedSteps, replaceSymbolsGrammar, trimGrammar, trimSteps } from ".."
 
-export function summarizer(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
-    const symbolFreeGrammars = grammarDefinitions.map(replaceSymbolsGrammar).map(trimGrammar).filter(filterNull)
+export function summarize(...grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
+    const steps = grammarDefinitions.map(replaceSymbolsGrammar).map(([, steps]) => trimSteps(steps))
 
-    const stepsList = symbolFreeGrammars.map((grammar) => Object.values(grammar)[0])
+    const equalizedSteps = equalizeSteps(...steps)
 
-    const [resultSteps] = summarize(stepsList)
+    const similarizedSteps = similarizeSteps(...equalizedSteps)
 
-    return {
-        [Object.keys(symbolFreeGrammars[0])[0]]: resultSteps,
-    }
+    //TODO: group by equal root steps (if more then one group surround with random selection)
 }
 
-function summarize(stepsList: Array<ParsedSteps>): [steps: ParsedSteps, matchingScore: number] {
+/**
+ *
+ */
+export function similarizeSteps(...stepsList: Array<ParsedSteps>): Array<ParsedSteps> {}
+
+/**
+ * compares all steps from the provides grammars and removes duplicate so semantically equal steps are referring the exact same `ParsedStep` object
+ * the references are also equal in the grammar itself (e.g. if one grammar uses the raw value "1" multiple times, it will reference the same ParsedValue object)
+ */
+export function equalizeSteps(...stepsList: Array<ParsedSteps>): Array<ParsedSteps> {}
+
+/*function summarize(stepsList: Array<ParsedSteps>): [steps: ParsedSteps, matchingScore: number] {
     return summarizeOptions(stepsList).reduce((max, current) => (current[1] > max[1] ? current : max))
-}
+}*/
+
 /*
 function summarizeOptions(stepsList: Array<ParsedSteps>): Array<[steps: ParsedSteps, matchingScore: number]> {
     const typeGroups = group(stepsList, (step) => step.type)
