@@ -20,16 +20,19 @@ declare var plus: any;
 declare var minus: any;
 declare var divide: any;
 declare var multiply: any;
-declare var modulo: any;
+declare var percent: any;
 declare var thisSymbol: any;
 declare var returnSymbol: any;
 declare var openBracket: any;
 declare var closedBracket: any;
+declare var openCurlyBracket: any;
+declare var closedCurlyBracket: any;
+declare var number: any;
+declare var colon: any;
 declare var comma: any;
 declare var js: any;
 declare var boolean: any;
 declare var string: any;
-declare var number: any;
 declare var int: any;
 declare var point: any;
 declare var equal: any;
@@ -38,7 +41,6 @@ declare var thenSymbol: any;
 declare var elseSymbol: any;
 declare var switchSymbol: any;
 declare var caseSymbol: any;
-declare var colon: any;
 
 import moo from "moo";
 
@@ -53,6 +55,8 @@ const lexer = moo.compile({
     arrow: /->/,
     openBracket: /\(/,
     closedBracket: /\)/,
+    openCurlyBracket: /{/,
+    closedCurlyBracket: /}/,
     point: /\./,
     comma: /,/,
     colon: /:/,
@@ -74,7 +78,7 @@ const lexer = moo.compile({
     plus: /\+/,
     minus: /-/,
     multiply: /\*/,
-    modulo: /%/,
+    percent: /%/,
     divide: /\//,
     identifier: /[a-zA-Z_$]+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
@@ -161,7 +165,7 @@ const grammar: Grammar = {
     {"name": "PointOperation", "symbols": ["InvertOperation"], "postprocess": ([value]) => value},
     {"name": "DivideOperation", "symbols": ["PointOperation", "ws", (lexer.has("divide") ? {type: "divide"} : divide), "ws", "InvertOperation"], "postprocess": ([op1,,,,op2]) => ({ type: "divide", children: [op1, op2] })},
     {"name": "MultiplyOperation", "symbols": ["PointOperation", "ws", (lexer.has("multiply") ? {type: "multiply"} : multiply), "ws", "InvertOperation"], "postprocess": ([op1,,,,op2]) => ({ type: "multiply", children: [op1, op2] })},
-    {"name": "ModuloOperation", "symbols": ["PointOperation", "ws", (lexer.has("modulo") ? {type: "modulo"} : modulo), "ws", "InvertOperation"], "postprocess": ([op1,,,,op2]) => ({ type: "modulo", children: [op1, op2] })},
+    {"name": "ModuloOperation", "symbols": ["PointOperation", "ws", (lexer.has("percent") ? {type: "percent"} : percent), "ws", "InvertOperation"], "postprocess": ([op1,,,,op2]) => ({ type: "modulo", children: [op1, op2] })},
     {"name": "InvertOperation", "symbols": [(lexer.has("minus") ? {type: "minus"} : minus), "ws", "InvertOperation"], "postprocess": ([,,op1]) => ({ type: "invert", children: [op1] })},
     {"name": "InvertOperation", "symbols": ["Step"], "postprocess": ([value]) => value},
     {"name": "Step", "symbols": ["Operation"], "postprocess": ([operation]) => operation},
@@ -173,6 +177,11 @@ const grammar: Grammar = {
     {"name": "Step", "symbols": ["ConditionalOperation"], "postprocess": ([operation]) => operation},
     {"name": "Step", "symbols": [(lexer.has("returnSymbol") ? {type: "returnSymbol"} : returnSymbol)], "postprocess": () => ({ type: "return" })},
     {"name": "Step", "symbols": [(lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "Steps", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,steps]) => ({ type: "bracket", children: [steps] })},
+    {"name": "Step", "symbols": ["RandomSteps"], "postprocess": ([random]) => random},
+    {"name": "RandomSteps$ebnf$1", "symbols": ["RandomStep"]},
+    {"name": "RandomSteps$ebnf$1", "symbols": ["RandomSteps$ebnf$1", "RandomStep"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "RandomSteps", "symbols": [(lexer.has("openCurlyBracket") ? {type: "openCurlyBracket"} : openCurlyBracket), "RandomSteps$ebnf$1", "ws", (lexer.has("closedCurlyBracket") ? {type: "closedCurlyBracket"} : closedCurlyBracket)], "postprocess": ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) })},
+    {"name": "RandomStep", "symbols": ["ws", (lexer.has("number") ? {type: "number"} : number), (lexer.has("percent") ? {type: "percent"} : percent), "ws", (lexer.has("colon") ? {type: "colon"} : colon), "ws", "Steps"], "postprocess": ([,{ value },,,,, steps]) => ({ probability: Number.parseFloat(value) / 100, steps })},
     {"name": "Operation", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), (lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "EmptyParameters", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([{ value },,children]) => ({ type: "operation", children, identifier: value })},
     {"name": "EmptyParameters", "symbols": ["Parameters"], "postprocess": ([parameters]) => parameters},
     {"name": "EmptyParameters", "symbols": [], "postprocess": () => []},

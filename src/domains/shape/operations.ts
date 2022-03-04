@@ -51,7 +51,6 @@ function computeFace(points: ReadonlyArray<Instance>): Observable<Matrix<Instanc
         helperVector.setFromMatrixPosition(point.primitive.matrix)
         return new Vector2(helperVector.x, helperVector.z)
     })
-    console.log(points2d)
     return of({
         attributes: {},
         primitive: new FacePrimitive(

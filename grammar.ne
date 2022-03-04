@@ -13,6 +13,8 @@ const lexer = moo.compile({
     arrow: /->/,
     openBracket: /\(/,
     closedBracket: /\)/,
+    openCurlyBracket: /{/,
+    closedCurlyBracket: /}/,
     point: /\./,
     comma: /,/,
     colon: /:/,
@@ -34,7 +36,7 @@ const lexer = moo.compile({
     plus: /\+/,
     minus: /-/,
     multiply: /\*/,
-    modulo: /%/,
+    percent: /%/,
     divide: /\//,
     identifier: /[a-zA-Z_$]+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
@@ -107,7 +109,7 @@ PointOperation          ->  MultiplyOperation                                   
 
 DivideOperation         ->  PointOperation ws %divide ws InvertOperation                    {% ([op1,,,,op2]) => ({ type: "divide", children: [op1, op2] }) %}
 MultiplyOperation       ->  PointOperation ws %multiply ws InvertOperation                  {% ([op1,,,,op2]) => ({ type: "multiply", children: [op1, op2] }) %}
-ModuloOperation         ->  PointOperation ws %modulo ws InvertOperation                    {% ([op1,,,,op2]) => ({ type: "modulo", children: [op1, op2] }) %}
+ModuloOperation         ->  PointOperation ws %percent ws InvertOperation                    {% ([op1,,,,op2]) => ({ type: "modulo", children: [op1, op2] }) %}
 
 InvertOperation         ->  %minus ws InvertOperation                                       {% ([,,op1]) => ({ type: "invert", children: [op1] }) %}
                         |   Step                                                            {% ([value]) => value %}
@@ -121,6 +123,10 @@ Step                    ->  Operation                                           
                         |   ConditionalOperation                                            {% ([operation]) => operation %}
                         |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
                         |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => ({ type: "bracket", children: [steps] }) %}
+                        |   RandomSteps                                                     {% ([random]) => random %}
+
+RandomSteps             ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
+RandomStep              ->  ws %number %percent ws %colon ws Steps                          {% ([,{ value },,,,, steps]) => ({ probability: Number.parseFloat(value) / 100, steps }) %}
 
 Operation               ->  %identifier %openBracket EmptyParameters ws %closedBracket      {% ([{ value },,children]) => ({ type: "operation", children, identifier: value }) %}
 EmptyParameters         ->  Parameters                                                      {% ([parameters]) => parameters%}

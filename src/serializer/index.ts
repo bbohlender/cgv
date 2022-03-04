@@ -6,6 +6,7 @@ import {
     ParsedIf,
     ParsedOperation,
     ParsedParallel,
+    ParsedRandom,
     ParsedRaw,
     ParsedReturn,
     ParsedSequantial,
@@ -20,10 +21,10 @@ import {
 export function serialize(grammarDefinition: ParsedGrammarDefinition): string {
     return Object.entries(grammarDefinition)
         .map(([symbol, step]) => `${symbol} -> ${serializeStep(step)}`)
-        .join("\n\n")
+        .join("\n")
 }
 
-function serializeStep(step: ParsedSteps): string {
+export function serializeStep(step: ParsedSteps): string {
     switch (step.type) {
         case "operation":
             return serializeOperation(step)
@@ -66,7 +67,23 @@ function serializeStep(step: ParsedSteps): string {
             return serializeSetVariable(step)
         case "return":
             return serializeReturn(step)
+        case "random":
+            return serializeRandom(step)
     }
+}
+
+function serializeRandom(step: ParsedRandom): string {
+    if (step.children.length != step.probabilities.length) {
+        throw new Error(`random step must have the same amount of childrens as the amount of probabilities`)
+    }
+    return `{ ${step.children
+        .map((child, i) => `${toFixedMax(step.probabilities[i] * 100, 2)}%: ${serializeStep(child)}`)
+        .join(" ")} }`
+}
+
+function toFixedMax(value: number, max: number): string {
+    const multiplier = Math.pow(10, max)
+    return (Math.round(value * multiplier) / multiplier).toString()
 }
 
 function serializeBracket(step: ParsedBracket): string {

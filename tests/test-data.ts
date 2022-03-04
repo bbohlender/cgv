@@ -189,4 +189,32 @@ export const parsedAndUnparsedGrammarPairs: Array<{
         case 0: if (this == 0) then this else (this * 2)
         case 3: (this.x return)`,
     },
+    {
+        parsed: {
+            a: {
+                type: "random",
+                probabilities: [0.4, 0.6],
+                children: [
+                    {
+                        type: "raw",
+                        value: 1,
+                    },
+                    {
+                        type: "multiply",
+                        children: [
+                            {
+                                type: "raw",
+                                value: 2,
+                            },
+                            {
+                                type: "raw",
+                                value: 3,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+        unparsed: `a -> { 40%: 1 60%: 2 * 3 }`,
+    },
 ]

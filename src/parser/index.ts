@@ -27,6 +27,7 @@ export type ParsedSteps =
     | ParsedSetVariable
     | ParsedGetVariable
     | ParsedReturn
+    | ParsedRandom
 
 export type ParsedParallel = {
     type: "parallel"
@@ -67,6 +68,11 @@ export type ParsedReturn = {
 export type ParsedUnaryOperator = {
     type: "not" | "invert"
     children: [value: ParsedSteps]
+}
+export type ParsedRandom = {
+    type: "random"
+    probabilities: Array<number> //should add up to ~1
+    children: Array<ParsedSteps>
 }
 export type ParsedBinaryOperator = {
     type:
