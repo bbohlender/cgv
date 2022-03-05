@@ -81,6 +81,7 @@ export function combineSteps(
         entries.forEach((element) => {
             for (const group of groups) {
                 for (const groupEntry of group) {
+                    //TODO: check for the same stap attributes (e.g. variable identifier, or operation identifier)
                     if (hasOneEqualChild(element.element, groupEntry.element)) {
                         group.push(element)
                         return
