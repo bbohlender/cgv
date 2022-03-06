@@ -154,5 +154,5 @@ ConditionalOperation    ->  IfThenElseOperation                                 
 
 IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
 
-SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", children: [value, ...cases.reduce((v1: Array<any>, v2: Array<any>) => v1.concat(v2), [])] }) %}
-SwitchCase              ->  %ws %caseSymbol %ws Step %colon ws Step                         {% ([,,,caseCondition,,,steps]) => [caseCondition, steps] %}
+SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ case }: any) => case), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+SwitchCase              ->  %ws Constant %ws Step %colon ws Step                            {% ([,,,case,,,steps]) => ({ case, steps }) %}

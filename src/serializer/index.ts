@@ -159,17 +159,9 @@ function serializeIf(step: ParsedIf): string {
 }
 
 function serializeSwitch(step: ParsedSwitch): string {
-    return `switch ${serializeStep(step.children[0])} ${serializeCatches(step.children.slice(1))}`
-}
-
-function serializeCatches(steps: Array<ParsedSteps>): string {
-    const results: Array<string> = []
-    for (let i = 0; i < Math.floor(steps.length / 2); i++) {
-        const compare = steps[i * 2]
-        const value = steps[i * 2 + 1]
-        results.push(`case ${serializeStep(compare)}: ${serializeStep(value)}`)
-    }
-    return results.join(" ")
+    return `switch ${serializeStep(step.children[0])} ${step.cases
+        .map((caseValue, i) => `${serializeConstant(caseValue)}: ${serializeStep(step.children[i])}`)
+        .join(" ")}`
 }
 
 function serializeParallel(parallelStep: ParsedParallel): string {
@@ -177,14 +169,19 @@ function serializeParallel(parallelStep: ParsedParallel): string {
 }
 
 function serializeRaw(rawStep: ParsedRaw): string {
-    const value = rawStep.value
-    switch (typeof value) {
-        case "number":
+    return serializeConstant(rawStep.value)
+}
+
+function serializeConstant(constant: any): string {
+    const type = typeof constant
+    switch (type) {
         case "string":
+            return `"${constant}"`
+        case "number":
         case "boolean":
-            return value.toString()
+            return constant.toString()
         default:
-            throw new Error(`value of unknown type `)
+            throw new Error(`constant "${constant}" of unknown type "${type}"`)
     }
 }
 

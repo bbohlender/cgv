@@ -97,6 +97,7 @@ export type ParsedIf = {
 }
 export type ParsedSwitch = {
     type: "switch"
+    cases: Array<any>
     children: Array<ParsedSteps>
 }
 export type ParsedSetVariable = {

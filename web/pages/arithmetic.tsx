@@ -2,7 +2,7 @@ import Head from "next/head"
 import React, { useEffect, useState } from "react"
 import { parse, interprete, matrixToArray } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { interval, map, NEVER, startWith } from "rxjs"
+import { interval, map, startWith } from "rxjs"
 import { TextEditor } from "../src/text-editor"
 
 export default function Index() {

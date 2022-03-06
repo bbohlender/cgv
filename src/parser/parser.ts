@@ -40,7 +40,6 @@ declare var ifSymbol: any;
 declare var thenSymbol: any;
 declare var elseSymbol: any;
 declare var switchSymbol: any;
-declare var caseSymbol: any;
 
 import moo from "moo";
 
@@ -206,8 +205,8 @@ const grammar: Grammar = {
     {"name": "IfThenElseOperation", "symbols": [(lexer.has("ifSymbol") ? {type: "ifSymbol"} : ifSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("ws") ? {type: "ws"} : ws), (lexer.has("thenSymbol") ? {type: "thenSymbol"} : thenSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("ws") ? {type: "ws"} : ws), (lexer.has("elseSymbol") ? {type: "elseSymbol"} : elseSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step"], "postprocess": ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] })},
     {"name": "SwitchOperation$ebnf$1", "symbols": ["SwitchCase"]},
     {"name": "SwitchOperation$ebnf$1", "symbols": ["SwitchOperation$ebnf$1", "SwitchCase"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "SwitchOperation", "symbols": [(lexer.has("switchSymbol") ? {type: "switchSymbol"} : switchSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", "SwitchOperation$ebnf$1"], "postprocess": ([,,value,cases]) => ({ type: "switch", children: [value, ...cases.reduce((v1: Array<any>, v2: Array<any>) => v1.concat(v2), [])] })},
-    {"name": "SwitchCase", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws), (lexer.has("caseSymbol") ? {type: "caseSymbol"} : caseSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("colon") ? {type: "colon"} : colon), "ws", "Step"], "postprocess": ([,,,caseCondition,,,steps]) => [caseCondition, steps]}
+    {"name": "SwitchOperation", "symbols": [(lexer.has("switchSymbol") ? {type: "switchSymbol"} : switchSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", "SwitchOperation$ebnf$1"], "postprocess": ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ case }: any) => case), children: [value, ...cases.map(({ steps }: any) => steps)] })},
+    {"name": "SwitchCase", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws), "Constant", (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("colon") ? {type: "colon"} : colon), "ws", "Step"], "postprocess": ([,,,case,,,steps]) => ({ case, steps })}
   ],
   ParserStart: "GrammarDefinition",
 };

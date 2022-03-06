@@ -129,7 +129,7 @@ describe("split steps", () => {
         ).to.equal(`a -> 1 + 2 if (this == 1) then 1 else (1 | 2)`)
     })
 
-    it("it should the ParsedSteps recursively", () => {
+    it("should the ParsedSteps recursively", () => {
         const grammar = parse(`a -> 1 * 3 * 3 if (1 * 3 * 3 == 3) then (22 | 1 * 3) else (1 * 3 + 2)`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
         expect(serialize(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
