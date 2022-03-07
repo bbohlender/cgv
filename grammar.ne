@@ -145,9 +145,8 @@ Constant                ->  %boolean                                            
                         |   %number                                                         {% ([{ value }]) => Number.parseFloat(value) %}
                         |   %int                                                            {% ([{ value }]) => Number.parseInt(value) %}
 
-Variable                ->  %thisSymbol %point %identifier                                  {% ([,,{ value }]) => ({ type: "raw", value }) %}
-GetVariable             ->  Variable                                                        {% ([name]) => ({ type: "getVariable", children: [name] }) %}
-SetVariable             ->  Variable ws %equal ws Step                                      {% ([name,,,,value]) => ({ type: "setVariable", children: [name, value] }) %}
+GetVariable             ->  %thisSymbol %point %identifier                                  {% ([,,identifier]) => ({ type: "getVariable", identifier }) %}
+SetVariable             ->  %thisSymbol %point %identifier ws %equal ws Step                {% ([,,identifier,,,,value]) => ({ type: "setVariable", identifier, children: [value] }) %}
 
 ConditionalOperation    ->  IfThenElseOperation                                             {% ([value]) => value %}                               
                         |   SwitchOperation                                                 {% ([value]) => value %}

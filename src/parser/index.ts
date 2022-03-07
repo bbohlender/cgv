@@ -102,11 +102,12 @@ export type ParsedSwitch = {
 }
 export type ParsedSetVariable = {
     type: "setVariable"
-    children: [name: ParsedSteps, value: ParsedSteps]
+    identifier: string
+    children: [value: ParsedSteps]
 }
 export type ParsedGetVariable = {
     type: "getVariable"
-    children: [name: ParsedSteps]
+    identifier: string
 }
 
 export type ParsedGrammarDefinition = {
