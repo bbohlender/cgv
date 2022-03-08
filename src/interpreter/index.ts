@@ -8,6 +8,7 @@ import {
     merge,
     mergeMap,
     MonoTypeOperatorFunction,
+    NEVER,
     Observable,
     of,
     OperatorFunction,
@@ -269,6 +270,7 @@ function interpreteGetVariable<T>(step: ParsedGetVariable): MonoTypeOperatorFunc
 
 function interpreteReturn<T>(): MonoTypeOperatorFunction<Value<T>> {
     //TODO: premature terminaton
+    throw new Error("not implemented")
 }
 
 function interpreteSetVariable<T>(
@@ -378,8 +380,21 @@ function operatorsToArray<T>(
 ): OperatorFunction<Value<T>, Value<ReadonlyArray<T>>> {
     return (input) =>
         input.pipe(
-            parallel(...operatorFunctions),
+            parallel(noop(), ...operatorFunctions),
             toArray(),
+            scan<ReadonlyArray<Value<T>>, Value<ReadonlyArray<T>> & { invalid: Subject<void> }, undefined>(
+                (prev, [input, ...outputs]) => {
+                    if (prev != null) {
+                        prev.invalid.next()
+                    }
+                    return {
+                        ...input,
+                        invalid: new Subject<void>(),
+                        raw: outputs.map(({ raw }) => raw),
+                    }
+                },
+                undefined
+            ),
             filter((value) => value.raw.length != operatorFunctions.length)
         )
 }
@@ -398,9 +413,8 @@ export function toValue<T>(): OperatorFunction<T, Value<T>> {
     }, undefined)
 }
 
-//TODO: option to use only the last layer of index
-export function toArray<T>(): OperatorFunction<Value<T>, Value<ReadonlyArray<T>>> {
-    return toList<T, Array<T>>(
+export function toArray<T>(): OperatorFunction<Value<T>, ReadonlyArray<Value<T>>> {
+    return toList<T, Array<Value<T>>>(
         () => [],
         (array) => [...array],
         (list, item, index) => list.splice(index, 0, item),

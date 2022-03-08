@@ -5,13 +5,13 @@ import { MatrixChange } from "./matrix"
 export function toList<T, List>(
     createEmptyList: () => List,
     copyList: ((list: List) => List) | undefined,
-    addToListAt: (list: List, item: T, index: number) => void,
+    addToListAt: (list: List, item: Value<T>, index: number) => void,
     removeFromListAt: (list: List, index: number) => void
 ): OperatorFunction<Value<T>, List> {
     return (observable) =>
         observable.pipe(
             valuesToChanges(),
-            scan<MatrixChange<T>, [List, Array<Array<number>>, Matrix<T>]>(
+            scan<MatrixChange<Value<T>>, [List, Array<Array<number>>, Matrix<Value<T>>]>(
                 ([list, indexArray, matrix], change) => {
                     list = applyChangeToList(list, indexArray, matrix, change, copyList, addToListAt, removeFromListAt)
                     matrix = applyChangeToMatrix(matrix, change)
@@ -30,10 +30,10 @@ export function toList<T, List>(
 function applyChangeToList<T, List>(
     list: List,
     indexArray: Array<Array<number>>,
-    matrix: Matrix<T>,
-    change: MatrixChange<T>,
+    matrix: Matrix<Value<T>>,
+    change: MatrixChange<Value<T>>,
     copyList: ((list: List) => List) | undefined,
-    addToListAt: (list: List, item: T, index: number) => void,
+    addToListAt: (list: List, item: Value<T>, index: number) => void,
     removeFromListAt: (list: List, index: number) => void
 ): List {
     const result = copyList == null ? list : copyList(list)
@@ -52,7 +52,7 @@ function applyChangeToList<T, List>(
     return result
 }
 
-function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<T>> {
+function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<Value<T>>> {
     return (value) =>
         value.pipe(
             mergeMap((value) =>
@@ -60,14 +60,13 @@ function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<T>> {
                     of({
                         index: value.index,
                         type: ChangeType.SET,
-                        value: value.raw,
+                        value: value,
                     }),
                     value.invalid.pipe(
                         take(1),
-                        mapTo({
+                        mapTo<MatrixChange<Value<T>>>({
                             index: value.index,
                             type: ChangeType.UNSET,
-                            value: value.raw,
                         })
                     )
                 )
