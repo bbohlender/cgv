@@ -40,6 +40,7 @@ declare var ifSymbol: any;
 declare var thenSymbol: any;
 declare var elseSymbol: any;
 declare var switchSymbol: any;
+declare var caseSymbol: any;
 
 import moo from "moo";
 
@@ -197,15 +198,15 @@ const grammar: Grammar = {
     {"name": "Constant", "symbols": [(lexer.has("string") ? {type: "string"} : string)], "postprocess": ([{ value }]) => value.slice(1, -1)},
     {"name": "Constant", "symbols": [(lexer.has("number") ? {type: "number"} : number)], "postprocess": ([{ value }]) => Number.parseFloat(value)},
     {"name": "Constant", "symbols": [(lexer.has("int") ? {type: "int"} : int)], "postprocess": ([{ value }]) => Number.parseInt(value)},
-    {"name": "GetVariable", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol), (lexer.has("point") ? {type: "point"} : point), (lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([,,identifier]) => ({ type: "getVariable", identifier })},
-    {"name": "SetVariable", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol), (lexer.has("point") ? {type: "point"} : point), (lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("equal") ? {type: "equal"} : equal), "ws", "Step"], "postprocess": ([,,identifier,,,,value]) => ({ type: "setVariable", identifier, children: [value] })},
+    {"name": "GetVariable", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol), (lexer.has("point") ? {type: "point"} : point), (lexer.has("identifier") ? {type: "identifier"} : identifier)], "postprocess": ([,,{ value: identifier }]) => ({ type: "getVariable", identifier })},
+    {"name": "SetVariable", "symbols": [(lexer.has("thisSymbol") ? {type: "thisSymbol"} : thisSymbol), (lexer.has("point") ? {type: "point"} : point), (lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("equal") ? {type: "equal"} : equal), "ws", "Step"], "postprocess": ([,,{ value: identifier },,,,value]) => ({ type: "setVariable", identifier, children: [value] })},
     {"name": "ConditionalOperation", "symbols": ["IfThenElseOperation"], "postprocess": ([value]) => value},
     {"name": "ConditionalOperation", "symbols": ["SwitchOperation"], "postprocess": ([value]) => value},
     {"name": "IfThenElseOperation", "symbols": [(lexer.has("ifSymbol") ? {type: "ifSymbol"} : ifSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("ws") ? {type: "ws"} : ws), (lexer.has("thenSymbol") ? {type: "thenSymbol"} : thenSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("ws") ? {type: "ws"} : ws), (lexer.has("elseSymbol") ? {type: "elseSymbol"} : elseSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step"], "postprocess": ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] })},
     {"name": "SwitchOperation$ebnf$1", "symbols": ["SwitchCase"]},
     {"name": "SwitchOperation$ebnf$1", "symbols": ["SwitchOperation$ebnf$1", "SwitchCase"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "SwitchOperation", "symbols": [(lexer.has("switchSymbol") ? {type: "switchSymbol"} : switchSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", "SwitchOperation$ebnf$1"], "postprocess": ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ case }: any) => case), children: [value, ...cases.map(({ steps }: any) => steps)] })},
-    {"name": "SwitchCase", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws), "Constant", (lexer.has("ws") ? {type: "ws"} : ws), "Step", (lexer.has("colon") ? {type: "colon"} : colon), "ws", "Step"], "postprocess": ([,,,case,,,steps]) => ({ case, steps })}
+    {"name": "SwitchOperation", "symbols": [(lexer.has("switchSymbol") ? {type: "switchSymbol"} : switchSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Step", "SwitchOperation$ebnf$1"], "postprocess": ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] })},
+    {"name": "SwitchCase", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws), (lexer.has("caseSymbol") ? {type: "caseSymbol"} : caseSymbol), (lexer.has("ws") ? {type: "ws"} : ws), "Constant", (lexer.has("colon") ? {type: "colon"} : colon), "ws", "Step"], "postprocess": ([,,,caseValue,,,steps]) => ({ caseValue, steps })}
   ],
   ParserStart: "GrammarDefinition",
 };

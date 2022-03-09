@@ -145,13 +145,13 @@ Constant                ->  %boolean                                            
                         |   %number                                                         {% ([{ value }]) => Number.parseFloat(value) %}
                         |   %int                                                            {% ([{ value }]) => Number.parseInt(value) %}
 
-GetVariable             ->  %thisSymbol %point %identifier                                  {% ([,,identifier]) => ({ type: "getVariable", identifier }) %}
-SetVariable             ->  %thisSymbol %point %identifier ws %equal ws Step                {% ([,,identifier,,,,value]) => ({ type: "setVariable", identifier, children: [value] }) %}
+GetVariable             ->  %thisSymbol %point %identifier                                  {% ([,,{ value: identifier }]) => ({ type: "getVariable", identifier }) %}
+SetVariable             ->  %thisSymbol %point %identifier ws %equal ws Step                {% ([,,{ value: identifier },,,,value]) => ({ type: "setVariable", identifier, children: [value] }) %}
 
 ConditionalOperation    ->  IfThenElseOperation                                             {% ([value]) => value %}                               
                         |   SwitchOperation                                                 {% ([value]) => value %}
 
 IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
 
-SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ case }: any) => case), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
-SwitchCase              ->  %ws Constant %ws Step %colon ws Step                            {% ([,,,case,,,steps]) => ({ case, steps }) %}
+SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+SwitchCase              ->  %ws %caseSymbol %ws Constant %colon ws Step                           {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}

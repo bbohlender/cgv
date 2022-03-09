@@ -1,4 +1,19 @@
-import { OperatorFunction, scan, map, mergeMap, merge, mapTo, take, of } from "rxjs"
+import {
+    OperatorFunction,
+    scan,
+    map,
+    mergeMap,
+    merge,
+    mapTo,
+    take,
+    of,
+    tap,
+    buffer,
+    debounceTime,
+    finalize,
+    ReplaySubject,
+    EMPTY,
+} from "rxjs"
 import { Matrix, applyChangeToMatrix, Value, getMatrixSize, ChangeType } from "."
 import { MatrixChange } from "./matrix"
 
@@ -6,21 +21,44 @@ export function toList<T, List>(
     createEmptyList: () => List,
     copyList: ((list: List) => List) | undefined,
     addToListAt: (list: List, item: Value<T>, index: number) => void,
-    removeFromListAt: (list: List, index: number) => void
+    removeFromListAt: (list: List, index: number) => void,
+    log = false
 ): OperatorFunction<Value<T>, List> {
     return (observable) =>
         observable.pipe(
-            valuesToChanges(),
-            scan<MatrixChange<Value<T>>, [List, Array<Array<number>>, Matrix<Value<T>>]>(
-                ([list, indexArray, matrix], change) => {
-                    list = applyChangeToList(list, indexArray, matrix, change, copyList, addToListAt, removeFromListAt)
-                    matrix = applyChangeToMatrix(matrix, change)
+            valuesToChanges(log),
+            debounceBufferTime(0),
+            scan<Array<MatrixChange<Value<T>>>, [List, Array<Array<number>>, Matrix<Value<T>>]>(
+                ([list, indexArray, matrix], changes) => {
+                    for (const change of changes) {
+                        list = applyChangeToList(
+                            list,
+                            indexArray,
+                            matrix,
+                            change,
+                            copyList,
+                            addToListAt,
+                            removeFromListAt
+                        )
+                        matrix = applyChangeToMatrix(matrix, change)
+                    }
                     return [list, indexArray, matrix]
                 },
                 [createEmptyList(), [], undefined]
             ),
             map(([list]) => list)
         )
+}
+
+export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Array<T>> {
+    return (observable) => {
+        const subject = new ReplaySubject<void>(1)
+        return observable.pipe(
+            tap(() => subject.next()),
+            buffer(subject.pipe(debounceTime(dueTime))),
+            finalize(() => subject.complete())
+        )
+    }
 }
 
 /**
@@ -39,7 +77,7 @@ function applyChangeToList<T, List>(
     const result = copyList == null ? list : copyList(list)
     const listIndex = changeToListIndex(matrix, change.index)
     const exisitingIndex: Array<number> | undefined = indexArray[listIndex]
-    if (indexArray[listIndex] != null && shallowEqual(exisitingIndex, change.index)) {
+    if (indexArray[listIndex] != null && prefixEqual(exisitingIndex, change.index)) {
         removeFromListAt(result, listIndex)
         indexArray.splice(listIndex, 1)
     }
@@ -52,7 +90,7 @@ function applyChangeToList<T, List>(
     return result
 }
 
-function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<Value<T>>> {
+function valuesToChanges<T>(log = false): OperatorFunction<Value<T>, MatrixChange<Value<T>>> {
     return (value) =>
         value.pipe(
             mergeMap((value) =>
@@ -62,7 +100,7 @@ function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<Value<T>>
                         type: ChangeType.SET,
                         value: value,
                     }),
-                    value.invalid.pipe(
+                    value.invalid.observable.pipe(
                         take(1),
                         mapTo<MatrixChange<Value<T>>>({
                             index: value.index,
@@ -89,11 +127,9 @@ function changeToListIndex<T>(matrix: Matrix<T>, index: Array<number>): number {
     return baseIndex + changeToListIndex(matrix[firstIndex], index.slice(1))
 }
 
-function shallowEqual<T>(a1: ReadonlyArray<T>, a2: ReadonlyArray<T>): boolean {
-    if (a1.length != a2.length) {
-        return false
-    }
-    for (let i = 0; i < a1.length; i++) {
+function prefixEqual<T>(a1: ReadonlyArray<T>, a2: ReadonlyArray<T>): boolean {
+    const length = Math.min(a1.length, a2.length)
+    for (let i = 0; i < length; i++) {
         if (a1[i] != a2[i]) {
             return false
         }

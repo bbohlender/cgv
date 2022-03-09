@@ -139,11 +139,11 @@ function serializeReturn(returnStep: ParsedReturn): string {
 }
 
 function serializeGetVariable(getVariableStep: ParsedGetVariable): string {
-    return `this.${serializeStep(getVariableStep.children[0])}`
+    return `this.${getVariableStep.identifier}`
 }
 
 function serializeSetVariable(setVariableStep: ParsedSetVariable): string {
-    return `this.${serializeStep(setVariableStep.children[0])} = ${serializeStep(setVariableStep.children[1])}`
+    return `this.${setVariableStep.identifier} = ${serializeStep(setVariableStep.children[0])}`
 }
 
 function serializeOperation(operationStep: ParsedOperation): string {
@@ -160,7 +160,7 @@ function serializeIf(step: ParsedIf): string {
 
 function serializeSwitch(step: ParsedSwitch): string {
     return `switch ${serializeStep(step.children[0])} ${step.cases
-        .map((caseValue, i) => `${serializeConstant(caseValue)}: ${serializeStep(step.children[i])}`)
+        .map((caseValue, i) => `case ${serializeConstant(caseValue)}: ${serializeStep(step.children[i + 1])}`)
         .join(" ")}`
 }
 

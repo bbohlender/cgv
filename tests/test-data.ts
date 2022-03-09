@@ -78,11 +78,8 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                 children: [
                     {
                         type: "setVariable",
+                        identifier: "x",
                         children: [
-                            {
-                                type: "raw",
-                                value: "x",
-                            },
                             {
                                 type: "raw",
                                 value: 11,
@@ -103,14 +100,11 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                     },
                     {
                         type: "switch",
+                        cases: [0, 3],
                         children: [
                             {
                                 type: "raw",
                                 value: 2,
-                            },
-                            {
-                                type: "raw",
-                                value: 0,
                             },
                             {
                                 type: "if",
@@ -155,10 +149,6 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                                 ],
                             },
                             {
-                                type: "raw",
-                                value: 3,
-                            },
-                            {
                                 type: "bracket",
                                 children: [
                                     {
@@ -166,12 +156,7 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                                         children: [
                                             {
                                                 type: "getVariable",
-                                                children: [
-                                                    {
-                                                        type: "raw",
-                                                        value: "x",
-                                                    },
-                                                ],
+                                                identifier: "x",
                                             },
                                             {
                                                 type: "return",

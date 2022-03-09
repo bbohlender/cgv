@@ -108,6 +108,7 @@ export type ParsedSetVariable = {
 export type ParsedGetVariable = {
     type: "getVariable"
     identifier: string
+    children?: undefined
 }
 
 export type ParsedGrammarDefinition = {

@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { combineAsRandom, combineSteps, equalizeSteps, parse, serialize /*summarize*/, summarize } from "../src"
 
+/*
 describe("summarize grammars", () => {
     it("should combine inner steps with using a random step based on the operation type and at least one equal child", () => {
         const steps1 = parse(`a -> 1 | this 3`)["a"]
@@ -77,3 +78,4 @@ describe("summarize grammars", () => {
         )
     })
 })
+*/
