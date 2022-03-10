@@ -180,7 +180,7 @@ describe("interprete grammar", () => {
             map((values) => values.map(({ raw }) => raw))
         )
         await expect(lastValueFrom(result)).to.eventually.deep.equal([1, 1, 1, 1, 0])
-    })
+    }).timeout(5000)
 
     it("should not throw an error caused by recursion since a return is used before the recursion", async () => {
         const result = of(22).pipe(

@@ -1,5 +1,3 @@
-export * from "./operations"
-
 /* for later:
 export type Domain = {
     operations: Operations<any>

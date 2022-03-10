@@ -53,11 +53,6 @@ The grammar is defined in [grammar.ne](./grammar.ne).
 
 Except for the parallel and sequential execution the precendence of all operators is implemented according to the operator precendence in c++ (https://en.cppreference.com/w/cpp/language/operator_precedence). Operator precedence is common and equal for most programming langugages.
 
-## Language Features ToDo
-
--   writing to variables
--   differentiation between replacing the current value (only changing the leaves) and replacing all the values (changing the complete tree)
-
 ## Glossary
 
 -   grammar - a set of rules
