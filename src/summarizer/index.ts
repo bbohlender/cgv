@@ -1,17 +1,17 @@
 import {
     equalizeSteps,
-    ParsedBracket,
     ParsedGrammarDefinition,
     ParsedSteps,
     replaceSymbolsGrammar,
     splitStepsToGrammar,
     trimSteps,
 } from ".."
+import { ParsedRandom } from "../parser"
 
 export function summarize(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
     const steps = grammarDefinitions.map(replaceSymbolsGrammar).map(([, steps]) => trimSteps(steps))
     const equalizedSteps = equalizeSteps(steps)
-    const combinedSteps = combineSteps(equalizedSteps, combineAsRandom)
+    const combinedSteps = combineSteps(equalizedSteps, combineRandomAndReplace)
     return splitStepsToGrammar(combinedSteps)
 }
 
@@ -20,13 +20,40 @@ export function summarize(grammarDefinitions: Array<ParsedGrammarDefinition>): P
  * the groups are established based on equality of the ParsedSteps
  * if there is only one resulting group, the ParsedStep itself is returned
  */
-export function combineAsRandom(steps1: ParsedSteps, steps2: ParsedSteps): ParsedSteps {
-    return {
+export function combineRandomAndReplace(steps1: ParsedStepsSummary, steps2: ParsedStepsSummary): void {
+    const summarySize = steps1.summarySize + steps2.summarySize
+    const element: Omit<ParsedRandom, "children"> = {
         type: "random",
-        probabilities: [0.5, 0.5],
-        children: [steps1, steps2],
+        probabilities: [steps1.summarySize / summarySize, steps2.summarySize / summarySize],
     }
+    const parent1 = steps1.parent
+    const parent2 = steps2.parent
+    const children = [
+        { ...steps1, parent: steps1 },
+        { ...steps2, parent: steps2 },
+    ]
+
+    steps1.children = children
+    steps1.children = children
+
+    steps1.summarySize = summarySize
+    steps2.summarySize = summarySize
+
+    steps1.element = element
+    steps2.element = element
+
+    steps1.parent = parent1
+    steps2.parent = parent2
 }
+
+type ParsedStepsSummary = {
+    element: Omit<ParsedSteps, "children">
+    children?: Array<ParsedStepsSummary>
+    summarySize: number
+    parent?: ParsedStepsSummary
+}
+
+type StepsMap = Map<ParsedSteps["type"], Set<ParsedStepsSummary>>
 
 /**
  * traverses the ParsedSteps ASTs and try to combine each ParsedSteps with the ParsedSteps of the other ASTs
@@ -35,101 +62,96 @@ export function combineAsRandom(steps1: ParsedSteps, steps2: ParsedSteps): Parse
  */
 export function combineSteps(
     stepsList: Array<ParsedSteps>,
-    combine: (steps1: ParsedSteps, steps2: ParsedSteps) => ParsedSteps
+    combineAndReplace: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary) => void
 ): ParsedSteps {
-    const combined = stepsList.reduce((prev, cur) => combineTwoSteps(prev, cur, combine))
+    let combined = stepsToSummary(stepsList[0])
+    for (let i = 1; i < stepsList.length; i++) {
+        combined = combineTwoSteps(combined, stepsToSummary(stepsList[i]), combineAndReplace)
+    }
     //TODO: unify nested combinations
-    return combined
+    return summaryToSteps(combined)
+}
+
+function summaryToSteps(summary: ParsedStepsSummary): ParsedSteps {
+    return {
+        ...summary.element,
+        children: summary.children?.map((child) => summaryToSteps(child)),
+    } as ParsedSteps
+}
+
+function stepsToSummary(steps: ParsedSteps, parent?: ParsedStepsSummary): ParsedStepsSummary {
+    const element: ParsedStepsSummary = {
+        element: steps,
+        summarySize: 1,
+        children: undefined,
+        parent,
+    }
+    element.children = steps.children?.map((child) => stepsToSummary(child, element))
+    return element
+}
+
+function indexComplexStepsSummary(steps: ParsedStepsSummary): StepsMap {
+    const map: StepsMap = new Map()
+    function traverse(steps: ParsedStepsSummary): void {
+        if (steps.children == null || steps.children.length === 0) {
+            return
+        }
+        let set = map.get(steps.element.type)
+        if (set == null) {
+            set = new Set()
+            map.set(steps.element.type, set)
+        }
+        set.add(steps)
+        for (const child of steps.children) {
+            traverse(child)
+        }
+    }
+    traverse(steps)
+    return map
 }
 
 function combineTwoSteps(
-    steps1: ParsedSteps,
-    steps2: ParsedSteps,
-    combine: (steps1: ParsedSteps, steps2: ParsedSteps) => ParsedSteps
-): ParsedSteps {
-    const map = new Map<ParsedSteps["type"], Array<EntryParsedSteps>>()
-    const entry1 = traverseComplexSteps(
-        (entry) => {
-            let entriesWithSameType = map.get(entry.element.type)
-            if (entriesWithSameType == null) {
-                entriesWithSameType = []
-                map.set(entry.element.type, entriesWithSameType)
-            }
-            entriesWithSameType.push(entry)
-        },
-        undefined,
-        steps1,
-        undefined
-    )
-    const entry2 = traverseComplexSteps(
-        (entry) => {
-            const entriesInMap = map.get(entry.element.type)
-            if (entriesInMap != null) {
-                for (const entryInMap of entriesInMap) {
-                    if(entryInMap.element == entry.element) {
-                        continue
-                    }
-                    const equalChildAmount = countEqualChilds(entryInMap.element, entry.element)
-                    if (equalChildAmount === 0) {
-                        continue
-                    }
-                    //TODO: unordered & different amount of children
-                    const allChildrenAmount = entry.element.children!.length // entryInMap.element.children!.length
+    summary1: ParsedStepsSummary,
+    summary2: ParsedStepsSummary,
+    combineAndReplace: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary) => void
+): ParsedStepsSummary {
+    const map1 = indexComplexStepsSummary(summary1)
+    const map2 = indexComplexStepsSummary(summary2)
+    for (const [, set] of map1) {
+        for (const entry1 of set) {
+            combineWithSet(entry1, map1, map2, combineAndReplace)
+        }
+    }
+    if (summary1.element != summary2.element) {
+        combineAndReplace(summary1, summary2)
+    }
+    return summary1
+}
 
-                    if(equalChildAmount >= allChildrenAmount / 2) {
-                        for(let i = 0; i < allChildrenAmount; i++) {
-                            const e1 = entry.element.children![i]
-                            const e2 = entryInMap.element.children![i]
-                            if(e1 != e2) {
-                                const combined = combine(e1, e2)
-                                changeElement(..., combined) //we need the child of entry at position i here
-                                changeElement(..., combined) //we need the child of entryInMap at position i here
-                            }
-                        }
-                        changeElement(entryInMap, entry.element)
-                    } else {
-                        const combined = combine(entryInMap.element, entry.element)
-                        changeElement(entryInMap, combined)
-                        changeElement(entry, combined)
-                    }
+function combineWithSet(
+    mainSummary: ParsedStepsSummary,
+    mainMap: StepsMap,
+    foreignMap: StepsMap,
+    combineAndReplace: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary) => void
+): void {
+    const entries = foreignMap.get(mainSummary.element.type)
+    if (entries != null) {
+        for (const foreignEntry of entries) {
+            const equalCount = countEqualChilds(mainSummary, foreignEntry)
+            if (foreignEntry.element != mainSummary.element && equalCount > 0) {
+                combineAndReplace(mainSummary, foreignEntry)
+                if (mainSummary.parent != null) {
+                    combineWithSet(mainSummary.parent, mainMap, foreignMap, combineAndReplace)
+                }
+                if (foreignEntry.parent != null) {
+                    combineWithSet(foreignEntry.parent, foreignMap, mainMap, combineAndReplace)
                 }
             }
-        },
-        undefined,
-        steps2,
-        undefined
-    )
-
-    if (entry1.element != entry2.element) {
-        return combine(entry1.element, entry2.element)
-    }
-
-    return entry1.element
-}
-
-function changeElement(entry: EntryParsedSteps, steps: ParsedSteps): void {
-    entry.element = steps
-    if (entry.parent != null) {
-        entry.parent.element.children![entry.childrenIndex!] = steps
+        }
     }
 }
 
-function parsedStepsToEntry(steps: ParsedSteps, parent?: EntryParsedSteps, childrenIndex?: number): EntryParsedSteps {
-    const value: EntryParsedSteps = {
-        childrenIndex,
-        element: steps,
-        parent,
-    }
-    return value
-}
-
-type EntryParsedSteps = {
-    parent: EntryParsedSteps | undefined
-    childrenIndex: number | undefined
-    element: ParsedSteps
-}
-
-function countEqualChilds(s1: ParsedSteps, s2: ParsedSteps, unordered = false): number {
+function countEqualChilds(s1: ParsedStepsSummary, s2: ParsedStepsSummary, unordered = false): number {
     let amount = 0
     if (unordered) {
         //TODO: unordered
@@ -144,21 +166,4 @@ function countEqualChilds(s1: ParsedSteps, s2: ParsedSteps, unordered = false): 
         }
     }
     return amount
-}
-
-/**
- * the fn function is executed for the deepest and least element at first
- */
-function traverseComplexSteps<T>(
-    fn: (entry: EntryParsedSteps) => T,
-    parent: EntryParsedSteps | undefined,
-    element: ParsedSteps,
-    childrenIndex: number | undefined
-): EntryParsedSteps {
-    const entry = parsedStepsToEntry(element, parent, childrenIndex)
-    if (element.children != null && element.children.length > 0) {
-        element.children.forEach(traverseComplexSteps.bind(null, fn, entry))
-        fn(entry)
-    }
-    return entry
 }

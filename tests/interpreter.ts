@@ -104,30 +104,35 @@ describe("array datastructure", () => {
                             index: [0],
                             invalid: createInvalidAndInvalidateAfter(100),
                             variables: {},
+                            symbolDepth: {},
                         },
                         {
                             raw: 3,
                             index: [1, 0],
                             invalid: createCompletedInvalid(),
                             variables: {},
+                            symbolDepth: {},
                         },
                         {
                             raw: 2,
                             index: [1, 1],
                             invalid: createInvalidAndInvalidateAfter(200),
                             variables: {},
+                            symbolDepth: {},
                         },
                         {
                             raw: 1,
                             index: [10],
                             invalid: createCompletedInvalid(),
                             variables: {},
+                            symbolDepth: {},
                         },
                         {
                             raw: 2,
                             index: [10, 0],
                             invalid: createCompletedInvalid(),
                             variables: {},
+                            symbolDepth: {},
                         },
                     ],
                     asyncScheduler
@@ -265,6 +270,7 @@ describe("interprete grammar", () => {
                     take(3) //0,1,2
                 ),
             },
+            symbolDepth: {},
         }).pipe(
             interprete(
                 parse(` a -> this.x * b | 2 + this.x
@@ -294,7 +300,19 @@ describe("interprete grammar", () => {
         await expect(lastValueFrom(result)).to.be.eventually.rejectedWith(
             `maximum symbol depth (50) reached for symbol "a"`
         )
-    }).timeout(100000)
+    })
+
+    it("should throw an error with direct referecing unterminating recursive grammars", async () => {
+        const result = of(1).pipe(
+            toValue(),
+            interprete(parse(`a -> a`), {}, undefined, 50),
+            toArray(),
+            map((values) => values.map(({ raw }) => raw))
+        )
+        await expect(lastValueFrom(result)).to.be.eventually.rejectedWith(
+            `maximum symbol depth (50) reached for symbol "a"`
+        )
+    })
 
     it("should throw an error when using unknown symbol", async () => {
         const result = of(1).pipe(

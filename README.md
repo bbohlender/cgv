@@ -43,7 +43,7 @@ The grammar is defined in [grammar.ne](./grammar.ne).
     -   _WIP_ writing to a variable called `name` can be done using `this.<name> = 1`
 -   **`Special Tokens`**
     -   `this` - _does nothing_ - used to represent the current value (similar to this in OOP)
-    -   `return` - _jumps out of the execution_ - terminates the execution prematurely (similar to most programming lanuages)
+    -   `return` - _returns out of the current symbol and back to where the symbol was called_ - terminates the execution of the current symbol prematurely (similar to most programming lanuages)
     -   `+ - * /` - arithemtic operators (similar to most programming languages)
     -   `> < == <= >=` - comparison operators (similar to most programming languages)
     -   `&& || !` - boolean operators (similar to most programming languages)
