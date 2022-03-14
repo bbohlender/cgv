@@ -119,6 +119,23 @@ describe("equalize steps", () => {
 })
 
 describe("split steps", () => {
+
+    it("should handle nesting", () => {
+        const grammar = parse(`a -> if (this == 2 * 2) then (this == 2 * 2) else 1`)
+        const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
+        expect(serialize(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
+            `s1 -> if s2 then s2 else 1\ns2 -> this == 2 * 2`
+        )
+    })
+
+    it("should remove unnecassary brackets", () => {
+        const grammar = parse(`a -> (1 2) | (1 2)`)
+        const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
+        expect(serialize(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
+            `s1 -> s2 | s2\ns2 -> 1 2`
+        )
+    })
+
     it("should not split split the root ParsedSteps", () => {
         const grammar = parse(`a -> 1 + 2 if (this == 1) then 1 else (1 | 2)`)
         const [, splittedSteps] = splitSteps(equalizeSteps([grammar["a"]])[0])[0]

@@ -21,10 +21,13 @@ import {
     of,
     scheduled,
     take,
+    tap,
     timer,
     toArray as collectInArray,
 } from "rxjs"
 chai.use(chaiAsPromised)
+
+//TODO: get decisions + concretizer
 
 describe("matrix datastructure", () => {
     it("should handle changes and update matrix", () => {
@@ -177,6 +180,20 @@ describe("interprete grammar", () => {
         await expect(lastValueFrom(result)).to.eventually.deep.equal([1, 6, 8])
     })
 
+    it("should interprete operation execution", async () => {
+        const result = of(1).pipe(
+            toValue(),
+            interprete(parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`), {
+                op1: {
+                    execute: (num: number, str: any) => of<any>(`${str ?? ""}${num * num}`),
+                },
+            }),
+            toArray(),
+            map((values) => values.map(({ raw }) => raw))
+        )
+        await expect(lastValueFrom(result)).to.eventually.deep.equal([1, 6, "Hallo Welt36", "4"])
+    })
+
     it("should interprete grammars with recursion (that eventually terminate)", async () => {
         const result = of(4).pipe(
             toValue(),
@@ -216,13 +233,21 @@ describe("interprete grammar", () => {
     })
 
     it("should re-interprete complex grammar with changing values", async () => {
-        const result = timer(300, 300).pipe(
-            take(4),
-            map((v) => v + 1), //1,2,3,4
+        const values = new Array(100).fill(null).map((_, i) => i)
+        const expected = values.map((v) => {
+            const c = [20 * v, v]
+            const b = v === 1 ? [200 * v, 10 * v] : [...c]
+            const a = [...c, ...(v === 1 || v === 2 ? b : v === 3 ? c : [])]
+            return a
+        })
+
+        const result = timer(20, 20).pipe(
+            take(values.length),
+            map((v) => values[v]),
             toValue(),
             interprete(
                 parse(
-                    `   a -> switch this case 1: b case 2: b case 3: c
+                    `   a -> c | switch this case 1: b case 2: b case 3: c
                         b -> if (this == 1) then (this * 10 c) else c
                         c -> (20 * d | d) return 100
                         d -> this / 2 this * 2`
@@ -234,11 +259,25 @@ describe("interprete grammar", () => {
             map((values) => values.map(({ raw }) => raw)),
             collectInArray()
         )
-        await expect(lastValueFrom(result)).to.eventually.deep.equal([
-            [200, 10],
-            [40, 2],
-            [60, 3],
-        ])
+        const results = await lastValueFrom(result)
+
+        expect(() => {
+            let resultsIndex = 0
+            for (let i = 0; i < expected.length; i++) {
+                if (expected[i][0] === results[resultsIndex][0] && expected[i][1] === results[resultsIndex][1]) {
+                    ++resultsIndex
+                }
+                ++i
+            }
+            const unmatchedResult = results[resultsIndex]
+            if (unmatchedResult != null) {
+                throw new Error(
+                    `unexpected result ${JSON.stringify(unmatchedResult)} at result index ${resultsIndex} of ${
+                        results.length
+                    } results `
+                )
+            }
+        }).to.not.throw()
     })
 
     it("should interprete complex grammar with delays", async () => {
@@ -261,13 +300,16 @@ describe("interprete grammar", () => {
     })
 
     it("should handle external variable changes", async () => {
+        const values = new Array(100).fill(null).map((_, i) => i)
+        const expected = values.map((v) => [v * 5, 2 + v])
         const result = of<Value<number>>({
             raw: 0,
             invalid: createCompletedInvalid(),
             index: [],
             variables: {
-                x: timer(300, 300).pipe(
-                    take(3) //0,1,2
+                x: timer(20, 20).pipe(
+                    take(values.length),
+                    map((v) => values[v])
                 ),
             },
             symbolDepth: {},
@@ -283,12 +325,25 @@ describe("interprete grammar", () => {
             collectInArray()
         )
 
-        await expect(lastValueFrom(result)).to.eventually.deep.equal([
-            [0, 2],
-            [5, 3],
-            [10, 4],
-        ])
-    })
+        const results = await lastValueFrom(result)
+        expect(() => {
+            let resultsIndex = 0
+            for (let i = 0; i < expected.length; i++) {
+                if (expected[i][0] === results[resultsIndex][0] && expected[i][1] === results[resultsIndex][1]) {
+                    ++resultsIndex
+                }
+                ++i
+            }
+            const unmatchedResult = results[resultsIndex]
+            if (unmatchedResult != null) {
+                throw new Error(
+                    `unexpected result ${JSON.stringify(unmatchedResult)} at result index ${resultsIndex} of ${
+                        results.length
+                    } results `
+                )
+            }
+        }).to.not.throw()
+    }).timeout(5000)
 
     it("should throw an error with unterminating recursive grammars", async () => {
         const result = of(1).pipe(

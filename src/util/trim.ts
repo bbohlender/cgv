@@ -36,11 +36,10 @@ export function trimSteps(steps: ParsedSteps): ParsedSteps {
     return trimNestedMultistep(strippedFromBrackets)
 }
 
-function trimBrackets(steps: ParsedSteps, parent: ParsedSteps | undefined): ParsedSteps {
+export function trimBrackets(steps: ParsedSteps, parent: ParsedSteps | undefined): ParsedSteps {
     if (steps.children != null) {
-        steps = {
-            ...steps,
-            children: steps.children.map((child) => trimBrackets(child, steps)) as any,
+        for(let i = 0; i < steps.children.length; i++) {
+            steps.children[i] = trimBrackets(steps.children[i], steps)
         }
     }
     if (steps.type != "bracket") {
@@ -66,16 +65,14 @@ function trimBracketsChildParent(
 }
 
 function trimNestedMultistep(steps: ParsedSteps): ParsedSteps {
-    if (steps.type != "parallel" && steps.type != "sequential") {
-        return steps
-    }
-    return {
-        type: steps.type,
-        children: steps.children.reduce<Array<ParsedSteps>>((result, nestedSteps) => {
+    if (steps.type == "parallel" || steps.type == "sequential") {
+        steps.children = steps.children.reduce<Array<ParsedSteps>>((result, nestedSteps) => {
             if (nestedSteps.type === steps.type) {
                 return [...result, ...nestedSteps.children]
             }
             return [...result, nestedSteps]
-        }, []),
+        }, [])
     }
+
+    return steps
 }
