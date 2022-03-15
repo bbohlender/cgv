@@ -13,6 +13,7 @@ import {
     finalize,
     ReplaySubject,
     EMPTY,
+    NEVER,
 } from "rxjs"
 import { Matrix, applyChangeToMatrix, Value, getMatrixSize, ChangeType } from "."
 import { MatrixChange } from "./matrix"
@@ -21,12 +22,11 @@ export function toList<T, List>(
     createEmptyList: () => List,
     copyList: ((list: List) => List) | undefined,
     addToListAt: (list: List, item: Value<T>, index: number) => void,
-    removeFromListAt: (list: List, index: number) => void,
-    log = false
+    removeFromListAt: (list: List, index: number) => void
 ): OperatorFunction<Value<T>, List> {
     return (observable) =>
         observable.pipe(
-            valuesToChanges(log),
+            valuesToChanges(),
             debounceBufferTime(0),
             scan<Array<MatrixChange<Value<T>>>, [List, Array<Array<number>>, Matrix<Value<T>>]>(
                 ([list, indexArray, matrix], changes) => {
@@ -90,24 +90,26 @@ function applyChangeToList<T, List>(
     return result
 }
 
-function valuesToChanges<T>(log = false): OperatorFunction<Value<T>, MatrixChange<Value<T>>> {
+function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<Value<T>>> {
     return (value) =>
         value.pipe(
             mergeMap((value) =>
-                merge(
-                    of({
-                        index: value.index,
-                        type: ChangeType.SET,
-                        value: value,
-                    }),
-                    value.invalid.observable.pipe(
-                        take(1),
-                        mapTo<MatrixChange<Value<T>>>({
-                            index: value.index,
-                            type: ChangeType.UNSET,
-                        })
-                    )
-                )
+                value.invalid.value
+                    ? NEVER
+                    : merge(
+                          of({
+                              index: value.index,
+                              type: ChangeType.SET,
+                              value: value,
+                          }),
+                          value.invalid.observable.pipe(
+                              take(1),
+                              mapTo<MatrixChange<Value<T>>>({
+                                  index: value.index,
+                                  type: ChangeType.UNSET,
+                              })
+                          )
+                      )
             )
         )
 }

@@ -6,7 +6,7 @@ import {
     replaceSymbolsGrammar,
     trimSteps,
 } from ".."
-import { ParsedRandom } from "../parser"
+import { ParsedRandom, ParsedSwitch } from "../parser"
 
 export function summarize(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
     const steps = grammarDefinitions.map(replaceSymbolsGrammar).map(([, steps]) => trimSteps(steps))
@@ -186,13 +186,19 @@ function combineTwoSteps(
     parent2: ParsedStepsSummary,
     combineAndReplace: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary) => void
 ): void {
-    let equal: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary, i1: number, i2: number) => boolean
-    let ordered: (steps: ParsedStepsSummary, index: number) => boolean
+    let isPotentialMatch: (index1: number, index2: number) => boolean
+
     switch (parent1.element.type) {
         case "parallel":
-            //TODO: matchMatching and return empty when no matching found
-            ordered = () => false
-            equal = (s1, s2) => s1.element === s2.element
+            isPotentialMatch = () => true
+            break
+        case "random":
+            isPotentialMatch = () => true
+            break
+        case "switch":
+            const cases1 = parent1.element.cases
+            const cases2 = (parent2.element as ParsedSwitch).cases
+            isPotentialMatch = (index1, index2) => cases1[index1 - 1] === cases2[index2 - 1]
             break
         case "add":
         case "multiply":
@@ -200,137 +206,89 @@ function combineTwoSteps(
         case "or":
         case "equal":
         case "unequal":
-        case "random":
-            ordered = () => false
-            equal = (s1, s2) => s1.element === s2.element
-            break
-        case "switch":
-            ordered = (_, i) => i === 0
-            equal = (s1, s2, i1, i2) =>
-                s1.element === s2.element &&
-                ((i1 === 0 && i2 === 0) ||
-                    (parent1.element as any).cases[i1 - 1] === (parent2.element as any).cases[i2 - 1])
+            isPotentialMatch = () => true
             break
         default:
-            ordered = () => true
-            equal = (s1, s2) => s1.element === s2.element
+            //ordered match
+            isPotentialMatch = (index1, index2) => index1 === index2
     }
 
-    let matchings: Array<
-        [ParsedStepsSummary | undefined, number | undefined, ParsedStepsSummary | undefined, number | undefined]
-    > = []
-    const unmatchedIndices = new Set(Object.keys(parent2.children!).map(Number.parseInt))
+    const childSet1 = new Map<ParsedStepsSummary, number>(parent1.children!.map((child, index) => [child, index]))
+    const childSet2 = new Map<ParsedStepsSummary, number>(parent2.children!.map((child, index) => [child, index]))
 
-    let matchCount = 0
-    for (let i = 0; i < parent1.children!.length; i++) {
-        const child = parent1.children![i]
-        const matchIndex = findMatchIndex(child, i, parent2, ordered, equal)
-        const match = matchIndex != null ? parent2.children![matchIndex] : undefined
-        if (matchIndex != null) {
-            matchCount++
-            unmatchedIndices.delete(matchIndex)
+    let equalMatchesCount = 0
+
+    for (const [child1, i1] of childSet1) {
+        for (const [child2, i2] of childSet2) {
+            if (isPotentialMatch(i1, i2) && child1.element === child2.element) {
+                childSet1.delete(child1)
+                childSet2.delete(child2)
+                ++equalMatchesCount
+                break
+            }
         }
-        matchings.push([child, i, match, matchIndex])
-    }
-    for (const unmatchedIndex of unmatchedIndices) {
-        matchings.push([undefined, undefined, parent2.children![unmatchedIndex], unmatchedIndex])
     }
 
-    if (matchCount === 0) {
-        //not matchable
+    if (equalMatchesCount === 0) {
         return
     }
 
-    const parentLength = Math.max(parent1.children!.length, parent2.children!.length)
+    if (equalMatchesCount < Math.max(parent1.children!.length, parent2.children!.length) / 2) {
+        combineAndReplace(parent1, parent2)
+        return
+    }
 
-    if (matchCount >= parentLength / 2) {
-        if (matchCount !== parentLength) {
-            for (const [entry1, index1, entry2, index2] of matchings) {
-                if (entry1 != null && entry2 != null) {
-                    combineAndReplace(entry1, entry2)
-                }
-
-                switch (parent1.element.type) {
-                    case "switch":
-                        const cases1 = parent1.element.cases
-                        const cases2 = (parent2.element as any).cases
-                        const caseValue = index1 != null ? cases1[index1] : index2 != null ? cases2[index2] : undefined
-
-                        if (index1 == null) {
-                            cases1.push(caseValue)
-                        }
-
-                        if (index2 == null) {
-                            cases2.push(caseValue)
-                        }
-                        break
-                    case "random":
-                        const probabilities1 = parent1.element.probabilities
-                        const probabilities2 = (parent2.element as any).probabilities
-
-                        const probability1 = index1 == null ? 0 : probabilities1[index1]
-                        const probability2 = index2 == null ? 0 : probabilities2[index2]
-                        const probability = (probability1 + probability2) / 2
-
-                        if (index1 != null) {
-                            probabilities1[index1] = probability
-                        } else {
-                            probabilities1.push(probability)
-                        }
-
-                        if (index2 != null) {
-                            probabilities2[index2] = probability
-                        } else {
-                            probabilities2.push(probability)
-                        }
-                        break
-                    default:
-                        continue
-                }
-                //for switch and random
-                if (entry1 != null && entry2 == null) {
-                    parent2.children!.push(entry1)
-                }
-                if (entry2 != null && entry1 == null) {
-                    parent1.children!.push(entry2)
-                }
+    for (const [child1, i1] of childSet1) {
+        for (const [child2, i2] of childSet2) {
+            if (isPotentialMatch(i1, i2) && child1.element !== child2.element) {
+                childSet1.delete(child1)
+                childSet2.delete(child2)
+                combineAndReplace(child1, child2)
+                break
             }
         }
-
-        parent2.element = parent1.element
-        const summarySize = parent1.summarySize + parent2.summarySize
-        parent1.summarySize = summarySize
-        parent2.summarySize = summarySize
-    } else {
-        combineAndReplace(parent1, parent2)
     }
+
+    const emptyMatches = [
+        ...Array.from(childSet1).map<[ParsedStepsSummary, number, undefined, undefined]>(([child, index]) => [
+            child,
+            index,
+            undefined,
+            undefined,
+        ]),
+        ...Array.from(childSet2).map<[undefined, undefined, ParsedStepsSummary, number]>(([child, index]) => [
+            undefined,
+            undefined,
+            child,
+            index,
+        ]),
+    ]
+
+    for (const [step1, index1, step2, index2] of emptyMatches) {
+        switch (parent1.element.type) {
+            case "random":
+                if (step1 != null && index1 != null) {
+                    addRandomChild(step1, index1, parent2)
+                }
+                if (step2 != null && index2 != null) {
+                    addRandomChild(step2, index2, parent1)
+                }
+                break
+            default:
+                throw new Error(`step of type "${parent1.element.type}" can't have empty matches`)
+        }
+    }
+
+    parent2.element = parent1.element
+    const summarySize = parent1.summarySize + parent2.summarySize
+    parent1.summarySize = summarySize
+    parent2.summarySize = summarySize
 }
 
-function findMatchIndex(
-    steps: ParsedStepsSummary,
-    index: number,
-    parent: ParsedStepsSummary,
-    ordered: (steps: ParsedStepsSummary, index: number) => boolean,
-    equal: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary, i1: number, i2: number) => boolean
-): number | undefined {
-    if (ordered(steps, index)) {
-        if (index >= parent.children!.length) {
-            throw new Error(
-                `can't match in order at index ${index} when matching parent has only ${
-                    parent.children!.length
-                } children`
-            )
-        }
-        const child = parent.children![index]
-        return equal(steps, child, index, index) ? index : undefined
-    }
-    for (let i = 0; i < parent.children!.length; i++) {
-        const child = parent.children![i]
-        if (equal(steps, child, index, i)) {
-            return i
-        }
-    }
-    return undefined
+function addRandomChild(steps: ParsedStepsSummary, index: number, otherParent: ParsedStepsSummary) {
+    const probability = (otherParent.element as ParsedRandom).probabilities[index]
+    otherParent.children!.push(steps)
+    ;(otherParent.element as ParsedRandom).probabilities.push(probability * 0.5)
 }
 
 /**

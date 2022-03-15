@@ -237,37 +237,38 @@ describe("interprete grammar", () => {
         const expected = values.map((v) => {
             const c = [20 * v, v]
             const b = v === 1 ? [200 * v, 10 * v] : [...c]
-            const a = [...c, ...(v === 1 || v === 2 ? b : v === 3 ? c : [])]
+            const a = [...c, ...b]
             return a
         })
 
-        const result = timer(20, 20).pipe(
+        const result = timer(50, 50).pipe(
             take(values.length),
             map((v) => values[v]),
             toValue(),
             interprete(
                 parse(
-                    `   a -> c | switch this case 1: b case 2: b case 3: c
+                    `   a -> c | b
                         b -> if (this == 1) then (this * 10 c) else c
                         c -> (20 * d | d) return 100
                         d -> this / 2 this * 2`
                 ),
                 {}
             ),
-            toArray(true),
-            filter((values) => values.length === 2),
+            toArray(),
+            filter((values) => values.length === 4),
             map((values) => values.map(({ raw }) => raw)),
             collectInArray()
         )
         const results = await lastValueFrom(result)
+        
+        expect(results.length).to.be.greaterThan(10)
 
         expect(() => {
             let resultsIndex = 0
             for (let i = 0; i < expected.length; i++) {
-                if (expected[i][0] === results[resultsIndex][0] && expected[i][1] === results[resultsIndex][1]) {
+                if (shallowEqual(expected[i], results[resultsIndex])) {
                     ++resultsIndex
                 }
-                ++i
             }
             const unmatchedResult = results[resultsIndex]
             if (unmatchedResult != null) {
@@ -278,7 +279,7 @@ describe("interprete grammar", () => {
                 )
             }
         }).to.not.throw()
-    })
+    }).timeout(10000)
 
     it("should interprete complex grammar with delays", async () => {
         const result = of(0).pipe(
@@ -307,7 +308,7 @@ describe("interprete grammar", () => {
             invalid: createCompletedInvalid(),
             index: [],
             variables: {
-                x: timer(20, 20).pipe(
+                x: timer(50, 50).pipe(
                     take(values.length),
                     map((v) => values[v])
                 ),
@@ -326,13 +327,13 @@ describe("interprete grammar", () => {
         )
 
         const results = await lastValueFrom(result)
+        expect(results.length).to.be.greaterThan(10)
         expect(() => {
             let resultsIndex = 0
             for (let i = 0; i < expected.length; i++) {
-                if (expected[i][0] === results[resultsIndex][0] && expected[i][1] === results[resultsIndex][1]) {
+                if (shallowEqual(expected[i], results[resultsIndex])) {
                     ++resultsIndex
                 }
-                ++i
             }
             const unmatchedResult = results[resultsIndex]
             if (unmatchedResult != null) {
@@ -343,7 +344,7 @@ describe("interprete grammar", () => {
                 )
             }
         }).to.not.throw()
-    }).timeout(5000)
+    }).timeout(10000)
 
     it("should throw an error with unterminating recursive grammars", async () => {
         const result = of(1).pipe(
@@ -391,3 +392,15 @@ describe("interprete grammar", () => {
 
     //TODO: test attribute changes
 })
+
+function shallowEqual(array1: Array<any>, array2: Array<any>): boolean {
+    if(array1.length != array2.length) {
+        return false
+    }
+    for(let i = 0; i < array1.length; i++) {
+        if(array1[i] != array2[i]) {
+            return false
+        }
+    }
+    return true
+}

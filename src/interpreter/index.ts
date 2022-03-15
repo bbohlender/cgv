@@ -552,13 +552,12 @@ function outputsToValue<T>(): OperatorFunction<ReadonlyArray<Value<T>>, Value<Re
     })
 }
 
-export function toArray<T>(log = false): OperatorFunction<Value<T>, ReadonlyArray<Value<T>>> {
+export function toArray<T>(): OperatorFunction<Value<T>, ReadonlyArray<Value<T>>> {
     return toList<T, Array<Value<T>>>(
         () => [],
         (array) => [...array],
         (list, item, index) => list.splice(index, 0, item),
-        (list, index) => list.splice(index, 1),
-        log
+        (list, index) => list.splice(index, 1)
     )
 }
 

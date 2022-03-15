@@ -118,13 +118,13 @@ describe("summarize grammars", () => {
     })
 
     it("should summarize grammars with same operation identifier", () => {
+        const grammar3 = parse(`s1 -> if (this == false) then doOne(4) else 2`)
         const grammar1 = parse(`s1 -> if (this == false) then doOne(3) else 2`)
         const grammar2 = parse(`s1 -> if (this == false) then doTwo(3) else 2`)
-        const grammar3 = parse(`s1 -> if (this == false) then doOne(4) else 2`)
         const grammar4 = parse(`s1 -> if (this == false) then doOne(4) else 2`)
         const summarizedGrammar = summarize([grammar1, grammar2, grammar3, grammar4])
         expect(serialize(summarizedGrammar)).to.equal(
-            `s1 -> if (this == false) then { 75%: doOne({ 66.67%: 4 33.33%: 3 }) 25%: doTwo(3) } else 2`
+            `s1 -> if (this == false) then { 25%: doOne(3) 25%: doTwo(3) 50%: doOne(4) } else 2`
         )
     })
 })
