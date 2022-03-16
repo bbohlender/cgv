@@ -1,8 +1,8 @@
 import Head from "next/head"
 import React, { useEffect, useState } from "react"
-import { parse, interprete, matrixToArray } from "cgv"
+import { parse, interprete, toValue, toArray } from "cgv"
 import { operations } from "cgv/domains/arithmetic"
-import { interval, map, startWith } from "rxjs"
+import { interval, map, startWith, tap } from "rxjs"
 import { TextEditor } from "../src/text-editor"
 
 export default function Index() {
@@ -17,17 +17,13 @@ export default function Index() {
                 .pipe(
                     map((val) => val + 1),
                     startWith(0),
-                    map((value) => ({
-                        value,
-                        eventDepthMap: {},
-                        parameters: {},
-                        terminated: false,
-                    })),
+                    toValue(),
                     interprete(grammar, operations),
-                    matrixToArray()
+                    toArray(),
+                    map((values) => values.map(({ raw }) => raw))
                 )
                 .subscribe({
-                    next: (results) => setState([JSON.stringify(results.map(({ value }) => value)), undefined]),
+                    next: (results) => setState([JSON.stringify(results), undefined]),
                     error: (error) => setState([undefined, error.message]),
                 })
             return () => subscription.unsubscribe()

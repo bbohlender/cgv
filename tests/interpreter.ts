@@ -8,6 +8,7 @@ import {
     Invalid,
     Matrix,
     parse,
+    simpleExecution,
     toArray,
     toValue,
     Value,
@@ -180,18 +181,36 @@ describe("interprete grammar", () => {
         await expect(lastValueFrom(result)).to.eventually.deep.equal([1, 6, 8])
     })
 
-    it("should interprete operation execution", async () => {
+    it("should interprete operation execution with one result and without including this parameter", async () => {
         const result = of(1).pipe(
             toValue(),
             interprete(parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`), {
                 op1: {
-                    execute: (num: number, str: any) => of<any>(`${str ?? ""}${num * num}`),
+                    execute: simpleExecution((num: number, str: any) => of<any>([`${str ?? ""}${num * num}`])),
+                    includeThis: false,
                 },
             }),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
         await expect(lastValueFrom(result)).to.eventually.deep.equal([1, 6, "Hallo Welt36", "4"])
+    })
+
+    it("should interprete operation execution with multiple results and with including this as parameter", async () => {
+        const result = of(22).pipe(
+            toValue(),
+            interprete(parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`), {
+                op1: {
+                    execute: simpleExecution((current: number, num: number, str: any) =>
+                        of<any>([current, str, num * num])
+                    ),
+                    includeThis: true,
+                },
+            }),
+            toArray(),
+            map((values) => values.map(({ raw }) => raw))
+        )
+        await expect(lastValueFrom(result)).to.eventually.deep.equal([1, 6, 22, "Hallo Welt", 36, 22, undefined, 4])
     })
 
     it("should interprete grammars with recursion (that eventually terminate)", async () => {
@@ -260,7 +279,7 @@ describe("interprete grammar", () => {
             collectInArray()
         )
         const results = await lastValueFrom(result)
-        
+
         expect(results.length).to.be.greaterThan(10)
 
         expect(() => {
@@ -391,14 +410,15 @@ describe("interprete grammar", () => {
     })
 
     //TODO: test attribute changes
+    //TODO: test operation value change (or switch operation result to promise?)
 })
 
 function shallowEqual(array1: Array<any>, array2: Array<any>): boolean {
-    if(array1.length != array2.length) {
+    if (array1.length != array2.length) {
         return false
     }
-    for(let i = 0; i < array1.length; i++) {
-        if(array1[i] != array2[i]) {
+    for (let i = 0; i < array1.length; i++) {
+        if (array1[i] != array2[i]) {
             return false
         }
     }

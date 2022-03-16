@@ -1,4 +1,4 @@
-import { InterpretionValue, Matrix } from "cgv"
+import { Matrix, toValue, Value } from "cgv"
 import { createPhongMaterialGenerator, Instance, operations, PointPrimitive } from "cgv/domains/shape"
 import Head from "next/head"
 import React, { useState } from "react"
@@ -10,15 +10,10 @@ import { useInterpretion } from "../src/use-interpretion"
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
-const input: Observable<Matrix<InterpretionValue<Instance>>> = of({
-    value: {
-        attributes: {},
-        primitive: new PointPrimitive(new Matrix4(), redMaterialGenerator),
-    },
-    eventDepthMap: {},
-    parameters: {},
-    terminated: false,
-})
+const input: Observable<Value<Instance>> = of<Instance>({
+    attributes: {},
+    primitive: new PointPrimitive(new Matrix4(), redMaterialGenerator),
+}).pipe(toValue())
 
 export default function Index() {
     const [text, setText] = useState("")

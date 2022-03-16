@@ -84,10 +84,7 @@ Except for the parallel and sequential execution the precendence of all operator
 _Recursion_
 
 ```
-a -> if (random(0,1) > 0.1) then a1 else a2
-
-a1 -> 1 | a
-a2 -> 0
+a -> { 90%: 1 | a 10%: 0 }
 ```
 
 _Premature termination_

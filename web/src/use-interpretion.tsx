@@ -1,12 +1,8 @@
-import { InterpretionValue, Operations, parse, interprete, Matrix } from "cgv"
+import { Operations, interprete, parse, Value } from "cgv"
 import { useMemo } from "react"
 import { Observable } from "rxjs"
 
-export function useInterpretion<T>(
-    text: string,
-    input: Observable<Matrix<InterpretionValue<T>>>,
-    operations: Operations
-) {
+export function useInterpretion<T>(text: string, input: Observable<Value<T>>, operations: Operations<T>) {
     return useMemo(() => {
         try {
             const grammar = parse(text)

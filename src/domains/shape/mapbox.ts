@@ -1,7 +1,6 @@
-import { from, map, of, shareReplay } from "rxjs"
+import { of } from "rxjs"
 import { Color, Matrix4, Shape, Vector2 } from "three"
-import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, Instance, LinePrimitive, Primitive } from "."
-import { createMatrixFromArray, InterpretionValue, Parameters } from "../.."
+import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, LinePrimitive, Primitive } from "."
 
 //https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/16/33196/22545.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
 
@@ -41,6 +40,7 @@ async function loadMapLayers(): Promise<Layers> {
     }, {})
 }
 
+type Parameters = {}
 
 const roadParameters: Parameters = {
     layer: of("road"),

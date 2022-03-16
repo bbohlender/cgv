@@ -1,22 +1,23 @@
 import { MapControls } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import { InterpretionValue, Matrix } from "cgv"
-import { Instance, matrixObject3D } from "cgv/domains/shape"
+import { Value } from "cgv"
+import { Instance, toObject3D } from "cgv/domains/shape"
 import { useEffect, useState } from "react"
 import { Observable } from "rxjs"
 import { Object3D } from "three"
 
-export function ShapeEditor({ matrix }: { matrix: Observable<Matrix<InterpretionValue<Instance>>> | undefined }) {
+export function ShapeEditor({ matrix }: { matrix: Observable<Value<Instance>> | undefined }) {
     const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     useEffect(() => {
         if (matrix == null) {
             return
         }
-        const subscription = matrix.pipe(matrixObject3D()).subscribe({
+        const subscription = matrix.pipe(toObject3D()).subscribe({
             next: (object) => setState([object, undefined]),
             error: (error) => {
                 console.error(error)
-                setState([undefined, error.message])},
+                setState([undefined, error.message])
+            },
         })
         return () => subscription.unsubscribe()
     }, [matrix])

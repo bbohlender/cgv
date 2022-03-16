@@ -37,7 +37,26 @@ import {
 import { toList } from "./list"
 
 export type Operation<T> = {
-    execute: (...parameters: Array<T>) => Observable<T>
+    execute: (parameters: Value<ReadonlyArray<T>>) => Observable<Array<Value<T>>>
+    includeThis: boolean
+}
+
+export function simpleExecution<T>(
+    execute: (...parameters: ReadonlyArray<T>) => Observable<Array<T>>
+): (parameters: Value<ReadonlyArray<T>>) => Observable<Array<Value<T>>> {
+    return (parameters) =>
+        execute(...parameters.raw).pipe(
+            map((results) =>
+                results.length === 0
+                    ? [
+                          {
+                              ...parameters,
+                              raw: results[0],
+                          },
+                      ]
+                    : results.map((result, i) => ({ ...parameters, raw: result, index: [...parameters.index, i] }))
+            )
+        )
 }
 
 export type Operations<T> = {
@@ -64,8 +83,8 @@ export function createInvalidator(): Invalidator {
     const subject = new ReplaySubject<void>(1)
     const invalid = {
         invalidate: () => {
-            subject.next()
             invalid.value = true
+            subject.next()
         },
         complete: () => subject.complete(),
         observable: subject,
@@ -76,7 +95,9 @@ export function createInvalidator(): Invalidator {
 
 export function combineInvalids(...invalids: Array<Invalid>): Invalid {
     return {
-        observable: merge(...invalids.map(({ observable }) => observable)),
+        observable: merge(...invalids.map(({ observable }) => observable)).pipe(
+            shareReplay({ refCount: true, bufferSize: 1 })
+        ),
         value: anyInvalid(invalids),
     }
 }
@@ -202,18 +223,18 @@ function interpreteOperation<T>(
         throw new Error(`unknown operation "${step.identifier}"`)
     }
     const parameterOperatorFunctions = parameters.map((parameter) => interpreteStep<T>(parameter, context, noop()))
+    if (operation.includeThis) {
+        parameterOperatorFunctions.unshift(noop())
+    }
     return (values) =>
         values.pipe(
             operatorsToArray(...parameterOperatorFunctions),
-            mergeMap((value) =>
-                operation.execute(...value.raw).pipe(
-                    map((raw) => ({
-                        ...value,
-                        raw,
-                    }))
-                )
-            ),
-            next
+            mergeMap(
+                (value) =>
+                    operation
+                        .execute(value)
+                        .pipe(mergeMap((results) => merge(...results.map((result) => of(result).pipe(next))))) //TODO: simplifiable?
+            )
         )
 }
 
@@ -516,8 +537,8 @@ function parallel<T>(
         return merge(
             ...operatorFunctions.map((func, i) =>
                 shared.pipe(
-                    map((value) => ({ ...value, index: [...value.index, i] })),
-                    func
+                    func,
+                    map((value) => ({ ...value, index: [i, ...value.index] }))
                 )
             )
         )
@@ -544,7 +565,7 @@ function outputsToValue<T>(): OperatorFunction<ReadonlyArray<Value<T>>, Value<Re
         const [input, ...outputs] = results
         return {
             variables: input.variables,
-            index: input.index.slice(0, -1),
+            index: input.index.slice(1),
             invalid: combineInvalids(...results.map(({ invalid }) => invalid)),
             raw: outputs.map(({ raw }) => raw),
             symbolDepth: input.symbolDepth,

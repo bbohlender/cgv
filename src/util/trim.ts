@@ -38,7 +38,7 @@ export function trimSteps(steps: ParsedSteps): ParsedSteps {
 
 export function trimBrackets(steps: ParsedSteps, parent: ParsedSteps | undefined): ParsedSteps {
     if (steps.children != null) {
-        for(let i = 0; i < steps.children.length; i++) {
+        for (let i = 0; i < steps.children.length; i++) {
             steps.children[i] = trimBrackets(steps.children[i], steps)
         }
     }

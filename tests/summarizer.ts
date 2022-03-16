@@ -57,8 +57,8 @@ describe("summarize grammars", () => {
     //TODO: should combine steps unordered with different amount of parallel steps
 
     it("should combine steps unodered in a ParallelStep", () => {
-        const steps1 = parse(`s1 -> 1 | this 3`)["a"]
-        const steps2 = parse(`s1 -> this 2 | 2`)["a"]
+        const steps1 = parse(`a -> 1 | this 3`)["a"]
+        const steps2 = parse(`a -> this 2 | 2`)["a"]
 
         const result = combineSteps([steps1, steps2], combineRandom) as ParsedSteps
 

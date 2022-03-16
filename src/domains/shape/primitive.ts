@@ -79,6 +79,8 @@ export abstract class Primitive {
 
     abstract changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive
 
+    abstract get materialGenerator(): MaterialGenerator
+
     //abstract applyMatrixToGeometry(matrix: Matrix4): void;
 
     multiplyMatrix(matrix: Matrix4): Primitive {
@@ -109,7 +111,7 @@ export class PointPrimitive extends Primitive {
         return new PointPrimitive(this.matrix.clone().multiply(matrix), this.materialGenerator)
     }
 
-    constructor(public readonly matrix: Matrix4, protected materialGenerator: (type: ObjectType) => Material) {
+    constructor(public readonly matrix: Matrix4, public materialGenerator: (type: ObjectType) => Material) {
         super()
     }
 
@@ -161,7 +163,7 @@ export class LinePrimitive extends Primitive {
     constructor(
         public readonly matrix: Matrix4,
         private readonly length: number,
-        protected materialGenerator: (type: ObjectType) => Material
+        public materialGenerator: (type: ObjectType) => Material
     ) {
         super()
     }
@@ -242,7 +244,7 @@ export class FacePrimitive extends Primitive {
     constructor(
         public readonly matrix: Matrix4,
         private readonly shape: Shape,
-        protected materialGenerator: (type: ObjectType) => Material
+        public materialGenerator: (type: ObjectType) => Material
     ) {
         super()
     }
@@ -357,7 +359,7 @@ export class GeometryPrimitive extends Primitive {
     constructor(
         public readonly matrix: Matrix4,
         private readonly geometry: BufferGeometry,
-        protected materialGenerator: (type: ObjectType) => Material
+        public materialGenerator: (type: ObjectType) => Material
     ) {
         super()
     }
@@ -388,6 +390,10 @@ export class CombinedPrimitive extends Primitive {
             this.matrix,
             this.primitives.map((primitive) => primitive.changeMaterialGenerator(generator))
         )
+    }
+
+    get materialGenerator(): MaterialGenerator {
+        throw new Error(`can't retrive material from combined primitive`)
     }
 
     protected changeMatrix(matrix: Matrix4): Primitive {
