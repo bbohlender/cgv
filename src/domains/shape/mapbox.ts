@@ -40,7 +40,9 @@ async function loadMapLayers(): Promise<Layers> {
     }, {})
 }
 
-type Parameters = {}
+type Parameters = {
+    //TODO
+}
 
 const roadParameters: Parameters = {
     layer: of("road"),

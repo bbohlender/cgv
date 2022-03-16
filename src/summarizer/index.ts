@@ -282,10 +282,11 @@ function isPotentialMatch(parent1: ParsedStepsSummary, index1: number, parent2: 
             return true
         case "random":
             return true
-        case "switch":
+        case "switch": {
             const cases1 = (parent1 as ParsedSwitch).cases
             const cases2 = (parent2 as ParsedSwitch).cases
             return cases1[index1 - 1] === cases2[index2 - 1]
+        }
         case "add":
         case "multiply":
         case "and":

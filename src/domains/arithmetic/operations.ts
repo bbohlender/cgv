@@ -1,5 +1,5 @@
-import { defaultOperations } from "..";
+import { defaultOperations } from ".."
 
 export const operations = {
-    ...defaultOperations
+    ...defaultOperations,
 }

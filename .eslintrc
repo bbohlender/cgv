@@ -8,6 +8,7 @@
         "plugin:@typescript-eslint/recommended"
     ],
     "rules": {
+        "@typescript-eslint/ban-ts-comment": "off",
         "no-extra-semi": "off",
         "@typescript-eslint/no-empty-function": ["error", { "allow": ["methods"] }],
         "@typescript-eslint/member-delimiter-style": [
