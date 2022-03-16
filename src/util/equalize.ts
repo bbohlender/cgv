@@ -19,6 +19,10 @@ export function equalizeSteps(stepsList: Array<ParsedSteps>): Array<ParsedSteps>
     )
 }
 
+export function isEqual(steps1: ParsedSteps, steps2: ParsedSteps): boolean {
+    return serializeStep(steps1) === serializeStep(steps2)
+}
+
 function traverseAndReplace(element: ParsedSteps, fn: (element: ParsedSteps) => ParsedSteps): ParsedSteps {
     if (element.children != null) {
         for (let i = 0; i < element.children.length; i++) {
