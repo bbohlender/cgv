@@ -1,3 +1,5 @@
-import { operations as defaultOperations } from ".."
+import { defaultOperations } from "..";
 
-export const operations = defaultOperations
+export const operations = {
+    ...defaultOperations
+}

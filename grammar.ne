@@ -13,6 +13,8 @@ const lexer = moo.compile({
     arrow: /->/,
     openBracket: /\(/,
     closedBracket: /\)/,
+    openCurlyBracket: /{/,
+    closedCurlyBracket: /}/,
     point: /\./,
     comma: /,/,
     colon: /:/,
@@ -20,7 +22,8 @@ const lexer = moo.compile({
     greaterEqual: />=/,
     smaller: /</,
     greater: />/,
-    equal: /==/,
+    doubleEqual: /==/,
+    equal: /=/,
     unequal: /!=/,
     and: /&&/,
     or: /\|\|/,
@@ -33,7 +36,7 @@ const lexer = moo.compile({
     plus: /\+/,
     minus: /-/,
     multiply: /\*/,
-    modulo: /%/,
+    percent: /%/,
     divide: /\//,
     identifier: /[a-zA-Z_$]+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
@@ -41,113 +44,114 @@ const lexer = moo.compile({
 %}
 @lexer lexer
 
-GrammarDefinition   ->  ws RuleDefinition ws                                        {% ([,[identifier, steps]]) => ({ [identifier]: steps }) %}
-                    |   ws RuleDefinition %ws GrammarDefinition                     {% ([,[identifier, steps],,prev]) => { if(identifier in prev) { throw new Error(`rule "${identifier}" is already defined`) } else { return { [identifier]: steps, ...prev } } } %}
-                    |   ws                                                          {% () => ({ }) %}
+GrammarDefinition       ->  ws RuleDefinition ws                                            {% ([,[identifier, steps]]) => ({ [identifier]: steps }) %}
+                        |   ws RuleDefinition %ws GrammarDefinition                         {% ([,[identifier, steps],,prev]) => { if(identifier in prev) { throw new Error(`rule "${identifier}" is already defined`) } else { return { [identifier]: steps, ...prev } } } %}
+                        |   ws                                                              {% () => ({ }) %}
 
-RuleDefinition      ->  %identifier ws %arrow ws Steps                              {% ([{ value },,,,steps]) => [value, steps] %}
+RuleDefinition          ->  %identifier ws %arrow ws Steps                                  {% ([{ value },,,,steps]) => [value, steps] %}
 
-Steps               ->  ParallelSteps                                               {% ([steps]) => steps %}
-EmptySteps          ->  ParallelSteps                                               {% ([steps]) => steps %}
-                    |   null                                                        {% () => ({ type: "raw", value: [] }) %}
+Steps                   ->  ParallelSteps                                                   {% ([steps]) => steps %}
 
-ParallelSteps       ->  SequentialSteps ParallelStep:+                              {% ([sequential,sequentials]) => ({ type: "parallel", steps: [sequential, ...sequentials] }) %}
-                    |   SequentialSteps                                             {% ([sequential]) => sequential %}
-ParallelStep        ->  ws %parallel SequentialSteps                                {% ([,,sequential]) => sequential %}
+ParallelSteps           ->  SequentialSteps ParallelStep:+                                  {% ([sequential,sequentials]) => ({ type: "parallel", children: [sequential, ...sequentials] }) %}
+                        |   SequentialSteps                                                 {% ([sequential]) => sequential %}
+ParallelStep            ->  ws %parallel SequentialSteps                                    {% ([,,sequential]) => sequential %}
 
-SequentialSteps     ->  PrimarySteps SequentialStep:+                               {% ([primary,primaries]) => ({ type: "sequential", steps: [primary, ...primaries] }) %}
-                    |   PrimarySteps                                                {% ([primary]) => primary %}
-SequentialStep      ->  %ws PrimarySteps                                            {% ([,primary]) => primary %}
+SequentialSteps         ->  PrimarySteps SequentialStep:+                                   {% ([primary,primaries]) => ({ type: "sequential", children: [primary, ...primaries] }) %}
+                        |   PrimarySteps                                                    {% ([primary]) => primary %}
+SequentialStep          ->  %ws PrimarySteps                                                {% ([,primary]) => primary %}
 
-PrimarySteps        ->  ws BasicOperation                                           {% ([,operation]) => operation %}
+PrimarySteps            ->  ws BasicOperation                                               {% ([,operation]) => operation %}
 
-Step                ->  Operation                                                   {% ([operation]) => operation %}
-                    |   Symbol                                                      {% ([symbol]) => symbol %}
-                    |   %thisSymbol                                                 {% () => ({ type: "this" }) %}
-                    |   GetVariable                                                    {% ([getVariable]) => getVariable %}
-                    |   Constant                                                    {% ([value]) => ({ type: "raw", value }) %}
-                    |   ConditionalOperation                                        {% ([operation]) => operation %}
-                    |   %returnSymbol                                               {% () => ({  type: "operation", parameters: [], identifier: "return" }) %}
-                    |   %openBracket Steps ws %closedBracket                        {% ([,steps]) => steps %}
+BasicOperation          ->  BooleanOperation                                                {% ([value]) => value %}
 
-Operation           ->  %identifier %openBracket EmptyParameters ws %closedBracket    {% ([{ value },,parameters]) => ({ type: "operation", parameters, identifier: value }) %}
+BooleanOperation        ->  OrOperation                                                     {% ([value]) => value %}
 
-EmptyParameters     ->  Parameters                                                  {% ([parameters]) => parameters%}
-                    |   null                                                        {% () => [] %}
-Parameters          ->  Steps Parameter:+                                           {% ([steps, stepsList]) => [steps, ...stepsList] %}
-                    |   Steps                                                       {% ([steps]) => [steps] %}
-Parameter           ->  ws %comma Steps                                             {% ([,,steps]) =>  steps %}
+OrOperation             ->  OrOperation ws %or ws AndOperation                              {% ([op1,,,,op2]) => ({ type: "or", children: [op1, op2] }) %}
+                        |   AndOperation                                                    {% ([value]) => value %}
+AndOperation            ->  AndOperation ws %and ws NegateOperation                         {% ([op1,,,,op2]) => ({ type: "and", children: [op1, op2] }) %}
+                        |   NegateOperation                                                 {% ([value]) => value %}
+NegateOperation         ->  %not ws NegateOperation                                         {% ([,,op1]) => ({ type: "not", children: [op1] }) %}
+                        |   ComparisonOperation                                             {% ([value]) => value %}
 
-Symbol              ->  %identifier                                                 {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
+ComparisonOperation     ->  EquityOperation                                                 {% ([value]) => value %}
 
-JS                  ->  %js                                                         {% ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn)) %}
-ws                  ->  %ws | null
+EquityOperation         ->  EqualOperation                                                  {% ([value]) => value %}
+                        |   UnequalOperation                                                {% ([value]) => value %}
+                        |   RelationalOperation                                             {% ([value]) => value %}
 
-Constant            ->  %boolean                                                    {% ([{ value }]) => value === "true" %}
-                    |   %string                                                     {% ([{ value }]) => value.slice(1, -1) %}
-                    |   %number                                                     {% ([{ value }]) => Number.parseFloat(value) %}
-                    |   %int                                                        {% ([{ value }]) => Number.parseInt(value) %}
+EqualOperation          ->  EquityOperation ws %doubleEqual ws RelationalOperation                {% ([op1,,,,op2]) => ({ type: "equal", children: [op1, op2] }) %}
+UnequalOperation        ->  EquityOperation ws %unequal ws RelationalOperation              {% ([op1,,,,op2]) => ({ type: "unequal", children: [op1, op2] }) %}
 
-Variable            ->  %thisSymbol %point %identifier                              {% ([,,identifier]) => ({ type: "raw", value: identifier }) %}
-GetVariable         ->  Variable                                                    {% ([name]) => ({ type: "operation", parameters: [name], identifier: "getVariable" }) %}
-SetVariable         ->  Variable ws %equal ws Step                                  {% ([name,,,,step]) => ({ type: "operation", parameters: [name, step], identifier: "setVariable" }) %}
+RelationalOperation     ->  SmallerOperation                                                {% ([value]) => value %}
+                        |   SmallerEqualOperation                                           {% ([value]) => value %}
+                        |   GreaterOperation                                                {% ([value]) => value %}
+                        |   GreaterEqualOperation                                           {% ([value]) => value %}
+                        |   ArithmeticOperation                                             {% ([value]) => value %}
 
-ConditionalOperation    ->  IfThenElseOperation                                     {% ([value]) => value %}                               
-                        |   SwitchOperation                                         {% ([value]) => value %}
+SmallerOperation        ->  RelationalOperation ws %smaller ws ArithmeticOperation          {% ([op1,,,,op2]) => ({ type: "smaller", children: [op1, op2] }) %}
+SmallerEqualOperation   ->  RelationalOperation ws %smallerEqual ws ArithmeticOperation     {% ([op1,,,,op2]) => ({ type: "smallerEqual", children: [op1, op2] }) %}
+GreaterOperation        ->  RelationalOperation ws %greater ws ArithmeticOperation          {% ([op1,,,,op2]) => ({ type: "greater", children: [op1, op2] }) %}
+GreaterEqualOperation   ->  RelationalOperation ws %greaterEqual ws ArithmeticOperation     {% ([op1,,,,op2]) => ({ type: "greaterEqual", children: [op1, op2] }) %}
 
-IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,value,,,,ifOperation,,,,elseOperation]) => ({ type: "operation", parameters: [value, ifOperation, elseOperation], identifier: "if" }) %}
+ArithmeticOperation     ->  LineOperation                                                   {% ([value]) => value %}
 
-SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                         {% ([,,value,cases]) => ({ type: "operation", parameters: [value, ...cases.reduce((v1: Array<any>, v2: Array<any>) => v1.concat(v2))], identifier: "switch" }) %}
-SwitchCase              ->  %ws %caseSymbol %ws Step %colon ws Step                        {% ([,,,value,,,operation]) => [value, operation] %}
+LineOperation           ->  AddOperation                                                    {% ([value]) => value %}
+                        |   SubtractOperation                                               {% ([value]) => value %}
+                        |   PointOperation                                                  {% ([value]) => value %}
 
-BasicOperation          ->  BooleanOperation                                            {% ([value]) => value %}
+AddOperation            ->  LineOperation ws %plus ws PointOperation                        {% ([op1,,,,op2]) => ({ type: "add", children: [op1, op2] }) %}
+SubtractOperation       ->  LineOperation ws %minus ws PointOperation                       {% ([op1,,,,op2]) => ({ type: "subtract", children: [op1, op2] }) %}
 
-BooleanOperation        ->  OrOperation                                                 {% ([value]) => value %}
+PointOperation          ->  MultiplyOperation                                               {% ([value]) => value %}
+                        |   DivideOperation                                                 {% ([value]) => value %}
+                        |   ModuloOperation                                                 {% ([value]) => value %}
+                        |   InvertOperation                                                 {% ([value]) => value %}
 
-OrOperation             ->  OrOperation ws %or ws AndOperation                          {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "||" }) %}
-                        |   AndOperation                                                {% ([value]) => value %}
-AndOperation            ->  AndOperation ws %and ws NegateOperation                     {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "&&" }) %}
-                        |   NegateOperation                                             {% ([value]) => value %}
-NegateOperation         ->  %not ws NegateOperation                                     {% ([,,value]) => ({ type: "operation", parameters: [value], identifier: "!" }) %}
-                        |   ComparisonOperation                                         {% ([value]) => value %}
+DivideOperation         ->  PointOperation ws %divide ws InvertOperation                    {% ([op1,,,,op2]) => ({ type: "divide", children: [op1, op2] }) %}
+MultiplyOperation       ->  PointOperation ws %multiply ws InvertOperation                  {% ([op1,,,,op2]) => ({ type: "multiply", children: [op1, op2] }) %}
+ModuloOperation         ->  PointOperation ws %percent ws InvertOperation                    {% ([op1,,,,op2]) => ({ type: "modulo", children: [op1, op2] }) %}
 
-ComparisonOperation     ->  EquityOperation                                             {% ([value]) => value %}
+InvertOperation         ->  %minus ws InvertOperation                                       {% ([,,op1]) => ({ type: "invert", children: [op1] }) %}
+                        |   Step                                                            {% ([value]) => value %}
 
-EquityOperation         ->  EqualOperation                                              {% ([value]) => value %}
-                        |   UnequalOperation                                            {% ([value]) => value %}
-                        |   RelationalOperation                                         {% ([value]) => value %}
+Step                    ->  Operation                                                       {% ([operation]) => operation %}
+                        |   Symbol                                                          {% ([symbol]) => symbol %}
+                        |   %thisSymbol                                                     {% () => ({ type: "this" }) %}
+                        |   GetVariable                                                     {% ([getVariable]) => getVariable %}
+                        |   SetVariable                                                     {% ([setVariable]) => setVariable %}
+                        |   Constant                                                        {% ([value]) => ({ type: "raw", value }) %}
+                        |   ConditionalOperation                                            {% ([operation]) => operation %}
+                        |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
+                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => ({ type: "bracket", children: [steps] }) %}
+                        |   RandomSteps                                                     {% ([random]) => random %}
 
-EqualOperation          ->  EquityOperation ws %equal ws RelationalOperation            {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "==" }) %}
-UnequalOperation        ->  EquityOperation ws %unequal ws RelationalOperation          {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "!=" }) %}
+RandomSteps             ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
+RandomStep              ->  ws %number %percent ws %colon ws Steps                          {% ([,{ value },,,,, steps]) => ({ probability: Number.parseFloat(value) / 100, steps }) %}
 
-RelationalOperation     ->  SmallerOperation                                            {% ([value]) => value %}
-                        |   SmallerEqualOperation                                       {% ([value]) => value %}
-                        |   GreaterOperation                                            {% ([value]) => value %}
-                        |   GreaterEqualOperation                                       {% ([value]) => value %}
-                        |   ArithmeticOperation                                         {% ([value]) => value %}
+Operation               ->  %identifier %openBracket EmptyParameters ws %closedBracket      {% ([{ value },,children]) => ({ type: "operation", children, identifier: value }) %}
+EmptyParameters         ->  Parameters                                                      {% ([parameters]) => parameters%}
+                        |   null                                                            {% () => [] %}
+Parameters              ->  Steps Parameter:+                                               {% ([steps, stepsList]) => [steps, ...stepsList] %}
+                        |   Steps                                                           {% ([steps]) => [steps] %}
+Parameter               ->  ws %comma Steps                                                 {% ([,,steps]) =>  steps %}
 
-SmallerOperation        ->  RelationalOperation ws %smaller ws ArithmeticOperation      {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "<" }) %}
-SmallerEqualOperation   ->  RelationalOperation ws %smallerEqual ws ArithmeticOperation {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "<=" }) %}
-GreaterOperation        ->  RelationalOperation ws %greater ws ArithmeticOperation      {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op2, op1], identifier: "<" }) %}
-GreaterEqualOperation   ->  RelationalOperation ws %greaterEqual ws ArithmeticOperation {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op2, op1], identifier: "<=" }) %}
+Symbol                  ->  %identifier                                                     {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
 
-ArithmeticOperation     ->  LineOperation                                               {% ([value]) => value %}
+JS                      ->  %js                                                             {% ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn)) %}
+ws                      ->  %ws | null
 
-LineOperation           ->  AddOperation                                                {% ([value]) => value %}
-                        |   SubtractOperation                                           {% ([value]) => value %}
-                        |   PointOperation                                              {% ([value]) => value %}
+Constant                ->  %boolean                                                        {% ([{ value }]) => value === "true" %}
+                        |   %string                                                         {% ([{ value }]) => value.slice(1, -1) %}
+                        |   %number                                                         {% ([{ value }]) => Number.parseFloat(value) %}
+                        |   %int                                                            {% ([{ value }]) => Number.parseInt(value) %}
 
-AddOperation            ->  LineOperation ws %plus ws PointOperation                    {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "+" }) %}
-SubtractOperation       ->  LineOperation ws %minus ws PointOperation                   {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "-" }) %}
+GetVariable             ->  %thisSymbol %point %identifier                                  {% ([,,{ value: identifier }]) => ({ type: "getVariable", identifier }) %}
+SetVariable             ->  %thisSymbol %point %identifier ws %equal ws Step                {% ([,,{ value: identifier },,,,value]) => ({ type: "setVariable", identifier, children: [value] }) %}
 
-PointOperation          ->  MultiplyOperation                                           {% ([value]) => value %}
-                        |   DivideOperation                                             {% ([value]) => value %}
-                        |   ModuloOperation                                             {% ([value]) => value %}
-                        |   InvertOperation                                             {% ([value]) => value %}
+ConditionalOperation    ->  IfThenElseOperation                                             {% ([value]) => value %}                               
+                        |   SwitchOperation                                                 {% ([value]) => value %}
 
-DivideOperation         ->  PointOperation ws %divide ws InvertOperation                {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "/" }) %}
-MultiplyOperation       ->  PointOperation ws %multiply ws InvertOperation              {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "*" }) %}
-ModuloOperation         ->  PointOperation ws %modulo ws InvertOperation                {% ([op1,,,,op2]) => ({ type: "operation", parameters: [op1, op2], identifier: "%" }) %}
+IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
 
-InvertOperation         ->  %minus ws InvertOperation                                   {% ([,,value]) => ({ type: "operation", parameters: [value], identifier: "!-" }) %}
-                        |   Step                                                        {% ([value]) => value %}
+SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+SwitchCase              ->  %ws %caseSymbol %ws Constant %colon ws Step                           {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}

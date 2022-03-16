@@ -43,7 +43,7 @@ The grammar is defined in [grammar.ne](./grammar.ne).
     -   _WIP_ writing to a variable called `name` can be done using `this.<name> = 1`
 -   **`Special Tokens`**
     -   `this` - _does nothing_ - used to represent the current value (similar to this in OOP)
-    -   `return` - _jumps out of the execution_ - terminates the execution prematurely (similar to most programming lanuages)
+    -   `return` - _returns out of the current symbol and back to where the symbol was called_ - terminates the execution of the current symbol prematurely (similar to most programming lanuages)
     -   `+ - * /` - arithemtic operators (similar to most programming languages)
     -   `> < == <= >=` - comparison operators (similar to most programming languages)
     -   `&& || !` - boolean operators (similar to most programming languages)
@@ -52,11 +52,6 @@ The grammar is defined in [grammar.ne](./grammar.ne).
 ### Operator Precendence
 
 Except for the parallel and sequential execution the precendence of all operators is implemented according to the operator precendence in c++ (https://en.cppreference.com/w/cpp/language/operator_precedence). Operator precedence is common and equal for most programming langugages.
-
-## Language Features ToDo
-
--   writing to variables
--   differentiation between replacing the current value (only changing the leaves) and replacing all the values (changing the complete tree)
 
 ## Glossary
 
@@ -89,10 +84,7 @@ Except for the parallel and sequential execution the precendence of all operator
 _Recursion_
 
 ```
-a -> if (random(0,1) > 0.1) then a1 else a2
-
-a1 -> 1 | a
-a2 -> 0
+a -> { 90%: 1 | a 10%: 0 }
 ```
 
 _Premature termination_
