@@ -18,6 +18,8 @@ import {
     ParsedUnaryOperator,
 } from ".."
 
+//TODO: abstract serializer (make additional stringSerializer)
+
 export function serialize(grammarDefinition: ParsedGrammarDefinition): string {
     return Object.entries(grammarDefinition)
         .map(([symbol, step]) => `${symbol} -> ${serializeStep(step)}`)
