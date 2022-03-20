@@ -1,4 +1,4 @@
-import { ParsedSteps, serializeStep } from ".."
+import { ParsedSteps, serializeStepString } from ".."
 
 /**
  * compares all steps from the provides grammars and removes duplicate so semantically equal steps are referring the exact same `ParsedStep` object
@@ -8,7 +8,7 @@ export function equalizeSteps(stepsList: Array<ParsedSteps>): Array<ParsedSteps>
     const map = new Map<string, ParsedSteps>()
     return stepsList.map((steps) =>
         traverseAndReplace(steps, (element) => {
-            const key = serializeStep(element)
+            const key = serializeStepString(element)
             const entry = map.get(key)
             if (entry != null) {
                 return entry
@@ -20,7 +20,7 @@ export function equalizeSteps(stepsList: Array<ParsedSteps>): Array<ParsedSteps>
 }
 
 export function isEqual(steps1: ParsedSteps, steps2: ParsedSteps): boolean {
-    return serializeStep(steps1) === serializeStep(steps2)
+    return serializeStepString(steps1) === serializeStepString(steps2)
 }
 
 function traverseAndReplace(element: ParsedSteps, fn: (element: ParsedSteps) => ParsedSteps): ParsedSteps {

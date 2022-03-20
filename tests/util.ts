@@ -4,7 +4,7 @@ import {
     ParsedBinaryOperator,
     ParsedParallel,
     replaceSymbolsGrammar,
-    serialize,
+    serializeString,
     splitSteps,
     trimGrammar,
     trimSteps,
@@ -19,7 +19,7 @@ describe("trim grammar / steps", () => {
         const result = trimSteps(grammar["a"])
 
         expect(
-            serialize({
+            serializeString({
                 a: result,
             })
         ).to.deep.equal(`a -> 1 if true then (2 * this) else -2`)
@@ -32,7 +32,7 @@ describe("trim grammar / steps", () => {
         const result = trimSteps(grammar["a"])
 
         expect(
-            serialize({
+            serializeString({
                 a: result,
             })
         ).to.equal(`a -> 1 2 3 4 this 5`)
@@ -45,7 +45,7 @@ describe("trim grammar / steps", () => {
         const result = trimSteps(grammar["a"])
 
         expect(
-            serialize({
+            serializeString({
                 a: result,
             })
         ).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
@@ -56,7 +56,7 @@ describe("trim grammar / steps", () => {
 
         const result = trimGrammar(grammar)
 
-        expect(serialize(result)).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
+        expect(serializeString(result)).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
     })
 })
 
@@ -69,7 +69,7 @@ describe("replace symbols in grammars / steps", () => {
                                 c -> this
                                 ggg -> this * 3`)
         const [name, stepReplaced] = replaceSymbolsGrammar(grammar)
-        expect(serialize({ [name]: stepReplaced })).to.equal(
+        expect(serializeString({ [name]: stepReplaced })).to.equal(
             "a -> if true then (this) else (22 (switch this case 0: (this * 3) case 1: (1 2 (this))))"
         )
     })
@@ -123,7 +123,7 @@ describe("split steps", () => {
     it("should handle nesting", () => {
         const grammar = parse(`a -> if (this == 2 * 2) then (this == 2 * 2) else 1`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
-        expect(serialize(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
+        expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
             `s1 -> if s2 then s2 else 1\ns2 -> this == 2 * 2`
         )
     })
@@ -131,7 +131,7 @@ describe("split steps", () => {
     it("should remove unnecassary brackets", () => {
         const grammar = parse(`a -> (1 2) | (1 2)`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
-        expect(serialize(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
+        expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
             `s1 -> s2 | s2\ns2 -> 1 2`
         )
     })
@@ -140,7 +140,7 @@ describe("split steps", () => {
         const grammar = parse(`a -> 1 + 2 if (this == 1) then 1 else (1 | 2)`)
         const [, splittedSteps] = splitSteps(equalizeSteps([grammar["a"]])[0])[0]
         expect(
-            serialize({
+            serializeString({
                 a: splittedSteps,
             })
         ).to.equal(`a -> 1 + 2 if (this == 1) then 1 else (1 | 2)`)
@@ -149,7 +149,7 @@ describe("split steps", () => {
     it("should the ParsedSteps recursively", () => {
         const grammar = parse(`a -> 1 * 3 * 3 if (1 * 3 * 3 == 3) then (22 | 1 * 3) else (1 * 3 + 2)`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
-        expect(serialize(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
+        expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
             `s1 -> s2 if (s2 == 3) then (22 | s3) else (s3 + 2)\ns2 -> s3 * 3\ns3 -> 1 * 3`
         )
     })
