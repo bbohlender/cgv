@@ -1,15 +1,21 @@
 import {
     equalizeSteps,
+    HierarchicalParsedSteps,
     parse,
     ParsedBinaryOperator,
     ParsedParallel,
+    ParsedSteps,
     replaceSymbolsGrammar,
     serializeString,
     splitSteps,
+    toHierachical,
+    toHierachicalSteps,
     trimGrammar,
     trimSteps,
 } from "../src"
 import { expect } from "chai"
+import { parsedAndUnparsedGrammarPairs } from "./test-data"
+import { validateHierarchical, validateHierarchicalSteps } from "./hierarchical"
 
 describe("trim grammar / steps", () => {
     //only testing the trimming of brackets
@@ -119,7 +125,6 @@ describe("equalize steps", () => {
 })
 
 describe("split steps", () => {
-
     it("should handle nesting", () => {
         const grammar = parse(`a -> if (this == 2 * 2) then (this == 2 * 2) else 1`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
@@ -151,6 +156,71 @@ describe("split steps", () => {
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
         expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
             `s1 -> s2 if (s2 == 3) then (22 | s3) else (s3 + 2)\ns2 -> s3 * 3\ns3 -> 1 * 3`
+        )
+    })
+})
+
+describe("hierarchical steps", () => {
+    it("should create valid hierachical steps", () => {
+        for (const { parsed } of parsedAndUnparsedGrammarPairs) {
+            const hierachical = toHierachical(parsed)
+            expect(() => validateHierarchical(hierachical)).to.not.throw()
+        }
+    })
+
+    it(`should throw an error when validating unvalid hierchical steps (parent reference wrong)`, () => {
+        const steps: ParsedSteps = {
+            type: "parallel",
+            children: [
+                {
+                    type: "this",
+                },
+                {
+                    type: "sequential",
+                    children: [
+                        {
+                            type: "return",
+                        },
+                        {
+                            type: "raw",
+                            value: 22,
+                        },
+                    ],
+                },
+            ],
+        }
+        const hierachical = toHierachicalSteps(steps, "a")
+        hierachical.children![1]!.children![1]!.parent = hierachical
+        expect(() => validateHierarchicalSteps(hierachical, "a")).to.throw(
+            "parent reference not equal to actual parent at root -> #1 sequential -> #1 raw"
+        )
+    })
+
+    it(`should throw an error when validating unvalid hierchical steps (childrenIndex wrong)`, () => {
+        const steps: ParsedSteps = {
+            type: "parallel",
+            children: [
+                {
+                    type: "this",
+                },
+                {
+                    type: "sequential",
+                    children: [
+                        {
+                            type: "return",
+                        },
+                        {
+                            type: "raw",
+                            value: 22,
+                        },
+                    ],
+                },
+            ],
+        }
+        const hierachical = toHierachicalSteps(steps, "a")
+        hierachical.children![1]!.children![1]!.childrenIndex = 0
+        expect(() => validateHierarchicalSteps(hierachical, "a")).to.throw(
+            "childrenIndex not equal to actual position in parent at root -> #1 sequential -> #1 raw"
         )
     })
 })

@@ -1,4 +1,4 @@
-import { serialize, parse } from "cgv"
+import { serializeString, parse } from "cgv"
 import { KeyboardEvent } from "react"
 
 export function TextEditor({ text, setText }: { text: string; setText: (text: string) => void }) {
@@ -16,7 +16,7 @@ export function TextEditor({ text, setText }: { text: string; setText: (text: st
             <button
                 className="btn btn-secondary"
                 style={{ position: "absolute", right: "1rem", bottom: "1rem" }}
-                onClick={() => setText(serialize(parse(text)))}>
+                onClick={() => setText(serializeString(parse(text)))}>
                 Format
             </button>
         </div>

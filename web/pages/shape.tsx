@@ -1,24 +1,29 @@
-import { Matrix, toValue, Value } from "cgv"
-import { createPhongMaterialGenerator, Instance, operations, PointPrimitive } from "cgv/domains/shape"
+import { interprete, parse, toValue, Value } from "cgv"
+import { createPhongMaterialGenerator, Primitive, operations, PointPrimitive } from "cgv/domains/shape"
 import Head from "next/head"
-import React, { useState } from "react"
+import React, { useMemo, useState } from "react"
 import { Observable, of } from "rxjs"
 import { Color, Matrix4 } from "three"
-import { ShapeEditor } from "../src/shape-editor"
+import { Viewer } from "../src/shape"
 import { TextEditor } from "../src/text-editor"
-import { useInterpretion } from "../src/use-interpretion"
 
 const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
-const input: Observable<Value<Instance>> = of<Instance>({
-    attributes: {},
-    primitive: new PointPrimitive(new Matrix4(), redMaterialGenerator),
-}).pipe(toValue())
+const input: Observable<Value<Primitive, undefined>> = of<Primitive>(
+    new PointPrimitive(new Matrix4(), redMaterialGenerator)
+).pipe(toValue())
 
 export default function Index() {
     const [text, setText] = useState("")
 
-    const [matrix, error] = useInterpretion(text, input, operations)
+    const [value, error] = useMemo(() => {
+        try {
+            const grammar = parse(text)
+            return [input.pipe(interprete(grammar, operations, {})), undefined] as const
+        } catch (error: any) {
+            return [undefined, JSON.stringify(error.message)] as const
+        }
+    }, [text])
 
     return (
         <>
@@ -28,14 +33,14 @@ export default function Index() {
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
             <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
-                <ShapeEditor matrix={matrix} />
+                <Viewer value={value} />
                 <div className="d-flex flex-column flex-basis-0 flex-grow-1">
                     <TextEditor text={text} setText={setText} />
                     <div
                         className="overflow-auto p-3 flex-basis-0 h3 mb-0 bg-black flex-grow-1"
                         style={{ whiteSpace: "pre-line", maxHeight: 300 }}>
                         {error == null ? (
-                            matrix == null ? (
+                            value == null ? (
                                 <span className="text-primary">loading ...</span>
                             ) : (
                                 <span className="text-success">ok</span>

@@ -18,17 +18,17 @@ import {
 import { Matrix, applyChangeToMatrix, Value, getMatrixSize, ChangeType } from "."
 import { MatrixChange } from "./matrix"
 
-export function toList<T, List>(
+export function toList<T, A, List>(
     createEmptyList: () => List,
     copyList: ((list: List) => List) | undefined,
-    addToListAt: (list: List, item: Value<T>, index: number) => void,
+    addToListAt: (list: List, item: Value<T, A>, index: number) => void,
     removeFromListAt: (list: List, index: number) => void
-): OperatorFunction<Value<T>, List> {
+): OperatorFunction<Value<T, A>, List> {
     return (observable) =>
         observable.pipe(
             valuesToChanges(),
             debounceBufferTime(0),
-            scan<Array<MatrixChange<Value<T>>>, [List, Array<Array<number>>, Matrix<Value<T>>]>(
+            scan<Array<MatrixChange<Value<T, A>>>, [List, Array<Array<number>>, Matrix<Value<T, A>>]>(
                 ([list, indexArray, matrix], changes) => {
                     for (const change of changes) {
                         list = applyChangeToList(
@@ -65,13 +65,13 @@ export function debounceBufferTime<T>(dueTime: number): OperatorFunction<T, Arra
  * requires a updated matrix
  * "applyChangeToMatrix" is required to happen after this execution
  */
-function applyChangeToList<T, List>(
+function applyChangeToList<T, A, List>(
     list: List,
     indexArray: Array<Array<number>>,
-    matrix: Matrix<Value<T>>,
-    change: MatrixChange<Value<T>>,
+    matrix: Matrix<Value<T, A>>,
+    change: MatrixChange<Value<T, A>>,
     copyList: ((list: List) => List) | undefined,
-    addToListAt: (list: List, item: Value<T>, index: number) => void,
+    addToListAt: (list: List, item: Value<T, A>, index: number) => void,
     removeFromListAt: (list: List, index: number) => void
 ): List {
     const result = copyList == null ? list : copyList(list)
@@ -90,7 +90,7 @@ function applyChangeToList<T, List>(
     return result
 }
 
-function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<Value<T>>> {
+function valuesToChanges<T, A>(): OperatorFunction<Value<T, A>, MatrixChange<Value<T, A>>> {
     return (value) =>
         value.pipe(
             mergeMap((value) =>
@@ -104,7 +104,7 @@ function valuesToChanges<T>(): OperatorFunction<Value<T>, MatrixChange<Value<T>>
                           }),
                           value.invalid.observable.pipe(
                               take(1),
-                              mapTo<MatrixChange<Value<T>>>({
+                              mapTo<MatrixChange<Value<T, A>>>({
                                   index: value.index,
                                   type: ChangeType.UNSET,
                               })

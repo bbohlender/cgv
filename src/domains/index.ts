@@ -8,7 +8,7 @@ export type Domain = {
 import { of } from "rxjs"
 import { Operations, simpleExecution } from "../interpreter"
 
-export const defaultOperations: Operations<any> = {
+export const defaultOperations: Operations<any, any> = {
     index: {
         execute: (value) => {
             const index = value.index[value.index.length - 1] ?? 0
@@ -20,6 +20,7 @@ export const defaultOperations: Operations<any> = {
             ])
         },
         includeThis: false,
+        defaultParameters: [],
     },
     select: {
         execute: (value) => {
@@ -37,9 +38,11 @@ export const defaultOperations: Operations<any> = {
             )
         },
         includeThis: true,
+        defaultParameters: [() => ({ type: "raw", value: 1 }), () => ({ type: "raw", value: 2 })],
     },
     random: {
         execute: simpleExecution((min: number, max: number) => of([min + (max - min) * Math.random()])),
         includeThis: false,
+        defaultParameters: [() => ({ type: "raw", value: 0 }), () => ({ type: "raw", value: 1 })],
     },
 }

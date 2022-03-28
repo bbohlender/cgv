@@ -1,9 +1,7 @@
-import { serializeStepString } from "."
 import {
     ParsedBinaryOperator,
     ParsedBracket,
     ParsedGetVariable,
-    ParsedGrammarDefinition,
     ParsedIf,
     ParsedOperation,
     ParsedParallel,

@@ -1,5 +1,5 @@
 import { isEqual, ParsedGrammarDefinition, removeInitialBrackets, replaceSymbolsGrammar, trimSteps } from ".."
-import { ParsedRandom, ParsedSteps, ParsedSwitch } from "../parser"
+import { AbstractParsedSteps, ParsedRandom, ParsedSteps } from "../parser"
 import { serializeStepString } from "../serializer"
 
 //TODO: keep grammar symbol names
@@ -7,20 +7,16 @@ import { serializeStepString } from "../serializer"
 export function summarize(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
     const steps = grammarDefinitions.map(replaceSymbolsGrammar).map(([, steps]) => trimSteps(steps))
     const combinedSteps = combineSteps(steps, combineRandom)
-    return { s1: unifyNestedRandom(combinedSteps as ParsedSteps) }
+    return { s1: unifyNestedRandom(combinedSteps) }
 }
 
-type ParsedStepsSummary = {
-    type: ParsedSteps["type"]
-    identifier?: string | undefined
-    probabilities?: Array<number>
-    cases?: Array<number>
+type SummaryInfo = {
     summarySize: number
     parent?: ParsedStepsSummary
     childrenIndex?: number
-    children?: Array<ParsedStepsSummary>
-    value?: any
 }
+
+type ParsedStepsSummary = AbstractParsedSteps<SummaryInfo>
 
 /**
  * groups the ParsedSteps into groups to then distribute the probability
@@ -39,27 +35,26 @@ export function combineRandom(steps1: ParsedStepsSummary, steps2: ParsedStepsSum
 
 export function unifyNestedRandom(steps: ParsedSteps): ParsedSteps {
     if (steps.type !== "random") {
-        return {
-            ...steps,
-            children: steps.children?.map(unifyNestedRandom),
-        } as ParsedSteps
+        const result = { ...steps }
+        result.children = steps.children?.map(unifyNestedRandom)
+        return result
     }
     const map = new Map<string, [ParsedSteps, number]>()
     for (let i = 0; i < steps.children!.length; i++) {
         const childProbability = steps.probabilities![i]
-        const child = unifyNestedRandom(removeInitialBrackets(steps.children![i] as ParsedSteps)) as ParsedStepsSummary
+        const child = unifyNestedRandom(removeInitialBrackets(steps.children![i]))
         if (child.type === "random") {
             for (let i = 0; i < child.children!.length; i++) {
                 const childOfChild = child.children![i]
                 const probability = child.probabilities![i] * childProbability
-                const key = serializeStepString(childOfChild as ParsedSteps)
+                const key = serializeStepString(childOfChild)
                 const [, currentProbability] = map.get(key) ?? [childOfChild, 0]
-                map.set(key, [childOfChild as ParsedSteps, currentProbability + probability])
+                map.set(key, [childOfChild, currentProbability + probability])
             }
         } else {
-            const key = serializeStepString(child as ParsedSteps)
+            const key = serializeStepString(child)
             const [, currentProbability] = map.get(key) ?? [child, 0]
-            map.set(key, [child as ParsedSteps, currentProbability + childProbability])
+            map.set(key, [child, currentProbability + childProbability])
         }
     }
     const results = Array.from(map.values())
@@ -108,13 +103,14 @@ function replace(steps: ParsedStepsSummary, replaceWith: ParsedStepsSummary): Pa
 }
 
 export function toSummary(steps: ParsedSteps, parent?: ParsedStepsSummary, childrenIndex?: number): ParsedStepsSummary {
-    const result: ParsedStepsSummary = {
-        ...steps,
-        summarySize: 1,
-        children: undefined,
-        parent,
-        childrenIndex,
-    }
+    const result = Object.assign<ParsedSteps, SummaryInfo & { children?: any }>(
+        { ...steps },
+        {
+            summarySize: 1,
+            parent,
+            childrenIndex,
+        }
+    )
     result.children = steps.children?.map((child, index) => toSummary(child, result, index))
     return result
 }
@@ -153,7 +149,7 @@ function combineRecursively(
     }
     const root1 = getRoot(summary1)
     const root2 = getRoot(summary2)
-    if (isEqual(root1 as ParsedSteps, root2 as ParsedSteps)) {
+    if (isEqual(root1, root2)) {
         return root1
     }
     combineAndReplace(root1, root2)
@@ -173,10 +169,7 @@ function combineWithSet(
     const foreignEntries = foreignMap.get(mainEntry.type)
     if (foreignEntries != null) {
         for (const foreignEntry of foreignEntries) {
-            if (
-                isEqual(foreignEntry as ParsedSteps, mainEntry as ParsedSteps) ||
-                !stepsMatchable(foreignEntry, mainEntry)
-            ) {
+            if (isEqual(foreignEntry, mainEntry) || !stepsMatchable(foreignEntry, mainEntry)) {
                 continue
             }
 
@@ -205,7 +198,7 @@ function combineTwoSteps(
 
     for (const [child1, i1] of childSet1) {
         for (const [child2, i2] of childSet2) {
-            if (isPotentialMatch(parent1, i1, parent2, i2) && isEqual(child1 as ParsedSteps, child2 as ParsedSteps)) {
+            if (isPotentialMatch(parent1, i1, parent2, i2) && isEqual(child1, child2)) {
                 childSet1.delete(child1)
                 childSet2.delete(child2)
 
@@ -258,10 +251,10 @@ function combineTwoSteps(
         switch (parent1.type) {
             case "random":
                 if (step1 != null && index1 != null) {
-                    addRandomChild(step1, index1, parent1 as ParsedRandom, parent2 as ParsedRandom)
+                    addRandomChild(step1, index1, parent1, parent2 as typeof parent1)
                 }
                 if (step2 != null && index2 != null) {
-                    addRandomChild(step2, index2, parent2 as ParsedRandom, parent1 as ParsedRandom)
+                    addRandomChild(step2, index2, parent2 as typeof parent1, parent1)
                 }
                 break
             default:
@@ -283,8 +276,8 @@ function isPotentialMatch(parent1: ParsedStepsSummary, index1: number, parent2: 
         case "random":
             return true
         case "switch": {
-            const cases1 = (parent1 as ParsedSwitch).cases
-            const cases2 = (parent2 as ParsedSwitch).cases
+            const cases1 = parent1.cases
+            const cases2 = (parent2 as typeof parent1).cases
             return cases1[index1 - 1] === cases2[index2 - 1]
         }
         case "add":
@@ -302,26 +295,26 @@ function isPotentialMatch(parent1: ParsedStepsSummary, index1: number, parent2: 
 
 function addRandomChild(steps: ParsedStepsSummary, index: number, mainParent: ParsedRandom, otherParent: ParsedRandom) {
     const probability = mainParent.probabilities[index]
-    otherParent.children!.push(steps as ParsedSteps)
+    otherParent.children!.push(steps)
     otherParent.probabilities.push(probability * 0.5)
 }
 
 /**
  * compares everything except for the children of the steps
  */
-function stepsMatchable(element1: ParsedStepsSummary, element2: any) {
+function stepsMatchable(element1: ParsedStepsSummary, element2: ParsedStepsSummary) {
     switch (element1.type) {
         case "operation":
         case "getVariable":
         case "setVariable":
         case "symbol":
-            return element1.identifier === element2.identifier
+            return element1.identifier === (element2 as typeof element1).identifier
         case "raw":
-            return element1.value === element2.value
+            return element1.value === (element2 as typeof element1).value
         case "if": //same condition
-            return isEqual(element1.children![0] as ParsedSteps, element2.children[0] as ParsedSteps)
+            return isEqual(element1.children[0], (element2 as typeof element1).children[0])
         case "switch": //same switch value
-            return element1.children![0] === element2.children[0]
+            return element1.children[0] === (element2 as typeof element1).children[0]
         default:
             return true
     }

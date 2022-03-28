@@ -1,5 +1,5 @@
 import { ParsedGrammarDefinition, ParsedSteps, serializeSteps } from "cgv"
-import { MouseEvent, useMemo, useRef } from "react"
+import { MouseEvent, useEffect, useMemo, useRef, useState } from "react"
 import { State, useStore } from "../pages/editor"
 
 //TODO: parsedSteps with additional information (for the editor we need the subject to change a constant, for the summarizer we need parent & childrenIndex info)
@@ -20,6 +20,7 @@ export function Grammar({ value }: { value: ParsedGrammarDefinition }) {
 
 function Steps({ value }: { value: ParsedSteps }): JSX.Element {
     const ref = useRef<HTMLSpanElement>(null)
+    const [, update] = useState(0)
     const { onEndHover, onStartHover, select } = useMemo(() => {
         const { onEndHover, onStartHover, select } = useStore.getState()
         return {
@@ -27,7 +28,10 @@ function Steps({ value }: { value: ParsedSteps }): JSX.Element {
             onStartHover: onStartHover.bind(null, value),
             select: (e: MouseEvent) => {
                 if (e.target === ref.current) {
-                    select(value)
+                    select(
+                        value,
+                        () => update((x) => x + 1) //just to rerender this
+                    )
                 }
             },
         }
@@ -49,7 +53,7 @@ function Steps({ value }: { value: ParsedSteps }): JSX.Element {
 }
 
 function computeCssClassName(steps: ParsedSteps, { hovered, selected }: State): string | undefined {
-    if (selected === steps) {
+    if (selected?.steps === steps) {
         return "selected"
     }
     if (hovered.length > 0 && hovered[hovered.length - 1] === steps) {
