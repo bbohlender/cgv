@@ -185,7 +185,7 @@ export const operations: Operations<any, any> = {
     color: {
         execute: simpleExecution<any, unknown>(computeColorChange),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 0xff0000 })],
+        defaultParameters: [() => ({ type: "raw", value: "#ff0000" })],
     },
     size: {
         execute: simpleExecution<any, unknown>(computeSize),

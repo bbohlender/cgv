@@ -92,6 +92,7 @@ describe("editor", () => {
             {
                 type: "this",
             },
+            {},
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()

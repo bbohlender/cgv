@@ -1,59 +1,105 @@
-import { ParsedGrammarDefinition, ParsedSteps, serializeSteps } from "cgv"
-import { MouseEvent, useEffect, useMemo, useRef, useState } from "react"
+import { HierarchicalParsedSteps, serializeSteps, serializeStepString, shallowEqual } from "cgv"
+import { MouseEvent, useMemo, useRef } from "react"
 import { State, useStore } from "../pages/editor"
+import { operationGuiMap } from "./gui"
 
 //TODO: parsedSteps with additional information (for the editor we need the subject to change a constant, for the summarizer we need parent & childrenIndex info)
 
-export function Grammar({ value }: { value: ParsedGrammarDefinition }) {
-    //TODO: make provider that handles hover and onClick
+export function Grammar() {
+    const nouns = useStore(({ grammar }) => Object.keys(grammar), shallowEqual)
     return (
         <>
-            {Object.entries(value).map(([symbol, step], i) => (
-                <p key={i}>
-                    {`${symbol} -> `}
-                    <Steps value={step} />
-                </p>
+            {nouns.map((noun) => (
+                <InteractableSteps key={noun} path={[noun]} />
             ))}
         </>
     )
 }
 
-function Steps({ value }: { value: ParsedSteps }): JSX.Element {
+function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>], { grammar }: State) {
+    if (indices.length === 0) {
+        return noun
+    }
+    let current: HierarchicalParsedSteps | undefined = grammar[noun]
+    for (const index of indices.slice(1)) {
+        if (current?.children == null) {
+            return undefined
+        }
+        current = current.children[index]
+    }
+    return current
+}
+
+function Steps({ path }: { path: [noun: string, ...indices: Array<number>] }): JSX.Element | null {
+    return useStore((state) => {
+        const step = selectStep(path, state)
+        if (step == null || typeof step == "string") {
+            return null
+        }
+        return <>{serializeStepString(step)}</>
+    })
+}
+
+function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<number>] }): JSX.Element | null {
     const ref = useRef<HTMLSpanElement>(null)
-    const [, update] = useState(0)
-    const { onEndHover, onStartHover, select } = useMemo(() => {
+    const value = useStore(selectStep.bind(null, path))
+    const mutations = useMemo(() => {
+        if (value == null) {
+            return undefined
+        }
         const { onEndHover, onStartHover, select } = useStore.getState()
         return {
             onEndHover: onEndHover.bind(null, value),
             onStartHover: onStartHover.bind(null, value),
             select: (e: MouseEvent) => {
                 if (e.target === ref.current) {
-                    select(
-                        value,
-                        () => update((x) => x + 1) //just to rerender this
-                    )
+                    select(value)
                 }
             },
         }
     }, [value])
-    const cssClassName = useStore(useMemo(() => computeCssClassName.bind(null, value), [value]))
+    const Substep = useMemo(() => {
+        if (
+            value == null ||
+            typeof value == "string" ||
+            value.type != "operation" ||
+            operationGuiMap[value.identifier] == null
+        ) {
+            return InteractableSteps
+        }
+        return Steps
+    }, [value])
+    const cssClassName = useStore(value == null ? () => "" : computeCssClassName.bind(null, value))
+    if (value == null || mutations == null) {
+        return null
+    }
     return (
-        <span ref={ref} onClick={select} onMouseLeave={onEndHover} onMouseEnter={onStartHover} className={cssClassName}>
-            {serializeSteps<JSX.Element>(
-                value,
-                (child, i) => (
-                    <Steps key={i} value={child} />
-                ),
-                (...values) => (
-                    <>{values}</>
+        <span
+            ref={ref}
+            onClick={mutations.select}
+            onMouseLeave={mutations.onEndHover}
+            onMouseEnter={mutations.onStartHover}
+            className={cssClassName}>
+            {typeof value === "string" ? (
+                <>
+                    {`${value} -> `} <Substep path={[...path, 0]} />
+                </>
+            ) : (
+                serializeSteps<JSX.Element>(
+                    value,
+                    (_, i) => <Substep key={i} path={[...path, i]} />,
+                    (...values) => <>{values}</>
                 )
             )}
         </span>
     )
 }
 
-function computeCssClassName(steps: ParsedSteps, { hovered, selected }: State): string | undefined {
-    if (selected?.steps === steps) {
+function computeCssClassName(
+    steps: HierarchicalParsedSteps | string,
+    { hovered, selected }: State
+): string | undefined {
+    if (selected === steps) {
         return "selected"
     }
     if (hovered.length > 0 && hovered[hovered.length - 1] === steps) {

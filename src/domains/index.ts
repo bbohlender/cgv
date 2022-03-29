@@ -40,7 +40,7 @@ export const defaultOperations: Operations<any, any> = {
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 1 }), () => ({ type: "raw", value: 2 })],
     },
-    random: {
+    randomFloat: {
         execute: simpleExecution((min: number, max: number) => of([min + (max - min) * Math.random()])),
         includeThis: false,
         defaultParameters: [() => ({ type: "raw", value: 0 }), () => ({ type: "raw", value: 1 })],

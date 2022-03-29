@@ -1,7 +1,8 @@
-import { serializeString, parse } from "cgv"
-import { KeyboardEvent } from "react"
+import { KeyboardEvent, useState } from "react"
+import { useStore } from "../pages/editor"
 
-export function TextEditor({ text, setText }: { text: string; setText: (text: string) => void }) {
+export function TextEditor() {
+    const [text, setText] = useState("")
     return (
         <div className="flex-grow-1 d-flex position-relative">
             <textarea
@@ -16,8 +17,8 @@ export function TextEditor({ text, setText }: { text: string; setText: (text: st
             <button
                 className="btn btn-secondary"
                 style={{ position: "absolute", right: "1rem", bottom: "1rem" }}
-                onClick={() => setText(serializeString(parse(text)))}>
-                Format
+                onClick={() => {}}>
+                Done
             </button>
         </div>
     )

@@ -1,7 +1,9 @@
-import { ParsedSteps, Operations } from ".."
+import { ParsedSteps, Operations, toHierachicalSteps } from ".."
+import { ParsedGrammarDefinition } from "../parser"
+import { HierarchicalParsedGrammarDefinition } from "../util"
 
 export type StepDescriptor =
-    | { type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }
+    | { type: Exclude<ParsedSteps["type"], "operation"> }
     | { type: "operation"; identifier: string }
 
 const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }> = [
@@ -40,7 +42,20 @@ export function getAllStepDescriptors(operations: Operations<any, any>): Array<S
     ]
 }
 
-export function getDefaultStep<T, A>(descriptor: StepDescriptor, operations: Operations<T, A>): ParsedSteps {
+function findFreeSymbolName(grammar: ParsedGrammarDefinition): string {
+    let i = 1
+    let name: string
+    while ((name = `symbol${i}`) in grammar) {
+        i++
+    }
+    return name
+}
+
+export function createDefaultStep<T, A>(
+    descriptor: StepDescriptor,
+    operations: Operations<T, A>,
+    grammar: HierarchicalParsedGrammarDefinition
+): ParsedSteps {
     const children = getDefaultChildren(descriptor, operations)
     switch (descriptor.type) {
         case "random":
@@ -77,6 +92,15 @@ export function getDefaultStep<T, A>(descriptor: StepDescriptor, operations: Ope
                 identifier: "x",
                 children: children! as [ParsedSteps],
             }
+        case "symbol": {
+            const identifier = findFreeSymbolName(grammar)
+            const step: ParsedSteps = {
+                type: "symbol",
+                identifier,
+            }
+            grammar[identifier] = toHierachicalSteps({ type: "sequential", children: [] }, identifier)
+            return step
+        }
         default:
             return {
                 type: descriptor.type,
@@ -108,7 +132,7 @@ const binaryBooleanOperationChildren: Array<() => ParsedSteps> = [
 ]
 
 const defaultChildrenMap: {
-    [T in Exclude<ParsedSteps["type"], "operation" | "symbol">]: Array<() => ParsedSteps> | undefined
+    [T in Exclude<ParsedSteps["type"], "operation">]: Array<() => ParsedSteps> | undefined
 } = {
     add: binaryNumberOperationChildren,
     multiply: binaryNumberOperationChildren,
@@ -166,6 +190,7 @@ const defaultChildrenMap: {
     getVariable: undefined,
     parallel: [],
     raw: undefined,
+    symbol: undefined,
     sequential: [],
 }
 

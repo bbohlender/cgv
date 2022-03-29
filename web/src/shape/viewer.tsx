@@ -50,7 +50,7 @@ export function Viewer<A>({ value }: { value: Observable<Value<Primitive, A>> | 
                                 useStore.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
                             }
                             onPointerDown={(e) =>
-                                useStore.getState().select(e.object.userData[e.object.userData.length - 1], () => {})
+                                useStore.getState().select(e.object.userData[e.object.userData.length - 1])
                             }
                             scale={0.01}>
                             <primitive object={object} />

@@ -1,8 +1,15 @@
-import { HierarchicalParsedSteps, ParsedSteps } from ".."
-import { Operations } from "../interpreter"
-import { AbstractParsedSymbol, ParsedGrammarDefinition } from "../parser"
-import { HierarchicalInfo, HierarchicalParsedGrammarDefinition, toHierachicalSteps } from "../util"
-import { getDefaultChildAtIndex, getDefaultStep, StepDescriptor } from "./default-step"
+import {
+    HierarchicalParsedSteps,
+    ParsedSteps,
+    Operations,
+    AbstractParsedSymbol,
+    HierarchicalInfo,
+    HierarchicalParsedGrammarDefinition,
+    toHierachicalSteps,
+} from ".."
+import { createDefaultStep, getDefaultChildAtIndex, StepDescriptor } from "./default-step"
+
+//TODO: prevent removing last noun
 
 export function remove<T, A>(
     at: HierarchicalParsedSteps | string,
@@ -20,7 +27,7 @@ export function remove<T, A>(
 
     //remove root of noun and replace with empty sequence
     if (at.childrenIndex == null) {
-        replace(
+        replaceStep(
             at,
             {
                 type: "this",
@@ -42,7 +49,7 @@ export function remove<T, A>(
                     `unable to find more then one distinct child when removing a child from a ${at.parent.type} step`
                 )
             }
-            replace(at.parent, otherChild, grammar)
+            replaceStep(at.parent, otherChild, grammar)
             return
         }
         case "symbol":
@@ -68,7 +75,7 @@ export function remove<T, A>(
             at.parent.children![i].childrenIndex! = i
         }
     } else {
-        replace(at, defaultChild, grammar)
+        replaceStep(at, defaultChild, grammar)
     }
 }
 
@@ -90,6 +97,15 @@ function findSymbolsWithIdentifier(
 }
 
 export function replace(
+    at: HierarchicalParsedSteps,
+    descriptor: StepDescriptor,
+    operations: Operations<any, any>,
+    grammar: HierarchicalParsedGrammarDefinition
+) {
+    return replaceStep(at, createDefaultStep(descriptor, operations, grammar), grammar)
+}
+
+export function replaceStep(
     at: HierarchicalParsedSteps,
     replaceWith: ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
@@ -122,9 +138,7 @@ export function rename(at: string, renameWith: string, grammar: HierarchicalPars
     }
 }
 
-export type AddStepDescription = StepDescriptor | { type: "symbol" }
-
-export function getLabel(descriptor: AddStepDescription) {
+export function getLabel(descriptor: StepDescriptor) {
     if (descriptor.type === "operation") {
         return descriptor.identifier
     }
@@ -134,37 +148,8 @@ export function getLabel(descriptor: AddStepDescription) {
 export function add(
     position: "before" | "after" | "parallel",
     at: HierarchicalParsedSteps | string,
-    descriptor: AddStepDescription,
+    descriptor: StepDescriptor,
     operations: Operations<any, any>,
-    grammar: HierarchicalParsedGrammarDefinition
-): HierarchicalParsedSteps {
-    let step: ParsedSteps
-    if (descriptor.type === "symbol") {
-        const identifier = findFreeSymbolName(grammar)
-        step = {
-            type: "symbol",
-            identifier,
-        }
-        grammar[identifier] = toHierachicalSteps({ type: "sequential", children: [] }, identifier)
-    } else {
-        step = getDefaultStep(descriptor, operations)
-    }
-    return addStep(position, at, step, grammar)
-}
-
-function findFreeSymbolName(grammar: ParsedGrammarDefinition): string {
-    let i = 1
-    let name: string
-    while ((name = `symbol${i}`) in grammar) {
-        i++
-    }
-    return name
-}
-
-function addStep(
-    position: "after" | "parallel" | "before",
-    at: HierarchicalParsedSteps | string,
-    step: ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
 ): HierarchicalParsedSteps {
     const type = position === "parallel" ? "parallel" : "sequential"
@@ -172,8 +157,10 @@ function addStep(
         if (!(at in grammar)) {
             throw new Error(`noun "${at}" does not exisits`)
         }
-        return addStep(position, grammar[at], step, grammar)
+        return add(position, grammar[at], descriptor, operations, grammar)
     }
+
+    const step = createDefaultStep(descriptor, operations, grammar)
 
     if (at.childrenIndex != null && at.parent.type === type) {
         const index = at.childrenIndex! + (position == "before" ? 0 : 1)
@@ -190,6 +177,8 @@ function addStep(
             type,
             children: position === "before" ? [step, at] : [at, step],
         }
-        return replace(at, newParent, grammar)
+        return replaceStep(at, newParent, grammar)
     }
 }
+
+export * from "./default-step"
