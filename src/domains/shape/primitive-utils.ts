@@ -7,24 +7,13 @@ const vectorHelper = new Vector3()
 const moveVector = new Vector3()
 const matrixHelper = new Matrix4()
 
-export enum Axis {
-    X,
-    Y,
-    Z,
-}
-
-const axisKey: { [axis in Axis]: "x" | "y" | "z" } = {
-    [Axis.X]: "x",
-    [Axis.Y]: "y",
-    [Axis.Z]: "z",
-}
-
+export type Axis = "x" | "y" | "z"
 export function getValueOnAxis(vector: Vector3, axis: Axis): number {
-    return vector[axisKey[axis]]
+    return vector[axis]
 }
 
 function setValueOnAxis(vector: Vector3, axis: Axis, value: number): void {
-    vector[axisKey[axis]] = value
+    vector[axis] = value
 }
 
 const restSize = new Vector3()

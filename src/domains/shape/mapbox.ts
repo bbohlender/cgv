@@ -1,5 +1,5 @@
 import { of } from "rxjs"
-import { Color, Matrix4, Shape, Vector2 } from "three"
+import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
 import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, LinePrimitive, Primitive } from "."
 
 //https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/16/33196/22545.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
@@ -83,8 +83,8 @@ function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
                                 const p2 = geoemtry[(i + 1) % geoemtry.length]
                                 return LinePrimitive.fromPoints(
                                     new Matrix4(),
-                                    new Vector2(p1.x, p1.y),
-                                    new Vector2(p2.x, p2.y),
+                                    new Vector3(p1.x, 0, p1.y),
+                                    new Vector3(p2.x, 0, p2.y),
                                     redMaterialGenerator
                                 )
                             })

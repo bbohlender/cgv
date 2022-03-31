@@ -1,6 +1,7 @@
 import { getAllStepDescriptors, getLabel, StepDescriptor } from "cgv"
 import { operations } from "cgv/domains/shape"
 import { useMemo, useState } from "react"
+import { CloseIcon } from "./icons/close"
 
 const stepDescriptors = getAllStepDescriptors(operations)
     .filter(({ type }) => type != "parallel" && type != "sequential")
@@ -11,7 +12,10 @@ const stepDescriptors = getAllStepDescriptors(operations)
 
 export function StepDescriptorDialog({ onSelected }: { onSelected: (descriptor: StepDescriptor | undefined) => void }) {
     const [filter, setFilter] = useState("")
-    const filteredDescriptors = useMemo(() => stepDescriptors.filter(({ label }) => label.startsWith(filter)), [filter])
+    const filteredDescriptors = useMemo(
+        () => stepDescriptors.filter(({ label }) => label.toLocaleLowerCase().startsWith(filter.toLocaleLowerCase())),
+        [filter]
+    )
     return (
         <div
             className="position-absolute d-flex flex-column align-items-center overflow-hidden"
@@ -28,13 +32,15 @@ export function StepDescriptorDialog({ onSelected }: { onSelected: (descriptor: 
                         }
                         autoFocus
                         type="text"
-                        className="form-control"
+                        className="form-control form-control-sm"
                         onChange={(e) => setFilter(e.target.value)}
                         value={filter}
                         placeholder="Search"
                     />
-                    <button className="ms-3 btn btn-outline-secondary" onClick={onSelected.bind(null, undefined)}>
-                        Cancel
+                    <button
+                        className="d-flex align-items-center ms-3 btn btn-sm btn-outline-secondary"
+                        onClick={onSelected.bind(null, undefined)}>
+                        <CloseIcon />
                     </button>
                 </div>
                 <div className="d-flex flex-column" style={{ overflowY: "auto" }}>

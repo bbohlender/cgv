@@ -41,10 +41,7 @@ function computeLine(...points: ReadonlyArray<Primitive>): Observable<Array<Prim
     if (points.length < 2) {
         return of([])
     }
-    const [p1, p2] = points.map((point) => {
-        helperVector.setFromMatrixPosition(point.matrix)
-        return new Vector2(helperVector.x, helperVector.z)
-    })
+    const [p1, p2] = points.map((point) => new Vector3().setFromMatrixPosition(point.matrix))
     return of([LinePrimitive.fromPoints(new Matrix4(), p1, p2, redMaterialGenerator)])
 }
 
@@ -90,11 +87,11 @@ function computeComponents(
     return of(components)
 }
 
-function computeSplit(axis: Axis, instance: Primitive, at: number, limit?: number): Observable<Array<Primitive>> {
+function computeSplit(instance: Primitive, axis: Axis, at: number, limit?: number): Observable<Array<Primitive>> {
     const splits = Split(instance, axis, (matrix, index, x, y, z) => {
         if (limit == null || index < limit) {
-            const sizeX = axis === Axis.X ? Math.min(at, x) : x
-            const sizeZ = axis === Axis.Z ? Math.min(at, z) : z
+            const sizeX = axis === "x" ? Math.min(at, x) : x
+            const sizeZ = axis === "z" ? Math.min(at, z) : z
             return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.materialGenerator)
         } else {
             return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.materialGenerator)
@@ -103,10 +100,10 @@ function computeSplit(axis: Axis, instance: Primitive, at: number, limit?: numbe
     return of(splits)
 }
 
-function computeMultiSplit(axis: Axis, instance: Primitive, ...distances: Array<number>): Observable<Array<Primitive>> {
+function computeMultiSplit(instance: Primitive, axis: Axis, ...distances: Array<number>): Observable<Array<Primitive>> {
     const splits = Split(instance, axis, (matrix, index, x, y, z) => {
-        const sizeX = axis === Axis.X && distances[index] != null ? Math.min(distances[index], x) : x
-        const sizeZ = axis === Axis.Z && distances[index] != null ? Math.min(distances[index], z) : z
+        const sizeX = axis === "x" && distances[index] != null ? Math.min(distances[index], x) : x
+        const sizeZ = axis === "z" && distances[index] != null ? Math.min(distances[index], z) : z
 
         return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.materialGenerator)
     })
@@ -147,25 +144,15 @@ export const operations: Operations<any, any> = {
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 100 })],
     },
-    splitX: {
-        execute: simpleExecution<any, unknown>(computeSplit.bind(null, Axis.X)),
+    split: {
+        execute: simpleExecution<any, unknown>(computeSplit),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 10 })],
+        defaultParameters: [() => ({ type: "raw", value: "x" }), () => ({ type: "raw", value: 10 })],
     },
-    splitZ: {
-        execute: simpleExecution<any, unknown>(computeSplit.bind(null, Axis.Z)),
+    multiSplit: {
+        execute: simpleExecution<any, unknown>(computeMultiSplit),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 10 })],
-    },
-    multiSplitX: {
-        execute: simpleExecution<any, unknown>(computeMultiSplit.bind(null, Axis.X)),
-        includeThis: true,
-        defaultParameters: [],
-    },
-    multiSplitZ: {
-        execute: simpleExecution<any, unknown>(computeMultiSplit.bind(null, Axis.Z)),
-        includeThis: true,
-        defaultParameters: [],
+        defaultParameters: [() => ({ type: "raw", value: "x" })],
     },
     toPoints: {
         execute: simpleExecution<any, unknown>(computeComponents.bind(null, "points")),
@@ -209,7 +196,26 @@ export const operations: Operations<any, any> = {
     line: {
         execute: simpleExecution<any, unknown>(computeLine),
         includeThis: false,
-        defaultParameters: [],
+        defaultParameters: [
+            () => ({
+                type: "operation",
+                identifier: "point",
+                children: [
+                    { type: "raw", value: 0 },
+                    { type: "raw", value: 0 },
+                    { type: "raw", value: 0 },
+                ],
+            }),
+            () => ({
+                type: "operation",
+                identifier: "point",
+                children: [
+                    { type: "raw", value: 100 },
+                    { type: "raw", value: 0 },
+                    { type: "raw", value: 0 },
+                ],
+            }),
+        ],
     },
     face: {
         execute: simpleExecution<any, unknown>(computeFace),

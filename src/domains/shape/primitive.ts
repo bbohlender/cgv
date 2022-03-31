@@ -170,14 +170,14 @@ export class LinePrimitive extends Primitive {
 
     static fromPoints(
         matrix: Matrix4,
-        p1: Vector2,
-        p2: Vector2,
+        p1: Vector3,
+        p2: Vector3,
         materialGenerator: (type: ObjectType) => Material
     ): LinePrimitive {
-        matrix.multiply(makeTranslationMatrix(p1.x, 0, p1.y))
-        vec2Helper.copy(p2).sub(p1)
-        const length = vec2Helper.length()
-        matrix.multiply(computeDirectionMatrix(helperVector.set(vec2Helper.x, 0, vec2Helper.y).normalize(), YAXIS))
+        matrix.multiply(makeTranslationMatrix(p1.x, p1.y, p1.z))
+        helperVector.copy(p2).sub(p1)
+        const length = helperVector.length()
+        matrix.multiply(computeDirectionMatrix(helperVector.normalize(), YAXIS))
         return new LinePrimitive(matrix, length, materialGenerator)
     }
 
@@ -327,14 +327,15 @@ export class FacePrimitive extends Primitive {
                     )
             case "lines": {
                 const points = this.shape.extractPoints(5).shape
-                return points.map((point, i) =>
-                    LinePrimitive.fromPoints(
+                return points.map((point, i) => {
+                    const nextPoint = points[(i + 1) % points.length]
+                    return LinePrimitive.fromPoints(
                         this.matrix.clone(),
-                        point,
-                        points[(i + 1) % points.length],
+                        new Vector3(point.x, 0, point.y),
+                        new Vector3(nextPoint.x, 0, nextPoint.y),
                         this.materialGenerator
                     )
-                )
+                })
             }
             case "faces":
                 return [this]

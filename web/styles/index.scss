@@ -4,6 +4,10 @@ a {
     text-decoration: none;
 }
 
+.min-w-0 {
+    min-width: 0;
+}
+
 .flex-basis-0 {
     min-width: 0 !important;
     min-height: 0 !important;
@@ -11,7 +15,7 @@ a {
 }
 
 .text-editor {
-    font-size: 2rem;
+    font-size: 1.4rem;
     font-family: monospace;
 }
 

@@ -7,9 +7,13 @@ import {
     HierarchicalParsedGrammarDefinition,
     toHierachicalSteps,
 } from ".."
+import { AbstractParsedParallel, AbstractParsedSequantial, ParsedParallel, ParsedSequantial } from "../parser"
+import { toHierachical } from "../util"
 import { createDefaultStep, getDefaultChildAtIndex, StepDescriptor } from "./default-step"
 
-//TODO: prevent removing last noun
+export function createBaseGrammar(): HierarchicalParsedGrammarDefinition {
+    return toHierachical({ Start: { type: "this" } })
+}
 
 export function remove<T, A>(
     at: HierarchicalParsedSteps | string,
@@ -19,8 +23,13 @@ export function remove<T, A>(
     //remove noun from grammar
     if (typeof at === "string") {
         delete grammar[at]
-        for (const value of Object.values(grammar)) {
-            findSymbolsWithIdentifier(value, at, (step) => remove(step, operations, grammar))
+        const rootSteps = Object.values(grammar)
+        if (rootSteps.length > 0) {
+            for (const value of rootSteps) {
+                findSymbolsWithIdentifier(value, at, (step) => remove(step, operations, grammar))
+            }
+        } else {
+            Object.assign(grammar, createBaseGrammar())
         }
         return
     }
@@ -173,11 +182,15 @@ export function add(
 
         return insert
     } else {
-        const newParent: ParsedSteps = {
-            type,
-            children: position === "before" ? [step, at] : [at, step],
-        }
-        return replaceStep(at, newParent, grammar)
+        const newParent = replaceStep(
+            at,
+            {
+                type,
+                children: position === "before" ? [step, at] : [at, step],
+            },
+            grammar
+        ) as AbstractParsedSequantial<HierarchicalInfo> | AbstractParsedParallel<HierarchicalInfo>
+        return newParent.children[position === "before" ? 0 : 1]
     }
 }
 

@@ -1,0 +1,26 @@
+import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
+import { useStore } from "../../../global"
+
+export function GUIColorStep({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
+    const raw = value.children[0].type === "raw" ? value.children[0].value : undefined
+    const store = useStore()
+    return (
+        <input
+            value={raw ?? 0xff0000}
+            type="color"
+            className="mx-3 mb-3 w-auto form-control form-control-sm"
+            onChange={(e) =>
+                store.getState().change(value, {
+                    type: "operation",
+                    identifier: "color",
+                    children: [
+                        {
+                            type: "raw",
+                            value: e.target.value,
+                        },
+                    ],
+                })
+            }
+        />
+    )
+}
