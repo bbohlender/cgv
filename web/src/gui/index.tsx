@@ -1,6 +1,6 @@
 import { AbstractParsedOperation, getLabel, HierarchicalInfo, HierarchicalParsedSteps } from "cgv"
 import { HTMLProps } from "react"
-import { useStore } from "../global"
+import { useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
 import { GUINounStep } from "./noun"
@@ -12,7 +12,7 @@ export type OperationGUIMap = {
 }
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
-    const store = useStore()
+    const store = useBaseStore()
     const selected = store(({ selected }) => selected)
     if (selected == null) {
         return null

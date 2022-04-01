@@ -1,10 +1,10 @@
 import { HTMLProps, KeyboardEvent } from "react"
 import { ErrorMessage } from "../error-message"
-import { useStore } from "../global"
+import { useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 
 export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
-    const store = useStore()
+    const store = useBaseStore()
     const isTui = store(({ type }) => type === "tui")
     const text = store(({ text }) => text)
     const parseError = store(({ parseError }) => parseError)
@@ -48,7 +48,7 @@ function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>, setText: (text: string
         // tab was pressed
 
         // get caret position/selection
-        var val = e.currentTarget.value,
+        const val = e.currentTarget.value,
             start = e.currentTarget.selectionStart,
             end = e.currentTarget.selectionEnd
 

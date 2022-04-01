@@ -1,15 +1,14 @@
 import { HierarchicalParsedSteps, serializeSteps, serializeStepString, shallowEqual } from "cgv"
 import { HTMLProps, MouseEvent, useMemo, useRef } from "react"
-import { useGlobal } from "../global"
-import { useStore, useStoreState } from "../global"
-import { CheckIcon } from "../icons/check"
+import { useBaseGlobal } from "../global"
+import { useBaseStore, useBaseStoreState } from "../global"
 import { EditIcon } from "../icons/edit"
-import { State } from "../state"
+import { BaseState } from "../base-state"
 
 //TODO: parsedSteps with additional information (for the editor we need the subject to change a constant, for the summarizer we need parent & childrenIndex info)
 
 export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
-    const store = useStore()
+    const store = useBaseStore()
     const isGui = store(({ type }) => type === "gui")
     const nouns = store(({ grammar }) => Object.keys(grammar), shallowEqual)
     if (!isGui) {
@@ -30,7 +29,7 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>], { grammar }: State) {
+function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>], { grammar }: BaseState) {
     if (indices.length === 0) {
         return noun
     }
@@ -45,7 +44,7 @@ function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>
 }
 
 function Steps({ path }: { path: [noun: string, ...indices: Array<number>] }): JSX.Element | null {
-    return useStoreState((state) => {
+    return useBaseStoreState((state) => {
         const step = selectStep(path, state)
         if (step == null || typeof step == "string") {
             return null
@@ -56,7 +55,7 @@ function Steps({ path }: { path: [noun: string, ...indices: Array<number>] }): J
 
 function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<number>] }): JSX.Element | null {
     const ref = useRef<HTMLSpanElement>(null)
-    const store = useStore()
+    const store = useBaseStore()
     const value = store(selectStep.bind(null, path))
     const mutations = useMemo(() => {
         if (value == null) {
@@ -73,7 +72,7 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
             },
         }
     }, [store, value])
-    const { operationGuiMap } = useGlobal()
+    const { operationGuiMap } = useBaseGlobal()
     const Substep = useMemo(() => {
         if (
             value == null ||
@@ -100,6 +99,7 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
                 <>
                     {`${value} -> `} <Substep path={[...path, 0]} />
                     <br />
+                    <br />
                 </>
             ) : (
                 serializeSteps<JSX.Element>(
@@ -114,7 +114,7 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
 
 function computeCssClassName(
     steps: HierarchicalParsedSteps | string,
-    { hovered, selected }: State
+    { hovered, selected }: BaseState
 ): string | undefined {
     if (selected === steps) {
         return "selected"

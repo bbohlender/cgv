@@ -33,7 +33,7 @@ const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation"> }> =
     { type: "switch" },
     { type: "this" },
     { type: "unequal" },
-    { type: "symbol" }
+    { type: "symbol" },
 ]
 
 export function getAllStepDescriptors(operations: Operations<any, any>): Array<StepDescriptor> {

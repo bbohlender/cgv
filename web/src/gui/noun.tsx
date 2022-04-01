@@ -1,8 +1,8 @@
 import { BlurInput } from "./blur-input"
-import { useStore } from "../global"
+import { useBaseStore } from "../global"
 
 export function GUINounStep({ value }: { value: string }) {
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <BlurInput
             value={value}

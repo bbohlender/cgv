@@ -27,11 +27,11 @@ export function createPhongMaterialGenerator(color: Color): MaterialGenerator {
     return (type) => {
         switch (type) {
             case ObjectType.Point:
-                return new PointsMaterial({ color })
+                return new PointsMaterial({ toneMapped: false, color })
             case ObjectType.Line:
-                return new LineBasicMaterial({ color })
+                return new LineBasicMaterial({ toneMapped: false, color })
             case ObjectType.Mesh:
-                return new MeshPhongMaterial({ color })
+                return new MeshPhongMaterial({ toneMapped: false, color })
         }
     }
 }

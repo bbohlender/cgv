@@ -1,34 +1,33 @@
-import { Operations, createBaseGrammar } from "cgv"
-import { createContext, HTMLProps, PropsWithChildren, useContext, useMemo } from "react"
-import { StateSelector, EqualityChecker } from "zustand"
+import { Operations } from "cgv"
+import { createContext, HTMLProps, PropsWithChildren, useContext } from "react"
+import { StateSelector, EqualityChecker, UseBoundStore } from "zustand"
 import { OperationGUIMap } from "./gui"
-import { createStore, State } from "./state"
+import { BaseState, BaseStateFunctions } from "./base-state"
 
-type DomainContext = {
+export type BaseDomainContext<T> = {
     operationGuiMap: OperationGUIMap
     Viewer: (props: HTMLProps<HTMLDivElement>) => JSX.Element
-    store: UseStore
+    store: UseBaseStore<T>
     operations: Operations<any, any>
 }
 
-const domainContext = createContext<DomainContext>(null as any)
+export const domainContext = createContext<BaseDomainContext<any>>(null as any)
 
-export const useGlobal = () => useContext(domainContext)
+export const useBaseGlobal = () => useContext(domainContext)
 
-export type UseStore = ReturnType<typeof createStore>
+export type UseBaseStore<T = unknown> = UseBoundStore<BaseState & BaseStateFunctions & T>
 
-export function useStore(): UseStore {
+export function useBaseStore<T = unknown>(): UseBaseStore<T> {
     return useContext(domainContext).store
 }
 
-export function useStoreState<U>(selector: StateSelector<State, U>, equalityFn?: EqualityChecker<U>): U {
-    return useStore()(selector, equalityFn)
+export function useBaseStoreState<U, T = unknown>(
+    selector: StateSelector<BaseState & T, U>,
+    equalityFn?: EqualityChecker<U>
+): U {
+    return useBaseStore<T>()(selector, equalityFn)
 }
 
-export function DomainProvider({
-    children,
-    ...context
-}: PropsWithChildren<Omit<DomainContext, "store"> & { operations: Operations<any, any> }>) {
-    const store = useMemo(() => createStore(createBaseGrammar(), context.operations), [context.operations])
-    return <domainContext.Provider value={{ ...context, store }}>{children}</domainContext.Provider>
+export function DomainProvider<T>({ children, ...context }: PropsWithChildren<BaseDomainContext<T>>) {
+    return <domainContext.Provider value={context}>{children}</domainContext.Provider>
 }

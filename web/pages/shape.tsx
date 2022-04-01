@@ -1,9 +1,7 @@
 import Head from "next/head"
 import React from "react"
-import { DomainProvider } from "../src/global"
-import { operationGuiMap, Viewer } from "../src/domains/shape"
 import { Editor } from "../src/editor"
-import { operations } from "cgv/domains/shape"
+import { ShapeDomainProvider } from "../src/domains/shape/global"
 
 export default function Index() {
     return (
@@ -13,9 +11,9 @@ export default function Index() {
                 <meta name="description" content=""></meta>
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
-            <DomainProvider operations={operations} Viewer={Viewer} operationGuiMap={operationGuiMap}>
+            <ShapeDomainProvider>
                 <Editor />
-            </DomainProvider>
+            </ShapeDomainProvider>
         </>
     )
 }

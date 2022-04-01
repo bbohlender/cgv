@@ -1,9 +1,9 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 
 export function GUIColorStep({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const raw = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <input
             value={raw ?? 0xff0000}

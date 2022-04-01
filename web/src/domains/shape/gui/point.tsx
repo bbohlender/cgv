@@ -1,6 +1,6 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
 import { BlurInput } from "../../../gui/blur-input"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 
 export const GUIPointStep = GUI3ValueOperationStep.bind(null, "point", 0, "mb-3 d-flex flex-row mx-3")
 
@@ -13,7 +13,7 @@ export function GUI3ValueOperationStep(
     const x = value.children[0].type === "raw" ? value.children[0].value : undefined
     const y = value.children[1].type === "raw" ? value.children[1].value : undefined
     const z = value.children[2].type === "raw" ? value.children[2].value : undefined
-    const store = useStore()
+    const store = useBaseStore()
 
     const update = (...xyz: [number, number, number]) =>
         store.getState().change(value, {

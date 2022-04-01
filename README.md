@@ -178,20 +178,20 @@ Start -> face(
 	point(600,0,600)
 ) Lot
 
-Lot -> color(0x333343) extrude(600) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
+Lot -> color("#333343") extrude(600) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Wall -> splitZ(200) Floor
+Wall -> split("z", 200) Floor
 
-Roof -> color(0x8881111)
+Roof -> color("#881111")
 
-Floor -> splitX(200) WindowFrame
+Floor -> split("x", 200) WindowFrame
 
 WindowFrame -> if (size("x") >= 200)
 	then (
-		multiSplitX(50, 100) switch index()
+		multiSplit("x", 50, 100) switch index()
 			case 0: this
 			case 1: (
-				multiSplitZ(50, 100) switch index()
+				multiSplit("z", 50, 100) switch index()
 					case 0: this
 					case 1: Window
 					case 2: this
@@ -200,17 +200,17 @@ WindowFrame -> if (size("x") >= 200)
 	)
 	else this
 
-Window -> color(0xEEEEEE)
+Window -> color("#EEEEEE")
 ```
 
 `Task 2`
 
 ```
-City -> color(0x333343) extrude(random(400, 600)) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
+City -> color("#333343") extrude(random(400, 600)) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
 Wall -> splitZ(random(150, 250)) Floor
 
-Roof -> color(0x8881111)
+Roof -> color("#8881111")
 
 Floor -> if (size("z") >= 140)
     then (
@@ -232,7 +232,7 @@ WindowFrame -> if (size("x") >= 150)
 	)
 	else this
 
-Window -> color(0xEEEEEE)
+Window -> color("#EEEEEE")
 ```
 
 `Task 3`

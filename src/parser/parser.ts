@@ -145,7 +145,6 @@ const grammar: Grammar = {
             postprocess: ([{ value }, , , , steps]) => [value, steps],
         },
         { name: "Steps", symbols: ["ParallelSteps"], postprocess: ([steps]) => steps },
-        { name: "Steps", symbols: ["ws"], postprocess: () => ({ type: "sequential", children: [] }) },
         { name: "ParallelSteps$ebnf$1", symbols: ["ParallelStep"] },
         {
             name: "ParallelSteps$ebnf$1",

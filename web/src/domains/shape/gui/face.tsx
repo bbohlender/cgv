@@ -1,12 +1,12 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 import { DeleteIcon } from "../../../icons/delete"
 import { GUI3ValueOperationStep } from "./point"
 
 const PointInFace = GUI3ValueOperationStep.bind(null, "point", 0, "d-flex flex-row")
 
 export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <div className="d-flex flex-column mx-3">
             {value.children.map((child) => (

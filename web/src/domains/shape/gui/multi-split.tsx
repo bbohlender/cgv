@@ -1,5 +1,5 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 import { BlurInput } from "../../../gui/blur-input"
 import { DeleteIcon } from "../../../icons/delete"
 import { EndLabel, StartLabel } from "../../../gui/label"
@@ -8,7 +8,7 @@ import { AxisInput } from "./axis-input"
 export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const [child1] = value.children
     const axis = child1.type === "raw" ? child1.value : undefined
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <div className="d-flex flex-column mx-3">
             <EndLabel value="Multiple" className="mb-3">

@@ -1,2 +1,2 @@
-export * from "./viewer"
+export * from "./gui/viewer"
 export * from "./gui"

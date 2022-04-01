@@ -1,6 +1,6 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
 import { BlurInput } from "../../../gui/blur-input"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 import { EndLabel, StartLabel } from "../../../gui/label"
 import { AxisInput } from "./axis-input"
 import { useCallback } from "react"
@@ -10,7 +10,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
     const axis = child1.type === "raw" ? child1.value : undefined
     const splitSize = child2.type === "raw" ? child2.value : undefined
     const limit = child3?.type === "raw" ? child3.value : undefined
-    const store = useStore()
+    const store = useBaseStore()
     const setLimit = useCallback(
         (limit: number | undefined) => {
             store.getState().change(value, {

@@ -1,10 +1,10 @@
 import { AbstractParsedRaw, HierarchicalInfo, ParsedRaw, replaceStep } from "cgv"
 import { useState, useEffect } from "react"
 import { BlurInput } from "./blur-input"
-import { useStore } from "../global"
+import { useBaseStore } from "../global"
 
 export function GUIRawStep({ value }: { value: AbstractParsedRaw<HierarchicalInfo> }): JSX.Element {
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <BlurInput
             value={value.value}

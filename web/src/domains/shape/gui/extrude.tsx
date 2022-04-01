@@ -1,10 +1,10 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
 import { BlurInput } from "../../../gui/blur-input"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 
 export function GUIExtrudeStep({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const raw = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <BlurInput
             value={raw ?? 0xff0000}

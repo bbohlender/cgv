@@ -1,10 +1,10 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
-import { useStore } from "../../../global"
+import { useBaseStore } from "../../../global"
 import { AxisInput } from "./axis-input"
 
 export function GUISizeStep({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const selection = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <AxisInput
             onChange={(e) =>

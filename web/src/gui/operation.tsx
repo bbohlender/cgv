@@ -1,9 +1,9 @@
 import { AbstractParsedOperation, HierarchicalInfo, serializeStepString } from "cgv"
-import { useGlobal, useStore } from "../global"
+import { useBaseGlobal, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 
 export function GUIOperation({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
-    const { operationGuiMap, operations } = useGlobal()
+    const { operationGuiMap, operations } = useBaseGlobal()
 
     const OperationGUI = operationGuiMap[value.identifier]
     if (OperationGUI != null) {
@@ -16,7 +16,7 @@ export function GUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
 }
 
 function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
-    const store = useStore()
+    const store = useBaseStore()
     return (
         <div className="d-flex flex-column mx-3 mb-3">
             {value.children.map((child, i) => (
