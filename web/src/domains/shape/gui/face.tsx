@@ -22,7 +22,7 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
             <div
                 className="btn btn-outline-success mb-3"
                 onClick={() =>
-                    store.getState().change(value, {
+                    store.getState().replace(value, {
                         ...value,
                         children: [
                             ...value.children,

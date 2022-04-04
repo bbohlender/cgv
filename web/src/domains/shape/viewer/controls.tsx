@@ -1,15 +1,21 @@
 import { useGesture } from "react-use-gesture"
 import { useEffect } from "react"
-import { useShapeStore } from "../global"
+import { useViewerState } from "./state"
 
-export function PanoramaControls() {
-    const store = useShapeStore()
+export function Controls() {
     useGesture(
         {
+            onWheel: ({ first, xy: [, y], previous: [, lastY] }) => {
+                if (!first) {
+                    useViewerState.getState().wheel((y - lastY) * 0.05)
+                }
+            },
             onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons }) => {
                 if (buttons === 2) {
                     if (!first) {
-                        store.getState().rotateView([x - lastX, z - lastZ])
+                        useViewerState
+                            .getState()
+                            .drag((x - lastX) / window.innerHeight, (z - lastZ) / window.innerHeight)
                     }
                 }
             },

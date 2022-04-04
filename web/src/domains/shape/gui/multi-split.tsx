@@ -22,7 +22,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
             <StartLabel value="Axis" className="mb-3 ">
                 <AxisInput
                     value={axis}
-                    onChange={(e) => store.getState().change(child1, { type: "raw", value: e.currentTarget.value })}
+                    onChange={(e) => store.getState().replace(child1, { type: "raw", value: e.currentTarget.value })}
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
             </StartLabel>
@@ -32,7 +32,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                         className="min-w-0 form-control form-control-sm"
                         type="number"
                         value={(child.type === "raw" ? child.value : undefined) ?? 10}
-                        onBlur={(e) => store.getState().change(child, { type: "raw", value: e.target.valueAsNumber })}
+                        onBlur={(e) => store.getState().replace(child, { type: "raw", value: e.target.valueAsNumber })}
                     />
                     <div onClick={() => store.getState().remove(child)} className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
                         <DeleteIcon/>
@@ -44,7 +44,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                 onClick={() =>
                     store
                         .getState()
-                        .change(value, { ...value, children: [...value.children, { type: "raw", value: 10 }] })
+                        .replace(value, { ...value, children: [...value.children, { type: "raw", value: 10 }] })
                 }>
                 Add
             </div>

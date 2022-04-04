@@ -129,7 +129,7 @@ describe("split steps", () => {
         const grammar = parse(`a -> if (this == 2 * 2) then (this == 2 * 2) else 1`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
         expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
-            `s1 -> if s2 then s2 else 1\ns2 -> this == 2 * 2`
+            `s1 -> if s2 then s2 else 1\n\ns2 -> this == 2 * 2`
         )
     })
 
@@ -137,7 +137,7 @@ describe("split steps", () => {
         const grammar = parse(`a -> (1 2) | (1 2)`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
         expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
-            `s1 -> s2 | s2\ns2 -> 1 2`
+            `s1 -> s2 | s2\n\ns2 -> 1 2`
         )
     })
 
@@ -155,7 +155,7 @@ describe("split steps", () => {
         const grammar = parse(`a -> 1 * 3 * 3 if (1 * 3 * 3 == 3) then (22 | 1 * 3) else (1 * 3 + 2)`)
         const stepsList = splitSteps(equalizeSteps([grammar["a"]])[0])
         expect(serializeString(stepsList.reduce((acc, [name, steps]) => ({ ...acc, [name]: steps }), {}))).to.equal(
-            `s1 -> s2 if (s2 == 3) then (22 | s3) else (s3 + 2)\ns2 -> s3 * 3\ns3 -> 1 * 3`
+            `s1 -> s2 if (s2 == 3) then (22 | s3) else (s3 + 2)\n\ns2 -> s3 * 3\n\ns3 -> 1 * 3`
         )
     })
 })

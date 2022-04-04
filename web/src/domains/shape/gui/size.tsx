@@ -8,7 +8,7 @@ export function GUISizeStep({ value }: { value: AbstractParsedOperation<Hierarch
     return (
         <AxisInput
             onChange={(e) =>
-                store.getState().change(value, {
+                store.getState().replace(value, {
                     type: "operation",
                     identifier: "size",
                     children: [

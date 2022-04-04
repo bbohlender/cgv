@@ -1,7 +1,10 @@
+import { operations } from "cgv/domains/shape"
 import Head from "next/head"
 import React from "react"
+import { createBaseState } from "../src/base-state"
+import { operationGuiMap, Viewer } from "../src/domains/shape"
 import { Editor } from "../src/editor"
-import { ShapeDomainProvider } from "../src/domains/shape/global"
+import { DomainProvider } from "../src/global"
 
 export default function Index() {
     return (
@@ -11,9 +14,13 @@ export default function Index() {
                 <meta name="description" content=""></meta>
                 <meta name="viewport" content="initial-scale=1.0, width=device-width" />
             </Head>
-            <ShapeDomainProvider>
+            <DomainProvider
+                store={createBaseState(operations)}
+                Viewer={Viewer}
+                operationGuiMap={operationGuiMap}
+                operations={operations}>
                 <Editor />
-            </ShapeDomainProvider>
+            </DomainProvider>
         </>
     )
 }

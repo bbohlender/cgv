@@ -13,7 +13,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
     const store = useBaseStore()
     const setLimit = useCallback(
         (limit: number | undefined) => {
-            store.getState().change(value, {
+            store.getState().replace(value, {
                 ...value,
                 children:
                     limit == null || isNaN(limit) ? [child1, child2] : [child1, child2, { type: "raw", value: limit }],
@@ -34,7 +34,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
             <StartLabel value="Axis" className="mb-3 ">
                 <AxisInput
                     value={axis}
-                    onChange={(e) => store.getState().change(child1, { type: "raw", value: e.currentTarget.value })}
+                    onChange={(e) => store.getState().replace(child1, { type: "raw", value: e.currentTarget.value })}
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
             </StartLabel>
@@ -43,7 +43,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     className="min-w-0 form-control form-control-sm"
                     type="number"
                     value={splitSize ?? 10}
-                    onBlur={(e) => store.getState().change(child2, { type: "raw", value: e.target.valueAsNumber })}
+                    onBlur={(e) => store.getState().replace(child2, { type: "raw", value: e.target.valueAsNumber })}
                 />
             </StartLabel>
             <EndLabel value="Repeat" className="mb-3">

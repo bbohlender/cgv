@@ -1,12 +1,10 @@
-import { ParsedSteps, Operations, toHierachicalSteps } from ".."
-import { ParsedGrammarDefinition } from "../parser"
-import { HierarchicalParsedGrammarDefinition } from "../util"
+import { ParsedSteps, Operations } from ".."
 
 export type StepDescriptor =
-    | { type: Exclude<ParsedSteps["type"], "operation"> }
+    | { type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }
     | { type: "operation"; identifier: string }
 
-const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation"> }> = [
+const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }> = [
     { type: "add" },
     { type: "and" },
     { type: "bracket" },
@@ -33,7 +31,6 @@ const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation"> }> =
     { type: "switch" },
     { type: "this" },
     { type: "unequal" },
-    { type: "symbol" },
 ]
 
 export function getAllStepDescriptors(operations: Operations<any, any>): Array<StepDescriptor> {
@@ -43,20 +40,7 @@ export function getAllStepDescriptors(operations: Operations<any, any>): Array<S
     ]
 }
 
-function findFreeSymbolName(grammar: ParsedGrammarDefinition): string {
-    let i = 1
-    let name: string
-    while ((name = `symbol${i}`) in grammar) {
-        i++
-    }
-    return name
-}
-
-export function createDefaultStep<T, A>(
-    descriptor: StepDescriptor,
-    operations: Operations<T, A>,
-    grammar: HierarchicalParsedGrammarDefinition
-): ParsedSteps {
+export function createDefaultStep<T, A>(descriptor: StepDescriptor, operations: Operations<T, A>): ParsedSteps {
     const children = getDefaultChildren(descriptor, operations)
     switch (descriptor.type) {
         case "random":
@@ -93,15 +77,6 @@ export function createDefaultStep<T, A>(
                 identifier: "x",
                 children: children! as [ParsedSteps],
             }
-        case "symbol": {
-            const identifier = findFreeSymbolName(grammar)
-            const step: ParsedSteps = {
-                type: "symbol",
-                identifier,
-            }
-            grammar[identifier] = toHierachicalSteps({ type: "sequential", children: [] }, identifier)
-            return step
-        }
         default:
             return {
                 type: descriptor.type,

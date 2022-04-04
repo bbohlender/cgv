@@ -16,7 +16,7 @@ export function GUI3ValueOperationStep(
     const store = useBaseStore()
 
     const update = (...xyz: [number, number, number]) =>
-        store.getState().change(value, {
+        store.getState().replace(value, {
             type: "operation",
             identifier,
             children: xyz.map((value) => ({

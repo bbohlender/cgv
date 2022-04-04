@@ -4,7 +4,7 @@ import { serializeSteps } from "./serialize"
 export function serializeString(grammarDefinition: ParsedGrammarDefinition): string {
     return Object.entries(grammarDefinition)
         .map(([symbol, step]) => `${symbol} -> ${serializeStepString(step)}`)
-        .join("\n")
+        .join("\n\n")
 }
 
 export function serializeStepString(steps: ParsedSteps): string {

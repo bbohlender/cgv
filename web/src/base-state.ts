@@ -1,248 +1,259 @@
 import {
     HierarchicalParsedSteps,
     HierarchicalParsedGrammarDefinition,
-    StepDescriptor,
-    add,
     replace,
     remove,
     rename,
     Operations,
     ParsedSteps,
-    replaceStep,
-    createDefaultStep,
     parse,
     toHierachical,
     serializeString,
     ParsedGrammarDefinition,
+    add,
+    toHierachicalSteps,
 } from "cgv"
-import { GetState, SetState } from "zustand"
+import create, { GetState, SetState } from "zustand"
+import { combine } from "zustand/middleware"
+import { UseBaseStore } from "./global"
 
-export type BaseState = {
-    type: "tui" | "gui"
+export type BaseState = CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>
+
+export type CombineEmpty<T, K> = T & {
+    [Key in Exclude<keyof K, keyof T>]?: undefined
+}
+
+export type GuiState = {
+    type: "gui"
     selected: HierarchicalParsedSteps | string | undefined
     hovered: Array<HierarchicalParsedSteps | string>
     grammar: HierarchicalParsedGrammarDefinition
-    stepDescriptorDialogFor: "addParameter" | "replace" | "before" | "parallel" | "after" | undefined
-    text: string | undefined
-    parseError: string | undefined
-    parsedGrammar: ParsedGrammarDefinition | undefined
+    requested: { type: string; fulfill: (value: any) => void } | undefined
 }
 
-export function createBaseStateInitial(baseGrammar: HierarchicalParsedGrammarDefinition): BaseState {
+export type TuiState =
+    | CombineEmpty<TuiCorrectState, TuiIncorrectState>
+    | CombineEmpty<TuiIncorrectState, TuiCorrectState>
+
+export type TuiCorrectState = {
+    type: "tui"
+    text: string
+    correct: true
+    grammar: ParsedGrammarDefinition
+}
+
+export type TuiIncorrectState = {
+    type: "tui"
+    text: string
+    correct: false
+    error: string
+}
+
+export function createBaseState(operations: Operations<any, any>) {
+    return create(combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations))) as UseBaseStore
+}
+
+function createBaseStateInitial(): BaseState {
     return {
         type: "gui",
         selected: undefined,
         hovered: [],
-        grammar: baseGrammar,
-        stepDescriptorDialogFor: undefined,
-        text: undefined,
-        parseError: undefined,
-        parsedGrammar: undefined,
+        grammar: toHierachical({
+            Start: { type: "this" },
+        }),
+        requested: undefined,
     }
 }
 
-export function createBaseStateFunctions(
+function createBaseStateFunctions(
     operations: Operations<any, any>,
     set: SetState<BaseState>,
     get: GetState<BaseState>
 ) {
     return {
         setText: (text: string) => {
-            const { type } = get()
-            if (type === "gui") {
+            const state = get()
+            if (state.type != "tui") {
                 return
             }
-            let parsedGrammar: ParsedGrammarDefinition | undefined = undefined
-            let parseError: string | undefined = undefined
             try {
-                parsedGrammar = parse(text)
+                const grammar = parse(text)
+                set({ text, correct: true, grammar })
             } catch (error: any) {
-                parseError = error.message
+                set({ text, correct: false, error: error.message })
             }
-            set({ text, parsedGrammar, parseError })
         },
         setType: (type: "gui" | "tui") => {
-            const { grammar, type: currentType, parsedGrammar } = get()
-            if (currentType === type) {
+            const state = get()
+            if (state.type === type) {
                 return
             }
-            if (type === "gui" && parsedGrammar != null) {
+            if (state.type === "tui" && state.correct) {
                 set({
                     type: "gui",
-                    text: undefined,
-                    parsedGrammar: undefined,
-                    parseError: undefined,
-                    grammar: toHierachical(parsedGrammar),
+                    grammar: toHierachical(state.grammar),
+                    hovered: [],
+                    requested: undefined,
+                    selected: undefined,
                 })
                 return
             }
-            if (type === "tui") {
+            if (state.type === "gui") {
                 set({
                     type: "tui",
-                    selected: undefined,
-                    parsedGrammar: grammar,
-                    hovered: [],
-                    stepDescriptorDialogFor: undefined,
-                    text: serializeString(grammar),
+                    grammar: state.grammar,
+                    text: serializeString(state.grammar),
+                    correct: true,
                 })
                 return
             }
-        },
-        onStepDescribed: (descriptor: StepDescriptor | undefined) => {
-            const { stepDescriptorDialogFor, selected, grammar, type } = get()
-            if (type === "tui") {
-                return
-            }
-            if (descriptor == null) {
-                set({
-                    stepDescriptorDialogFor: undefined,
-                })
-                return
-            }
-            if (selected == null) {
-                return
-            }
-            let newSelected: HierarchicalParsedSteps
-            switch (stepDescriptorDialogFor) {
-                case "after":
-                case "before":
-                case "parallel":
-                    newSelected = add(stepDescriptorDialogFor, selected, descriptor, operations, grammar)
-                    break
-                case "replace":
-                    if (typeof selected === "string") {
-                        return
-                    }
-                    newSelected = replace(selected, descriptor, operations, grammar)
-                    break
-                case "addParameter":
-                    if (typeof selected === "string" || selected.type != "operation") {
-                        return
-                    }
-                    newSelected = replaceStep(
-                        selected,
-                        {
-                            ...selected,
-                            children: [...selected.children, createDefaultStep(descriptor, operations, grammar)],
-                        },
-                        grammar
-                    )
-                    break
-                default:
-                    return
-            }
-            set({ selected: newSelected, stepDescriptorDialogFor: undefined, grammar: { ...grammar } })
         },
         onStartHover: (step: HierarchicalParsedSteps | string) => {
-            const { hovered, type } = get()
-            if (type === "tui") {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            if (!hovered.includes(step)) {
-                set({ hovered: [...hovered, step] })
+            if (!state.hovered.includes(step)) {
+                set({ hovered: [...state.hovered, step] })
             }
         },
         escape: () => {
-            const { stepDescriptorDialogFor, selected, type } = get()
-            if (type === "tui") {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            if (stepDescriptorDialogFor != null) {
-                set({ stepDescriptorDialogFor: undefined })
+            if (state.requested != null) {
+                set({ requested: undefined })
                 return
             }
-            if (selected != null) {
+            if (state.selected != null) {
                 set({ selected: undefined })
                 return
             }
         },
         onEndHover: (step: HierarchicalParsedSteps | string) => {
-            const { hovered, type } = get()
-            if (type === "tui") {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            set({ hovered: hovered.filter((hoveredStep) => hoveredStep != step) })
+            set({ ...state, hovered: state.hovered.filter((hoveredStep) => hoveredStep != step) })
         },
         select: (selected: HierarchicalParsedSteps | string | undefined) => {
-            const { type } = get()
-            if (type === "tui") {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
             set({ selected })
         },
-        openStepDescriptorDialog: (
-            dialogFor: "addParameter" | "replace" | "before" | "parallel" | "after" | undefined
-        ) => {
-            const { type } = get()
-            if (type === "tui") {
+        request: (type: string, fulfill: (value: any) => void) => {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            set({ stepDescriptorDialogFor: dialogFor })
+            set({
+                requested: {
+                    type,
+                    fulfill: (value) => {
+                        fulfill(value)
+                        const state = get()
+                        if (state.type === "gui" && state.requested != null) {
+                            set({ ...state, requested: undefined })
+                        }
+                    },
+                },
+            })
+        },
+        cancelRequest: () => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set({ requested: undefined })
+        },
+        createNoun: (name: string) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set({
+                grammar: { ...state.grammar, [name]: toHierachicalSteps({ type: "this" }, name) },
+            })
+        },
+        add: (type: "before" | "after" | "parallel" | "children", step: ParsedSteps) => {
+            const state = get()
+            if (state.type != "gui" || typeof state.selected != "object") {
+                return
+            }
+
+            if (state.selected.children == null) {
+                return
+            }
+            const selected =
+                type === "children"
+                    ? replace(
+                          state.selected,
+                          {
+                              ...state.selected,
+                              children: [...state.selected.children, step] as any,
+                          },
+                          state.grammar
+                      )
+                    : add(type, state.selected, step, state.grammar)
+
+            set({ grammar: { ...state.grammar }, selected })
         },
         remove: (at?: HierarchicalParsedSteps | undefined | string) => {
-            const { grammar, selected, type } = get()
-            if (type === "tui") {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            at = at ?? selected
+            at = at ?? state.selected
             if (at == null) {
                 return
             }
-            remove(at, operations, grammar)
-            if (at === selected) {
+            remove(at, operations, state.grammar)
+            if (at === state.selected) {
                 set({
                     selected: undefined,
-                    grammar: { ...grammar },
+                    grammar: { ...state.grammar },
                 })
             } else {
                 set({
-                    selected: typeof selected === "object" ? replaceStep(selected, { ...selected }, grammar) : selected,
-                    grammar: { ...grammar },
+                    selected:
+                        typeof state.selected === "object"
+                            ? replace(state.selected, { ...state.selected }, state.grammar)
+                            : state.selected,
+                    grammar: { ...state.grammar },
                 })
             }
         },
         rename: (name: string) => {
-            const { selected, grammar, type } = get()
-            if (type === "tui") {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            if (typeof selected != "string") {
+            if (typeof state.selected != "string") {
                 return
             }
-            rename(selected, name, grammar)
+            rename(state.selected, name, state.grammar)
             set({
                 selected: name,
-                grammar: { ...grammar },
+                grammar: { ...state.grammar },
             })
         },
-        change: (at: HierarchicalParsedSteps, replaceWith: ParsedSteps) => {
-            const { grammar, selected, type } = get()
-            if (type === "tui") {
+        replace: (at: HierarchicalParsedSteps, replaceWith: ParsedSteps) => {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            if (selected == null || typeof selected === "string") {
+            if (state.selected == null || typeof state.selected === "string") {
                 return
             }
-            const newValue = replaceStep(at, replaceWith, grammar)
+            const newValue = replace(at, replaceWith, state.grammar)
             set({
-                selected: at === selected ? newValue : replaceStep(selected, { ...selected }, grammar),
-                grammar: { ...grammar },
-            })
-        },
-        replace: (descriptor: StepDescriptor) => {
-            const { selected, grammar, type } = get()
-            if (type === "tui") {
-                return
-            }
-            if (selected == null) {
-                return
-            }
-            if (typeof selected === "string") {
-                return
-            }
-            set({
-                selected: replace(selected, descriptor, operations, grammar),
-                grammar: { ...grammar },
+                selected:
+                    at === state.selected ? newValue : replace(state.selected, { ...state.selected }, state.grammar),
+                grammar: { ...state.grammar },
             })
         },
     }

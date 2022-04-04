@@ -89,26 +89,32 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
         return null
     }
     return (
-        <span
-            ref={ref}
-            onClick={mutations.select}
-            onMouseLeave={mutations.onEndHover}
-            onMouseEnter={mutations.onStartHover}
-            className={cssClassName}>
-            {typeof value === "string" ? (
+        <>
+            <span
+                ref={ref}
+                onClick={mutations.select}
+                onMouseLeave={mutations.onEndHover}
+                onMouseEnter={mutations.onStartHover}
+                className={cssClassName}>
+                {typeof value === "string" ? (
+                    <>
+                        {`${value} -> `} <Substep path={[...path, 0]} />
+                    </>
+                ) : (
+                    serializeSteps<JSX.Element>(
+                        value,
+                        (_, i) => <Substep key={i} path={[...path, i]} />,
+                        (...values) => <>{values}</>
+                    )
+                )}
+            </span>
+            {typeof value === "string" && (
                 <>
-                    {`${value} -> `} <Substep path={[...path, 0]} />
                     <br />
                     <br />
                 </>
-            ) : (
-                serializeSteps<JSX.Element>(
-                    value,
-                    (_, i) => <Substep key={i} path={[...path, i]} />,
-                    (...values) => <>{values}</>
-                )
             )}
-        </span>
+        </>
     )
 }
 

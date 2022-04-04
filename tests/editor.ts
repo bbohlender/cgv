@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { parse, serializeString, toHierachical } from "../src"
-import { add, remove, rename, replace } from "../src/editor"
+import { add, createDefaultStep, remove, rename, replace } from "../src/editor"
 import { validateHierarchical } from "./hierarchical"
 
 //TODO: assure operator precedence correctness for serializing with bracket
@@ -12,10 +12,12 @@ describe("editor", () => {
         add(
             "after",
             at,
-            {
-                type: "add",
-            },
-            {},
+            createDefaultStep(
+                {
+                    type: "add",
+                },
+                {}
+            ),
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
@@ -27,10 +29,12 @@ describe("editor", () => {
         add(
             "before",
             "a",
-            {
-                type: "add",
-            },
-            {},
+            createDefaultStep(
+                {
+                    type: "add",
+                },
+                {}
+            ),
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
@@ -43,10 +47,12 @@ describe("editor", () => {
         add(
             "before",
             at,
-            {
-                type: "add",
-            },
-            {},
+            createDefaultStep(
+                {
+                    type: "add",
+                },
+                {}
+            ),
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
@@ -59,10 +65,12 @@ describe("editor", () => {
         add(
             "parallel",
             at,
-            {
-                type: "add",
-            },
-            {},
+            createDefaultStep(
+                {
+                    type: "add",
+                },
+                {}
+            ),
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
@@ -74,10 +82,12 @@ describe("editor", () => {
         add(
             "parallel",
             "a",
-            {
-                type: "add",
-            },
-            {},
+            createDefaultStep(
+                {
+                    type: "add",
+                },
+                {}
+            ),
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
@@ -92,7 +102,6 @@ describe("editor", () => {
             {
                 type: "this",
             },
-            {},
             grammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
@@ -100,10 +109,10 @@ describe("editor", () => {
     })
 
     it("should rename noun", () => {
-        const grammar = toHierachical(parse(`a -> 1 | b * 2 this + 3\nb -> 2`))
+        const grammar = toHierachical(parse(`a -> 1 | b * 2 this + 3\n\nb -> 2`))
         rename("b", "xyz", grammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | xyz * 2 this + 3\nxyz -> 2`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | xyz * 2 this + 3\n\nxyz -> 2`)
     })
 
     it("should remove noun", () => {
@@ -114,11 +123,11 @@ describe("editor", () => {
     })
 
     it("should remove from parallel", () => {
-        const grammar = toHierachical(parse(`a -> 1 | b * 2 this + 3\nb -> 2`))
+        const grammar = toHierachical(parse(`a -> 1 | b * 2 this + 3\n\nb -> 2`))
         const at = grammar["a"].children![0]
         remove(at, {}, grammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> b * 2 this + 3\nb -> 2`)
+        expect(serializeString(grammar)).to.equal(`a -> b * 2 this + 3\n\nb -> 2`)
     })
 
     it("should remove from parallel and simplify", () => {
