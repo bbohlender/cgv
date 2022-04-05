@@ -6,9 +6,9 @@ import { CheckIcon } from "../icons/check"
 export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
     const text = store((state) => (state.type === "tui" ? state.text : undefined))
-    const error = store((state) => (state.type === "tui" ? state.error : undefined))
+    const error = store((state) => (state.type === "tui" && !state.correct ? state.error : undefined))
 
-    if (text == null || error == null) {
+    if (text == null && error == null) {
         return null
     }
 
@@ -25,7 +25,7 @@ export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             />
             {error == null ? (
                 <button
-                    className="d-flex align-items-center btn btn-primary"
+                    className="d-flex align-items-center btn btn-sm btn-primary"
                     style={{ position: "absolute", right: "1rem", bottom: "1rem" }}
                     onClick={() => store.getState().setType("gui")}>
                     <CheckIcon />

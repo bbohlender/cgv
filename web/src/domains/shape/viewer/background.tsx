@@ -61,9 +61,10 @@ function Ground() {
             rotation-z={-(Math.PI * 2 * 11.5) / 360}
             scale-y={-1}
             rotation-x={-Math.PI / 2}
-            position={[0, -1, 0]}
-            args={[100, 100]}>
-            <a.meshBasicMaterial depthWrite={false} depthTest={true} transparent={true} opacity={1} map={texture} />
+            renderOrder={-1}
+            position={[0, 0, 0]}
+            args={[1000, 1000]}>
+            <a.meshBasicMaterial depthWrite={false} depthTest={false} map={texture} />
         </Plane>
     )
 }

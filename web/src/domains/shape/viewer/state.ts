@@ -31,7 +31,7 @@ export function eulerToTuple(q: Euler): Vector3Tuple {
 const euler = new Euler(0, 0, 0, "YXZ")
 const panoramaRotation: Vector3Tuple = [0, 0, 0]
 
-export const topPosition: Vector3Tuple = [0, 40, 0]
+export const topPosition: Vector3Tuple = [0, 400, 0]
 export const topRotation = eulerToTuple(new Euler(-Math.PI / 2, 0, 0))
 
 export function createViewerStateInitial(): ViewerState {
@@ -81,7 +81,7 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
             const [x, , z] = calculatePosition(state)
             set({
                 viewType: "2d",
-                position: [x, 40, z],
+                position: [x, 400, z],
             })
         },
         changePanoramaView: (panoramaIndex: number) => {

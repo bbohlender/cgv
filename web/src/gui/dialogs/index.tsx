@@ -11,7 +11,7 @@ export function Dialogs() {
     return (
         <div
             className="position-absolute d-flex flex-column align-items-center overflow-hidden"
-            style={{ inset: 0, zIndex: 2, background: "rgba(0,0,0,0.3)" }}>
+            style={{ top: 0, right: 0, bottom: 0, left: 0, zIndex: 2, background: "rgba(0,0,0,0.3)" }}>
             <div
                 style={{ maxWidth: "40rem", margin: "0 auto" }}
                 className="rounded overflow-hidden shadow d-flex flex-column m-3 p-3 w-100 bg-light">

@@ -26,7 +26,7 @@ export function ErrorMessage({
                     {message}
                 </div>
             )}
-            <div onClick={() => setOpen((open) => !open)} className="btn btn-danger d-flex align-items-center">
+            <div onClick={() => setOpen((open) => !open)} className="btn btn-sm btn-danger d-flex align-items-center">
                 <ErrorIcon />
             </div>
         </div>

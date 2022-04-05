@@ -9,8 +9,8 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
     const store = useBaseStore()
     return (
         <div className="d-flex flex-column mx-3">
-            {value.children.map((child) => (
-                <div className="d-flex flex-row align-items-center mb-3">
+            {value.children.map((child, i) => (
+                <div key={i} className="d-flex flex-row align-items-center mb-3">
                     {child.type === "operation" && <PointInFace value={child} />}
                     <div
                         onClick={() => store.getState().remove(child)}

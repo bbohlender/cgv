@@ -15,7 +15,9 @@ export function GUISymbolStep({ value }: { value: AbstractParsedSymbol<Hierarchi
                 onChange={(e) => store.getState().replace(value, { type: "symbol", identifier: e.currentTarget.value })}
                 className="flex-grow-1 w-auto form-select form-select-sm">
                 {nouns.map((noun) => (
-                    <option value={noun}>{noun}</option>
+                    <option key={noun} value={noun}>
+                        {noun}
+                    </option>
                 ))}
             </select>
         </StartLabel>

@@ -1,8 +1,8 @@
 export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> | undefined): boolean {
-    if(array1 == null || array2 == null) {
+    if (array1 == null || array2 == null) {
         return false
     }
-    if(array1 == array2) {
+    if (array1 == array2) {
         return true
     }
     if (array1.length != array2.length) {

@@ -13,7 +13,7 @@ export function Controls() {
                     useViewerState.getState().zoom(1 + (y - lastY) * 0.005)
                 }
             },
-            onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons, event, pinching }) => {
+            onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons, event }) => {
                 event.preventDefault()
                 if (!first && buttons === 2) {
                     useViewerState.getState().drag((x - lastX) / canvas.clientHeight, (z - lastZ) / canvas.clientHeight)
@@ -38,12 +38,16 @@ export function Controls() {
             onPointerDown: ({ buttons, event }) => {
                 event.preventDefault()
                 if (buttons == 2) {
-                    canvas.requestPointerLock()
+                    if ("requestPointerLock" in canvas) {
+                        canvas.requestPointerLock()
+                    }
                 }
             },
             onPointerUp: ({ event }) => {
                 event.preventDefault()
-                document.exitPointerLock()
+                if ("exitPointerLock" in document) {
+                    document.exitPointerLock()
+                }
             },
         },
         {

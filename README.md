@@ -172,26 +172,26 @@ Building -> expand(200)
 
 ```
 Start -> face(
-	point(100,0,900),
-	point(-300,0,0),
-	point(800,0,100),
-	point(600,0,600)
+	point(10,0,90),
+	point(-30,0,0),
+	point(80,0,10),
+	point(60,0,60)
 ) Lot
 
-Lot -> color("#333343") extrude(600) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
+Lot -> color("#333343") extrude(60) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Wall -> split("z", 200) Floor
+Wall -> split("z", 20) Floor
 
 Roof -> color("#881111")
 
-Floor -> split("x", 200) WindowFrame
+Floor -> split("x", 20) WindowFrame
 
-WindowFrame -> if (size("x") >= 200)
+WindowFrame -> if (size("x") >= 20)
 	then (
-		multiSplit("x", 50, 100) switch index()
+		multiSplit("x", 5, 10) switch index()
 			case 0: this
 			case 1: (
-				multiSplit("z", 50, 100) switch index()
+				multiSplit("z", 5, 10) switch index()
 					case 0: this
 					case 1: Window
 					case 2: this

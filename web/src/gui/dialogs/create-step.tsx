@@ -54,7 +54,7 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
                     placeholder="Search"
                 />
                 <button
-                    className="d-flex align-items-center ms-3 btn btn-sm btn-outline-secondary"
+                    className="d-flex h-100 align-items-center ms-3 btn btn-sm btn-outline-secondary"
                     onClick={store.getState().cancelRequest}>
                     <CloseIcon />
                 </button>

@@ -12,6 +12,10 @@ import { Background } from "./background"
 import { ViewerCamera } from "./camera"
 import { useViewerState } from "./state"
 import { Controls } from "./controls"
+import { Control } from "./control"
+import { Dispatch, SetStateAction } from "react"
+import { ImageIcon } from "../../../icons/image"
+import { BackIcon } from "../../../icons/back"
 
 export type Annotation = Array<ParsedSteps>
 
@@ -25,7 +29,6 @@ function combineAnnotations(values: ReadonlyArray<Value<Primitive, Annotation>>)
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
-    const viewType = useViewerState(({ viewType }) => viewType)
     const grammar = useBaseStoreState((state) => (state.type === "gui" ? state.grammar : undefined))
     const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     const [showBackground, setShowBackground] = useState(false)
@@ -71,12 +74,14 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 style={{
                     touchAction: "none",
                     userSelect: "none",
+                    WebkitUserSelect: "none",
                 }}
+                onPointerMissed={() => console.log("clock")}
                 dpr={global.window == null ? 1 : window.devicePixelRatio}>
                 <Bridge>
                     <ViewerCamera />
+                    <Control />
                     <Controls />
-                    <gridHelper />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
                     {object != null && (
@@ -88,16 +93,22 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
                             }
                             onClick={(e) => {
-                                const { select, selected } = store.getState()
+                                console.log("y")
+                                const state = store.getState()
+                                if (state.type != "gui") {
+                                    return
+                                }
+                                if (state.requested != null) {
+                                    return
+                                }
                                 const steps = e.object.userData as Array<HierarchicalParsedSteps>
-                                const selectedIndex = steps.indexOf(selected as any)
+                                const selectedIndex = steps.indexOf(state.selected as any)
                                 const nextSelectIndex =
                                     selectedIndex === -1
                                         ? steps.length - 1
                                         : (selectedIndex - 1 + steps.length) % steps.length
-                                select(steps[nextSelectIndex])
-                            }}
-                            scale={0.01}>
+                                state.select(steps[nextSelectIndex])
+                            }}>
                             <primitive object={object} />
                         </group>
                     )}
@@ -109,35 +120,52 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 e.stopPropagation()
                                 useViewerState.getState().changePanoramaView(index)
                             }}
-                            args={[0.3]}>
+                            args={[5]}>
                             <meshBasicMaterial color={0x0000ff} />
                         </Sphere>
                     ))}
                     {showBackground && <Background />}
                 </Bridge>
             </Canvas>
-            {viewType === "3d" && (
-                <div
-                    className="btn btn-primary"
-                    style={{ position: "absolute", bottom: "1rem", right: "1rem" }}
-                    onClick={() => useViewerState.getState().exitPanoramaView()}>
-                    Top View
-                </div>
-            )}
-            <div
-                className="btn btn-primary"
-                style={{ position: "absolute", bottom: "1rem", left: "50%", transform: "translate(-50%, 0)" }}
-                onClick={() => setShowBackground((show) => !show)}>
-                {showBackground ? "Hide" : "Show"} Background
+            <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
+                <BackgroundToggle className="me-2" setValue={setShowBackground} value={showBackground} />
+                <BackButton className="me-2" />
+                {error != null && <ErrorMessage message={error} align="left" />}
             </div>
-            {error != null && (
-                <ErrorMessage
-                    message={error}
-                    align="left"
-                    style={{ position: "absolute", left: "1rem", bottom: "1rem" }}
-                />
-            )}
             {children}
+        </div>
+    )
+}
+
+function BackgroundToggle({
+    setValue,
+    value,
+    className,
+    ...rest
+}: Omit<HTMLProps<HTMLDivElement>, "value"> & { value: boolean; setValue: Dispatch<SetStateAction<boolean>> }) {
+    return (
+        <div
+            {...rest}
+            onClick={() => setValue((v) => !v)}
+            className={`${className} d-flex align-items-center justify-content-center btn ${
+                value ? "btn-primary" : "btn-secondary"
+            } btn-sm `}>
+            <ImageIcon />
+        </div>
+    )
+}
+
+function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const viewType = useViewerState(({ viewType }) => viewType)
+    if (viewType != "3d") {
+        return null
+    }
+    return (
+        <div
+            {...rest}
+            className={`${className} d-flex align-items-center justify-content-center btn btn-sm btn-primary`}
+            onClick={() => useViewerState.getState().exitPanoramaView()}>
+            <BackIcon />
         </div>
     )
 }

@@ -9,7 +9,7 @@ import {
 } from ".."
 import { AbstractParsedParallel, AbstractParsedSequantial } from "../parser"
 import { toHierachical } from "../util"
-import { getDefaultChildAtIndex, StepDescriptor } from "./default-step"
+import { getDefaultChildAtIndex } from "./default-step"
 
 export function remove<T, A>(
     at: HierarchicalParsedSteps | string,
@@ -75,10 +75,14 @@ export function remove<T, A>(
 
     const defaultChild = getDefaultChildAtIndex(at.parent, operations, at.childrenIndex)
     if (defaultChild == null) {
-        at.parent.children!.splice(at.childrenIndex, 1)
-        for (let i = at.childrenIndex; i < at.parent.children!.length; i++) {
-            at.parent.children![i].childrenIndex! = i
-        }
+        replace(
+            at.parent,
+            {
+                ...at.parent,
+                children: at.parent.children?.filter((_, i) => i != at.childrenIndex) as any,
+            },
+            grammar
+        )
     } else {
         replace(at, defaultChild, grammar)
     }
@@ -160,13 +164,17 @@ export function add(
     if (at.childrenIndex != null && at.parent.type === type) {
         const index = at.childrenIndex! + (position == "before" ? 0 : 1)
         const insert = toHierachicalSteps(step, at.parent, index)
-        at.parent.children.splice(index, 0, insert)
 
-        for (let i = index + 1; i < at.parent.children!.length; i++) {
-            at.parent.children![i].childrenIndex! = i
-        }
+        const newParent = replace(
+            at.parent,
+            {
+                ...at.parent,
+                children: [...at.parent.children.slice(0, index), insert, ...at.parent.children.slice(index)],
+            },
+            grammar
+        ) as AbstractParsedSequantial<HierarchicalInfo> | AbstractParsedParallel<HierarchicalInfo>
 
-        return insert
+        return newParent.children[index]
     } else {
         const newParent = replace(
             at,
