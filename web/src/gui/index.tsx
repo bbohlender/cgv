@@ -1,11 +1,19 @@
-import { AbstractParsedOperation, HierarchicalInfo, HierarchicalParsedSteps, StepDescriptor } from "cgv"
+import {
+    AbstractParsedOperation,
+    HierarchicalInfo,
+    HierarchicalParsedSteps,
+    serializeStepString,
+    StepDescriptor,
+} from "cgv"
 import { HTMLProps } from "react"
 import { UseBaseStore, useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
 import { GUINounStep } from "./noun"
 import { GUIOperation } from "./operation"
+import { GUIRandomStep } from "./random"
 import { GUIRawStep } from "./raw"
+import { GUISwitchStep } from "./switch"
 import { GUISymbolStep } from "./symbol"
 
 export type OperationGUIMap = {
@@ -20,7 +28,7 @@ export function getLabel(descriptor: StepDescriptor | { type: "symbol" }) {
 }
 
 function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") {
-    store.getState().request("create-step", (step) => store.getState().add("before", step))
+    store.getState().request("create-step", (step) => store.getState().add(type, step))
 }
 
 function requestReplace(store: UseBaseStore, at: HierarchicalParsedSteps) {
@@ -94,10 +102,36 @@ function GUISteps({ value }: { value: HierarchicalParsedSteps | string }): JSX.E
             return <GUIRawStep value={value} />
         case "symbol":
             return <GUISymbolStep value={value} />
-        case "operation": {
+        case "operation":
             return <GUIOperation value={value} />
-        }
+        case "random":
+            return <GUIRandomStep value={value} />
+        case "switch":
+            return <GUISwitchStep value={value} />
         default:
-            return null
+            return <GUIDefaultStep value={value} />
     }
+}
+
+function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
+    const store = useBaseStore()
+    if (value.children == null) {
+        return null
+    }
+    return (
+        <div className="d-flex flex-column mx-3 mb-3">
+            {value.children.map((child, i) => (
+                <div key={i} className="d-flex flex-row align-items-center border-bottom">
+                    <div className="flex-grow-1 p-3 pointer" onClick={store.getState().select.bind(null, child)}>
+                        {serializeStepString(child)}
+                    </div>
+                    <div
+                        onClick={() => store.getState().remove(child)}
+                        className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
+                        <DeleteIcon />
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
 }

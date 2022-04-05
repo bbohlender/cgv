@@ -12,7 +12,7 @@ export default function Index() {
             <Head>
                 <title>CGV | Shape Editor</title>
                 <meta name="description" content=""></meta>
-                <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+                <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
             </Head>
             <DomainProvider
                 store={createBaseState(operations)}

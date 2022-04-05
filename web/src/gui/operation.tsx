@@ -1,5 +1,5 @@
 import { AbstractParsedOperation, HierarchicalInfo, serializeStepString } from "cgv"
-import { useBaseGlobal, useBaseStore } from "../global"
+import { useBaseGlobal, UseBaseStore, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 
 export function GUIOperation({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
@@ -31,11 +31,16 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
                     </div>
                 </div>
             ))}
-            <div
-                className="btn btn-outline-success"
-                onClick={store.getState().openStepDescriptorDialog.bind(null, "addParameter")}>
+            <div className="btn btn-outline-success" onClick={addParameter.bind(null, value, store)}>
                 Add Parameter
             </div>
         </div>
     )
+}
+
+function addParameter(value: AbstractParsedOperation<HierarchicalInfo>, store: UseBaseStore) {
+    store.getState().replace(value, {
+        ...value,
+        children: [...value.children, { type: "this" }],
+    })
 }

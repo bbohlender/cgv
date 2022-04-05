@@ -3,8 +3,7 @@ import { TextEditor, Grammar } from "./tui"
 import { GUI } from "./gui"
 import { useBaseStore } from "./global"
 import { useBaseGlobal } from "./global"
-import { CreateNounDialog, CreateStepDialog } from "./gui/dialogs"
-import { SelectNounDialog } from "./gui/dialogs/select-noun"
+import { Dialogs } from "./gui/dialogs"
 
 export function Editor() {
     const store = useBaseStore()
@@ -28,10 +27,8 @@ export function Editor() {
     const { Viewer } = useBaseGlobal()
 
     return (
-        <div className="d-flex responsive-flex-direction" style={{ width: "100vw", height: "100vh" }}>
-            <CreateStepDialog />
-            <CreateNounDialog />
-            <SelectNounDialog />
+        <div className="d-flex responsive-flex-direction overflow-hidden position-absolute" style={{ inset: 0 }}>
+            <Dialogs />
             <Viewer
                 style={{ whiteSpace: "pre-line", top: 0, left: 0, right: 0, bottom: 0, position: "absolute" }}
                 className="flex-basis-0 flex-grow-1 bg-white">

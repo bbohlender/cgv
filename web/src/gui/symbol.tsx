@@ -4,12 +4,12 @@ import { StartLabel } from "./label"
 
 export function GUISymbolStep({ value }: { value: AbstractParsedSymbol<HierarchicalInfo> }) {
     const store = useBaseStore()
-    const nouns = store((state) => state.type === "gui" ? Object.keys(state.grammar) : undefined)
-    if(nouns == null) {
+    const nouns = store((state) => (state.type === "gui" ? Object.keys(state.grammar) : undefined))
+    if (nouns == null) {
         return null
     }
     return (
-        <StartLabel value="Axis" className="mb-3 ">
+        <StartLabel value="Noun" className="mb-3 mx-3">
             <select
                 value={value.identifier}
                 onChange={(e) => store.getState().replace(value, { type: "symbol", identifier: e.currentTarget.value })}

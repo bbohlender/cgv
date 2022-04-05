@@ -1,9 +1,10 @@
-import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
+import { AbstractParsedOperation, createDefaultStep, HierarchicalInfo } from "cgv"
 import { BlurInput } from "../../../gui/blur-input"
 import { useBaseStore } from "../../../global"
 import { EndLabel, StartLabel } from "../../../gui/label"
 import { AxisInput } from "./axis-input"
 import { useCallback } from "react"
+import { operations } from "cgv/domains/shape"
 
 export function GUISplitSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const [child1, child2, child3] = value.children
@@ -28,7 +29,14 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     className="min-w-0 form-check-input"
                     type="checkbox"
                     checked={false}
-                    onChange={() => store.getState().replace({ type: "operation", identifier: "multiSplit" })}
+                    onChange={() =>
+                        store
+                            .getState()
+                            .replace(
+                                value,
+                                createDefaultStep({ type: "operation", identifier: "multiSplit" }, operations)
+                            )
+                    }
                 />
             </EndLabel>
             <StartLabel value="Axis" className="mb-3 ">
@@ -61,7 +69,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                         type="checkbox"
                         checked={limit != null}
                         onChange={(e) => setLimit(e.target.checked ? 2 : undefined)}
-                  />
+                    />
                 </EndLabel>
             )}
             {limit != null && limit != 1 && (

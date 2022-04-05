@@ -1,9 +1,10 @@
-import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
+import { AbstractParsedOperation, createDefaultStep, HierarchicalInfo } from "cgv"
 import { useBaseStore } from "../../../global"
 import { BlurInput } from "../../../gui/blur-input"
 import { DeleteIcon } from "../../../icons/delete"
 import { EndLabel, StartLabel } from "../../../gui/label"
 import { AxisInput } from "./axis-input"
+import { operations } from "cgv/domains/shape"
 
 export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const [child1] = value.children
@@ -16,7 +17,11 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                     className="min-w-0 form-check-input"
                     type="checkbox"
                     checked={true}
-                    onChange={() => store.getState().replace({ type: "operation", identifier: "split" })}
+                    onChange={() =>
+                        store
+                            .getState()
+                            .replace(value, createDefaultStep({ type: "operation", identifier: "split" }, operations))
+                    }
                 />
             </EndLabel>
             <StartLabel value="Axis" className="mb-3 ">
@@ -34,8 +39,10 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                         value={(child.type === "raw" ? child.value : undefined) ?? 10}
                         onBlur={(e) => store.getState().replace(child, { type: "raw", value: e.target.valueAsNumber })}
                     />
-                    <div onClick={() => store.getState().remove(child)} className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
-                        <DeleteIcon/>
+                    <div
+                        onClick={() => store.getState().remove(child)}
+                        className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
+                        <DeleteIcon />
                     </div>
                 </StartLabel>
             ))}

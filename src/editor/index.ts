@@ -25,7 +25,7 @@ export function remove<T, A>(
                 findSymbolsWithIdentifier(value, at, (step) => remove(step, operations, grammar))
             }
         } else {
-            Object.assign(grammar, { Start: toHierachicalSteps({ type: "this" }, "Start") })
+            Object.assign(grammar, toHierachical({ Start: { type: "this" } }))
         }
         return
     }

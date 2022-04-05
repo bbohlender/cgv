@@ -1,6 +1,5 @@
 import { createDefaultStep, getAllStepDescriptors, Operations, ParsedSteps, ParsedSymbol, StepDescriptor } from "cgv"
 import { useCallback, useMemo, useState } from "react"
-import { Dialog } from "."
 import { getLabel } from ".."
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
@@ -20,12 +19,9 @@ function getStepDescriptors(operations: Operations<any, any>) {
         })
 }
 
-export function CreateStepDialog() {
+export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void }) {
     const store = useBaseStore()
     const { operations } = useBaseGlobal()
-    const fulfill = store((state) =>
-        state.type === "gui" && state.requested?.type === "create-step" ? state.requested.fulfill : undefined
-    )
     const [filter, setFilter] = useState("")
     const stepDescriptors = useMemo(() => getStepDescriptors(operations), [operations])
     const filteredDescriptors = useMemo(
@@ -41,11 +37,8 @@ export function CreateStepDialog() {
         },
         [fulfill]
     )
-    if (fulfill == null) {
-        return null
-    }
     return (
-        <Dialog>
+        <>
             <div className="d-flex flex-row mb-3">
                 <input
                     onKeyDown={(e) =>
@@ -73,7 +66,7 @@ export function CreateStepDialog() {
                     </div>
                 ))}
             </div>
-        </Dialog>
+        </>
     )
 }
 

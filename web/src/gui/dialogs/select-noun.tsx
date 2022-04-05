@@ -1,25 +1,18 @@
 import { useState } from "react"
-import { Dialog } from "."
-import { useBaseStore, useBaseStoreState } from "../../global"
+import { useBaseStore } from "../../global"
 import { CheckIcon } from "../../icons/check"
 import { CloseIcon } from "../../icons/close"
 import { StartLabel } from "../label"
 
-export function SelectNounDialog() {
+export function SelectNounDialog({ fulfill }: { fulfill: (value: any) => void }) {
     const store = useBaseStore()
-    const fulfill = useBaseStoreState((state) =>
-        state.type == "gui" && state.requested?.type === "select-noun" ? state.requested.fulfill : undefined
-    )
     const [value, setValue] = useState<string | undefined>(undefined)
     const nouns = store((state) => (state.type === "gui" ? Object.keys(state.grammar) : undefined))
     if (nouns == null) {
         return null
     }
-    if (fulfill == null) {
-        return null
-    }
     return (
-        <Dialog>
+        <>
             <StartLabel className="mb-3" value="Noun">
                 <select value={value} onChange={(e) => setValue(e.target.value)} className="form-select form-select-sm">
                     {nouns.map((noun) => (
@@ -52,6 +45,6 @@ export function SelectNounDialog() {
                     <CheckIcon />
                 </button>
             </div>
-        </Dialog>
+        </>
     )
 }

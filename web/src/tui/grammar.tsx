@@ -9,9 +9,8 @@ import { BaseState } from "../base-state"
 
 export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const isGui = store(({ type }) => type === "gui")
-    const nouns = store(({ grammar }) => Object.keys(grammar), shallowEqual)
-    if (!isGui) {
+    const nouns = store((state) => (state.type === "gui" ? Object.keys(state.grammar) : undefined), shallowEqual)
+    if (nouns == null) {
         return null
     }
     return (
@@ -29,11 +28,14 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>], { grammar }: BaseState) {
+function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>], state: BaseState) {
+    if (state.type != "gui") {
+        return undefined
+    }
     if (indices.length === 0) {
         return noun
     }
-    let current: HierarchicalParsedSteps | undefined = grammar[noun]
+    let current: HierarchicalParsedSteps | undefined = state.grammar[noun]
     for (const index of indices.slice(1)) {
         if (current?.children == null) {
             return undefined
@@ -118,14 +120,14 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
     )
 }
 
-function computeCssClassName(
-    steps: HierarchicalParsedSteps | string,
-    { hovered, selected }: BaseState
-): string | undefined {
-    if (selected === steps) {
+function computeCssClassName(steps: HierarchicalParsedSteps | string, state: BaseState): string | undefined {
+    if (state.type != "gui") {
+        return undefined
+    }
+    if (state.selected === steps) {
         return "selected"
     }
-    if (hovered.length > 0 && hovered[hovered.length - 1] === steps) {
+    if (state.hovered.length > 0 && state.hovered[state.hovered.length - 1] === steps) {
         return "hovered"
     }
     return undefined

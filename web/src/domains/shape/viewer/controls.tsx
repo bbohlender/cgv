@@ -1,27 +1,56 @@
 import { useGesture } from "react-use-gesture"
 import { useEffect } from "react"
 import { useViewerState } from "./state"
+import { useThree } from "@react-three/fiber"
 
 export function Controls() {
+    const canvas = useThree(({ gl }) => gl.domElement)
     useGesture(
         {
-            onWheel: ({ first, xy: [, y], previous: [, lastY] }) => {
+            onWheel: ({ first, xy: [, y], previous: [, lastY], event }) => {
+                event.preventDefault()
                 if (!first) {
-                    useViewerState.getState().wheel((y - lastY) * 0.05)
+                    useViewerState.getState().zoom(1 + (y - lastY) * 0.005)
                 }
             },
-            onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons }) => {
-                if (buttons === 2) {
-                    if (!first) {
-                        useViewerState
-                            .getState()
-                            .drag((x - lastX) / window.innerHeight, (z - lastZ) / window.innerHeight)
-                    }
+            onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons, event, pinching }) => {
+                event.preventDefault()
+                if (!first && buttons === 2) {
+                    useViewerState.getState().drag((x - lastX) / canvas.clientHeight, (z - lastZ) / canvas.clientHeight)
                 }
+            },
+            onPinch: ({ da: [distance], event, origin, memo }) => {
+                event.preventDefault()
+                if (memo == null) {
+                    return [distance, origin]
+                }
+                const [lastDistance, lastOrigin] = memo
+                if (lastDistance != null) {
+                    useViewerState.getState().zoom(lastDistance / distance)
+                }
+                if (origin != null && lastOrigin != null) {
+                    const [x, z] = origin
+                    const [lastX, lastZ] = lastOrigin
+                    useViewerState.getState().drag((x - lastX) / canvas.clientHeight, (z - lastZ) / canvas.clientHeight)
+                }
+                return [distance, origin]
+            },
+            onPointerDown: ({ buttons, event }) => {
+                event.preventDefault()
+                if (buttons == 2) {
+                    canvas.requestPointerLock()
+                }
+            },
+            onPointerUp: ({ event }) => {
+                event.preventDefault()
+                document.exitPointerLock()
             },
         },
         {
-            domTarget: window,
+            domTarget: canvas,
+            eventOptions: {
+                passive: false,
+            },
         }
     )
     useEffect(() => {

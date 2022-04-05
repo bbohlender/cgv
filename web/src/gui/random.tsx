@@ -1,5 +1,5 @@
 import { AbstractParsedRandom, HierarchicalInfo, serializeStepString } from "cgv"
-import { useBaseStore } from "../global"
+import { UseBaseStore, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
 
@@ -12,12 +12,12 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                     <BlurInput
                         className="form-control form-control-sm"
                         type="text"
-                        value={value.probabilities[i]}
+                        value={value.probabilities[i] * 100}
                         onBlur={(e) =>
                             store.getState().replace(value, {
                                 ...value,
                                 probabilities: value.probabilities.map((currentValue, value) =>
-                                    i === value ? e.target.valueAsNumber : currentValue
+                                    i === value ? toProbability(e.target.value) : currentValue
                                 ),
                             })
                         }
@@ -26,13 +26,33 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                         {serializeStepString(child)}
                     </div>
                     <div
-                        onClick={() => store.getState().remove(child)}
+                        onClick={() =>
+                            store.getState().replace(value, {
+                                ...value,
+                                children: value.children.filter((_, index) => i != index),
+                                probabilities: value.probabilities.filter((_, index) => i != index),
+                            })
+                        }
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
                     </div>
                 </div>
             ))}
-            <div className="btn btn-outline-success">Add</div>
+            <div onClick={() => add(value, store)} className="btn btn-outline-success">
+                Add
+            </div>
         </div>
     )
+}
+
+function add(value: AbstractParsedRandom<HierarchicalInfo>, store: UseBaseStore) {
+    store.getState().replace(value, {
+        ...value,
+        children: [...value.children, { type: "this" }],
+        probabilities: [...value.probabilities, 0],
+    })
+}
+
+function toProbability(value: string) {
+    return parseFloat(value) / 100
 }

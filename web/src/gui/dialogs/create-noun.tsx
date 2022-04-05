@@ -1,14 +1,11 @@
 import { useCallback, useMemo, useState } from "react"
-import { Dialog } from "."
+import { Dialogs } from "."
 import { useBaseStore } from "../../global"
 import { CheckIcon } from "../../icons/check"
 import { CloseIcon } from "../../icons/close"
 
-export function CreateNounDialog() {
+export function CreateNounDialog({ fulfill }: { fulfill: (value: any) => void }) {
     const store = useBaseStore()
-    const fulfill = store((state) =>
-        state.type == "gui" && state.requested?.type === "create-noun" ? state.requested.fulfill : undefined
-    )
     const [value, setValue] = useState("")
     const valueValid = useMemo(() => {
         if (value.length === 0) {
@@ -27,11 +24,8 @@ export function CreateNounDialog() {
         },
         [fulfill]
     )
-    if (fulfill == null) {
-        return null
-    }
     return (
-        <Dialog>
+        <>
             <input
                 onKeyDown={(e) => e.key === "Enter" && submit(value)}
                 autoFocus
@@ -55,6 +49,6 @@ export function CreateNounDialog() {
                     <CheckIcon />
                 </button>
             </div>
-        </Dialog>
+        </>
     )
 }

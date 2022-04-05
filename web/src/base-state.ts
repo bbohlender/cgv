@@ -179,26 +179,13 @@ function createBaseStateFunctions(
                 grammar: { ...state.grammar, [name]: toHierachicalSteps({ type: "this" }, name) },
             })
         },
-        add: (type: "before" | "after" | "parallel" | "children", step: ParsedSteps) => {
+        add: (type: "before" | "after" | "parallel", step: ParsedSteps) => {
             const state = get()
             if (state.type != "gui" || typeof state.selected != "object") {
                 return
             }
 
-            if (state.selected.children == null) {
-                return
-            }
-            const selected =
-                type === "children"
-                    ? replace(
-                          state.selected,
-                          {
-                              ...state.selected,
-                              children: [...state.selected.children, step] as any,
-                          },
-                          state.grammar
-                      )
-                    : add(type, state.selected, step, state.grammar)
+            const selected = add(type, state.selected, step, state.grammar)
 
             set({ grammar: { ...state.grammar }, selected })
         },

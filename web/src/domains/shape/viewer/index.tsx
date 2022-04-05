@@ -65,10 +65,14 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
 
     const Bridge = useContextBridge(domainContext)
 
-
     return (
         <div {...rest} className={`${className} overflow-hidden position-relative`}>
-            <Canvas>
+            <Canvas
+                style={{
+                    touchAction: "none",
+                    userSelect: "none",
+                }}
+                dpr={global.window == null ? 1 : window.devicePixelRatio}>
                 <Bridge>
                     <ViewerCamera />
                     <Controls />

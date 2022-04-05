@@ -27,14 +27,17 @@ function Dome({ url, rotationOffset }: { url: string; rotationOffset: number }) 
     const texture = useTexture(url)
     return (
         <mesh geometry={geometry} rotation-y={rotationOffset}>
-            <a.meshBasicMaterial
-                depthWrite={false}
-                depthTest={true}
-                transparent={true}
-                opacity={1}
-                map={texture}
-                side={BackSide}
-            />
+            {
+                //@ts-ignore
+                <a.meshBasicMaterial
+                    depthWrite={false}
+                    depthTest={true}
+                    transparent={true}
+                    opacity={1}
+                    map={texture}
+                    side={BackSide}
+                />
+            }
         </mesh>
     )
 }

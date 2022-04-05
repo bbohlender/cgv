@@ -5,11 +5,10 @@ import { CheckIcon } from "../icons/check"
 
 export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const isTui = store(({ type }) => type === "tui")
-    const text = store(({ text }) => text)
-    const parseError = store(({ parseError }) => parseError)
+    const text = store((state) => (state.type === "tui" ? state.text : undefined))
+    const error = store((state) => (state.type === "tui" ? state.error : undefined))
 
-    if (!isTui) {
+    if (text == null || error == null) {
         return null
     }
 
@@ -24,7 +23,7 @@ export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 onChange={(e) => store.getState().setText(e.target.value)}
                 className="bg-transparent p-0 border-0 flex-basis-0 flex-grow-1 text-light"
             />
-            {parseError == null ? (
+            {error == null ? (
                 <button
                     className="d-flex align-items-center btn btn-primary"
                     style={{ position: "absolute", right: "1rem", bottom: "1rem" }}
@@ -35,7 +34,7 @@ export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 <ErrorMessage
                     style={{ position: "absolute", bottom: "1rem", right: "1rem" }}
                     align="right"
-                    message={parseError}
+                    message={error}
                 />
             )}
         </div>
