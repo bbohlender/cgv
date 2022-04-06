@@ -1,9 +1,7 @@
 import { from, map, Observable, of, shareReplay } from "rxjs"
 import { LinePrimitive, loadMap, PointPrimitive } from "."
 import { Operations, simpleExecution } from "../.."
-import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix } from "./math"
-import { createPhongMaterialGenerator, FacePrimitive, Primitive } from "./primitive"
-import { Axis, Split } from "./primitive-utils"
+import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix, createPhongMaterialGenerator, FacePrimitive, Primitive, Axis, Split } from "."
 import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
 import { defaultOperations } from ".."
 

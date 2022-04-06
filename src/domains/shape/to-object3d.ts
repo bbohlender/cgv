@@ -1,7 +1,7 @@
 import { OperatorFunction } from "rxjs"
 import { Object3D } from "three"
-import { toList, Value } from "../../interpreter"
-import { Primitive } from "./primitive"
+import { toList, Value } from "../.."
+import { Primitive } from "."
 
 export function toObject3D<A>(
     valueToObject: (value: Value<Primitive, A>) => Object3D = (value) => value.raw.getObject()

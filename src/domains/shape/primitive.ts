@@ -19,7 +19,7 @@ import {
     Vector3,
 } from "three"
 import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
-import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "./math"
+import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "."
 
 export type MaterialGenerator = (type: ObjectType) => Material
 

@@ -1,3 +1,4 @@
+export * from "./math"
 export * from "./primitive"
 export * from "./primitive-utils"
 export * from "./mapbox"

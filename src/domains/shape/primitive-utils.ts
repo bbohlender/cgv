@@ -1,7 +1,6 @@
 import { BufferGeometry, Material, Matrix4, Vector3 } from "three"
 import { CSG } from "three-csg-ts"
-import { makeTranslationMatrix } from "./math"
-import { GeometryPrimitive, ObjectType, PointPrimitive, Primitive } from "./primitive"
+import { makeTranslationMatrix, GeometryPrimitive, ObjectType, PointPrimitive, Primitive } from "."
 
 const vectorHelper = new Vector3()
 const moveVector = new Vector3()

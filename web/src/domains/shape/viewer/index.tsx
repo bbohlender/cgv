@@ -11,7 +11,7 @@ import { panoramas } from "../global"
 import { Background } from "./background"
 import { ViewerCamera } from "./camera"
 import { useViewerState } from "./state"
-import { Controls } from "./controls"
+import { ViewControls } from "./view-controls"
 import { Control } from "./control"
 import { Dispatch, SetStateAction } from "react"
 import { ImageIcon } from "../../../icons/image"
@@ -47,7 +47,10 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     }),
                     toObject3D((value) => {
                         const child = value.raw.getObject()
-                        child.traverse((o) => (o.userData = value.annotation))
+                        child.traverse((o) => {
+                            o.userData.annotation = value.annotation
+                            o.userData.index = value.index
+                        })
                         return child
                     })
                 )
@@ -76,12 +79,11 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     userSelect: "none",
                     WebkitUserSelect: "none",
                 }}
-                onPointerMissed={() => console.log("clock")}
                 dpr={global.window == null ? 1 : window.devicePixelRatio}>
                 <Bridge>
                     <ViewerCamera />
                     <Control />
-                    <Controls />
+                    <ViewControls />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
                     {object != null && (
@@ -93,7 +95,6 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
                             }
                             onClick={(e) => {
-                                console.log("y")
                                 const state = store.getState()
                                 if (state.type != "gui") {
                                     return
@@ -101,7 +102,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 if (state.requested != null) {
                                     return
                                 }
-                                const steps = e.object.userData as Array<HierarchicalParsedSteps>
+                                const steps = e.object.userData.annotation as Array<HierarchicalParsedSteps>
+                                console.log(e.object.userData.index)
                                 const selectedIndex = steps.indexOf(state.selected as any)
                                 const nextSelectIndex =
                                     selectedIndex === -1

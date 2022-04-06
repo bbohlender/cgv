@@ -3,7 +3,7 @@ import { useEffect } from "react"
 import { useViewerState } from "./state"
 import { useThree } from "@react-three/fiber"
 
-export function Controls() {
+export function ViewControls() {
     const canvas = useThree(({ gl }) => gl.domElement)
     useGesture(
         {

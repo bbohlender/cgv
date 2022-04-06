@@ -5,7 +5,7 @@ import { PointControl } from "./point"
 
 export function Control() {
     const store = useBaseStore()
-    const selected = store((state) => (state.type === "gui" ? state.selected : undefined))
+    const selected = store((state) => (state.type === "gui" && state.requested == null ? state.selected : undefined))
     if (selected == null || typeof selected == "string" || selected.type != "operation") {
         return null
     }

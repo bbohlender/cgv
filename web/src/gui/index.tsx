@@ -37,7 +37,7 @@ function requestReplace(store: UseBaseStore, at: HierarchicalParsedSteps) {
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const selected = store((state) => state.type === "gui" ? state.selected : undefined)
+    const selected = store((state) => (state.type === "gui" && state.requested == null ? state.selected : undefined))
     if (selected == null) {
         return null
     }
