@@ -110,19 +110,14 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                                 type: "if",
                                 children: [
                                     {
-                                        type: "bracket",
+                                        type: "equal",
                                         children: [
                                             {
-                                                type: "equal",
-                                                children: [
-                                                    {
-                                                        type: "this",
-                                                    },
-                                                    {
-                                                        type: "raw",
-                                                        value: 0,
-                                                    },
-                                                ],
+                                                type: "this",
+                                            },
+                                            {
+                                                type: "raw",
+                                                value: 0,
                                             },
                                         ],
                                     },
@@ -130,38 +125,28 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                                         type: "this",
                                     },
                                     {
-                                        type: "bracket",
+                                        type: "multiply",
                                         children: [
                                             {
-                                                type: "multiply",
-                                                children: [
-                                                    {
-                                                        type: "this",
-                                                    },
-                                                    {
-                                                        type: "raw",
-                                                        value: 2,
-                                                    },
-                                                ],
+                                                type: "this",
+                                            },
+                                            {
+                                                type: "raw",
+                                                value: 2,
                                             },
                                         ],
                                     },
                                 ],
                             },
                             {
-                                type: "bracket",
+                                type: "sequential",
                                 children: [
                                     {
-                                        type: "sequential",
-                                        children: [
-                                            {
-                                                type: "getVariable",
-                                                identifier: "x",
-                                            },
-                                            {
-                                                type: "return",
-                                            },
-                                        ],
+                                        type: "getVariable",
+                                        identifier: "x",
+                                    },
+                                    {
+                                        type: "return",
                                     },
                                 ],
                             },

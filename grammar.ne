@@ -122,7 +122,7 @@ Step                    ->  Operation                                           
                         |   Constant                                                        {% ([value]) => ({ type: "raw", value }) %}
                         |   ConditionalOperation                                            {% ([operation]) => operation %}
                         |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
-                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => ({ type: "bracket", children: [steps] }) %}
+                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => steps }) %}
                         |   RandomSteps                                                     {% ([random]) => random %}
 
 RandomSteps             ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}

@@ -1,12 +1,5 @@
 import { ParsedGrammarDefinition, ParsedSteps, ParsedSymbol } from ".."
 
-export function removeInitialBrackets(steps: ParsedSteps): ParsedSteps {
-    if (steps.type === "bracket") {
-        return removeInitialBrackets(steps.children[0])
-    }
-    return steps
-}
-
 export function splitStepsToGrammar(steps: ParsedSteps): ParsedGrammarDefinition {
     return splitSteps(steps).reduce((grammar, [name, steps]) => ({ ...grammar, [name]: steps }), {})
 }
@@ -40,7 +33,7 @@ export function splitSteps(steps: ParsedSteps): Array<[string, ParsedSteps]> {
 
     for (const [steps, entries] of multiReferencedComplexStepsList) {
         const ruleName = `s${ruleNameCounter++}`
-        stepsList.push([ruleName, removeInitialBrackets(steps)])
+        stepsList.push([ruleName, steps])
         const newSymbolStep: ParsedSymbol = {
             identifier: ruleName,
             type: "symbol",

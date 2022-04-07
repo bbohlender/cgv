@@ -1,6 +1,5 @@
 import {
     ParsedBinaryOperator,
-    ParsedBracket,
     ParsedGetVariable,
     ParsedIf,
     ParsedOperation,
@@ -16,6 +15,7 @@ import {
     ParsedThis,
     ParsedUnaryOperator,
 } from "../parser"
+import { requiresBracket } from "../util"
 
 /**
  * @returns a array of strings that represents the text that fits between the children (text[0], children[0], text[1], children[1], text[2]) - the result start with a text and ends with a text and thus the length of text is equal to the amount of children plus 1
@@ -25,24 +25,24 @@ export function serializeSteps<T>(
     serializeChild: (child: ParsedSteps, index: number) => T,
     join: (...values: Array<T | string>) => T
 ): T {
+    const wrappedSerializeChild = (child: ParsedSteps, index: number) =>
+        serializeChildWithBrackets(steps, serializeChild, join, child, index)
     switch (steps.type) {
         case "operation":
-            return serializeOperation(steps, serializeChild, join)
+            return serializeOperation(steps, wrappedSerializeChild, join)
         case "parallel":
-            return serializeParallel(steps, serializeChild, join)
+            return serializeParallel(steps, wrappedSerializeChild, join)
         case "raw":
-            return serializeRaw(steps, serializeChild, join)
+            return serializeRaw(steps, wrappedSerializeChild, join)
         case "sequential":
-            return serializeSequentialAbstract(steps, serializeChild, join)
+            return serializeSequentialAbstract(steps, wrappedSerializeChild, join)
         case "symbol":
-            return serializeSymbolAbstract(steps, serializeChild, join)
+            return serializeSymbolAbstract(steps, wrappedSerializeChild, join)
         case "this":
-            return serializeThisAbstract(steps, serializeChild, join)
-        case "bracket":
-            return serializeBracket(steps, serializeChild, join)
+            return serializeThisAbstract(steps, wrappedSerializeChild, join)
         case "invert":
         case "not":
-            return serializeUnaryOperator(steps, serializeChild, join)
+            return serializeUnaryOperator(steps, wrappedSerializeChild, join)
         case "add":
         case "and":
         case "divide":
@@ -56,20 +56,34 @@ export function serializeSteps<T>(
         case "smallerEqual":
         case "subtract":
         case "unequal":
-            return serializeBinaryOperator(steps, serializeChild, join)
+            return serializeBinaryOperator(steps, wrappedSerializeChild, join)
         case "if":
-            return serializeIf(steps, serializeChild, join)
+            return serializeIf(steps, wrappedSerializeChild, join)
         case "switch":
-            return serializeSwitch(steps, serializeChild, join)
+            return serializeSwitch(steps, wrappedSerializeChild, join)
         case "getVariable":
-            return serializeGetVariable(steps, serializeChild, join)
+            return serializeGetVariable(steps, wrappedSerializeChild, join)
         case "setVariable":
-            return serializeSetVariable(steps, serializeChild, join)
+            return serializeSetVariable(steps, wrappedSerializeChild, join)
         case "return":
-            return serializeReturn(steps, serializeChild, join)
+            return serializeReturn(steps, wrappedSerializeChild, join)
         case "random":
-            return serializeRandom(steps, serializeChild, join)
+            return serializeRandom(steps, wrappedSerializeChild, join)
     }
+}
+
+function serializeChildWithBrackets<T>(
+    parent: ParsedSteps,
+    serializeChild: (child: ParsedSteps, index: number) => T,
+    join: (...values: Array<T | string>) => T,
+    child: ParsedSteps,
+    index: number
+): T {
+    const serializedChild = serializeChild(child, index)
+    if (requiresBracket(parent, child)) {
+        return join("(", serializedChild, ")")
+    }
+    return serializedChild
 }
 
 function serializeRandom<T>(
@@ -98,13 +112,15 @@ function toFixedMax(value: number, max: number): string {
     return (Math.round(value * multiplier) / multiplier).toString()
 }
 
+/*
+TODO: add brackets implicitly
 function serializeBracket<T>(
     step: ParsedBracket,
     serializeChild: (child: ParsedSteps, index: number) => T,
     join: (...values: Array<T | string>) => T
 ): T {
     return join(`(`, serializeChild(step.children[0], 0), `)`)
-}
+}*/
 
 function serializeUnaryOperator<T>(
     unaryOperatorStep: ParsedUnaryOperator,

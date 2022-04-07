@@ -1,4 +1,4 @@
-import { ParsedSteps, Operations } from ".."
+import type { ParsedSteps, Operations } from ".."
 
 export type StepDescriptor =
     | { type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }
@@ -7,7 +7,6 @@ export type StepDescriptor =
 const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }> = [
     { type: "add" },
     { type: "and" },
-    { type: "bracket" },
     { type: "divide" },
     { type: "equal" },
     { type: "getVariable" },
@@ -123,7 +122,6 @@ const defaultChildrenMap: {
     smallerEqual: binaryNumberOperationChildren,
     and: binaryBooleanOperationChildren,
     or: binaryBooleanOperationChildren,
-    bracket: [() => ({ type: "this" })],
     if: [
         () => ({
             type: "raw",

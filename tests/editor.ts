@@ -1,11 +1,18 @@
 import { expect } from "chai"
 import { parse, serializeString, toHierachical } from "../src"
-import { add, createDefaultStep, remove, rename, replace } from "../src/editor"
+import { add, createDefaultStep, remove, renameNoun, replace } from "../src/editor"
 import { validateHierarchical } from "./hierarchical"
 
 //TODO: assure operator precedence correctness for serializing with bracket
 
 describe("editor", () => {
+    it("should translate selection into < step", () => {})
+    it("should translate selection into > step", () => {})
+    it("should translate selection into != step", () => {})
+    it("should translate selection into multiple > < != step connected with and", () => {})
+    it("should translate selection into multiple > < != step connected with or", () => {})
+    it("should translate selection into multiple > < != step connected with both: or, and", () => {})
+
     it("should add after at substep", () => {
         const grammar = toHierachical(parse(`a -> 1 | this * 2 this + 3`))
         const at = grammar["a"].children![1]!.children![0]!
@@ -110,7 +117,7 @@ describe("editor", () => {
 
     it("should rename noun", () => {
         const grammar = toHierachical(parse(`a -> 1 | b * 2 this + 3\n\nb -> 2`))
-        rename("b", "xyz", grammar)
+        renameNoun("b", "xyz", grammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> 1 | xyz * 2 this + 3\n\nxyz -> 2`)
     })

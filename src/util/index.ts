@@ -17,7 +17,7 @@ export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> 
 }
 
 export * from "./replace-symbols"
-export * from "./trim"
+export * from "./precendence"
 export * from "./equalize"
 export * from "./split"
 export * from "./hierarchical"

@@ -22,10 +22,7 @@ export function replaceSymbolsSteps(
         if (rule == null) {
             throw new Error(`unknown rule "${steps.identifier}"`)
         }
-        return {
-            type: "bracket",
-            children: [replaceSymbolsSteps(rule, definition, new Set([...visited, steps.identifier]))],
-        }
+        return replaceSymbolsSteps(rule, definition, new Set([...visited, steps.identifier]))
     } else {
         return {
             ...steps,

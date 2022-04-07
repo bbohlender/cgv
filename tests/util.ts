@@ -22,47 +22,27 @@ describe("trim grammar / steps", () => {
     it("should trim brackets", () => {
         const grammar = parse(`a -> (1) if true then (2 * (this)) else (-2)`)
 
-        const result = trimSteps(grammar["a"])
-
-        expect(
-            serializeString({
-                a: result,
-            })
-        ).to.deep.equal(`a -> 1 if true then (2 * this) else -2`)
+        expect(serializeString(grammar)).to.deep.equal(`a -> 1 if true then (2 * this) else -2`)
     })
 
     //testing the trimming of brackets and nesting
     it("should trim nesting", () => {
         const grammar = parse(`a -> 1 2 (3 (4 this) 5)`)
 
-        const result = trimSteps(grammar["a"])
-
-        expect(
-            serializeString({
-                a: result,
-            })
-        ).to.equal(`a -> 1 2 3 4 this 5`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 2 3 4 this 5`)
     })
 
     //more complex combination of trim nested and trim brackets
     it("should trim steps", () => {
         const grammar = parse(`a -> (((1*1)*2) + (3*3)) | (1 | 3) | (1 | 4) * 2`)
 
-        const result = trimSteps(grammar["a"])
-
-        expect(
-            serializeString({
-                a: result,
-            })
-        ).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
     })
 
     it("should trim grammar", () => {
         const grammar = parse(`a -> (((1*1)*2) + (3*3)) | (1 | 3) | (1 | 4) * 2`)
 
-        const result = trimGrammar(grammar)
-
-        expect(serializeString(result)).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 * 1 * 2 + 3 * 3 | 1 | 3 | (1 | 4) * 2`)
     })
 })
 

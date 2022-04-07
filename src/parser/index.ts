@@ -20,7 +20,6 @@ export type ParsedOperation = AbstractParsedOperation<unknown>
 export type ParsedSymbol = AbstractParsedSymbol<unknown>
 export type ParsedRaw = AbstractParsedRaw<unknown>
 export type ParsedThis = AbstractParsedThis<unknown>
-export type ParsedBracket = AbstractParsedBracket<unknown>
 export type ParsedBinaryOperator = AbstractParsedBinaryOperator<unknown>
 export type ParsedUnaryOperator = AbstractParsedUnaryOperator<unknown>
 export type ParsedIf = AbstractParsedIf<unknown>
@@ -37,7 +36,6 @@ export type AbstractParsedSteps<T> =
     | AbstractParsedSymbol<T>
     | AbstractParsedRaw<T>
     | AbstractParsedThis<T>
-    | AbstractParsedBracket<T>
     | AbstractParsedBinaryOperator<T>
     | AbstractParsedUnaryOperator<T>
     | AbstractParsedIf<T>
@@ -55,10 +53,6 @@ export type AbstractParsedParallel<T> = {
 export type AbstractParsedSequantial<T> = {
     type: "sequential"
     children: Array<AbstractParsedSteps<T>>
-} & T
-export type AbstractParsedBracket<T> = {
-    type: "bracket"
-    children: [value: AbstractParsedSteps<T>]
 } & T
 export type AbstractParsedOperation<T> = {
     type: "operation"

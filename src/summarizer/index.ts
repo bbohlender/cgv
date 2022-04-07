@@ -1,4 +1,4 @@
-import { isEqual, ParsedGrammarDefinition, removeInitialBrackets, replaceSymbolsGrammar, trimSteps } from ".."
+import { isEqual, ParsedGrammarDefinition, replaceSymbolsGrammar, trimSteps } from ".."
 import { AbstractParsedSteps, ParsedRandom, ParsedSteps } from "../parser"
 import { serializeStepString } from "../serializer"
 
@@ -42,7 +42,7 @@ export function unifyNestedRandom(steps: ParsedSteps): ParsedSteps {
     const map = new Map<string, [ParsedSteps, number]>()
     for (let i = 0; i < steps.children!.length; i++) {
         const childProbability = steps.probabilities![i]
-        const child = unifyNestedRandom(removeInitialBrackets(steps.children![i]))
+        const child = unifyNestedRandom(steps.children![i])
         if (child.type === "random") {
             for (let i = 0; i < child.children!.length; i++) {
                 const childOfChild = child.children![i]
