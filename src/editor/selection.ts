@@ -1,6 +1,6 @@
 import { Value } from "../interpreter"
 import { ParsedSteps } from "../parser"
-import { HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, HierarchicalPath } from "../util"
+import { HierarchicalPath } from "../util"
 
 export type InterpretedInfo = {
     values?: Array<Value<any, any>>
@@ -10,43 +10,38 @@ export type Selections = Array<Selection>
 /**
  * index = undefined - means everything is selected
  */
-export type Selection = { path: HierarchicalPath; index: Array<number> | undefined }
+export type Selection = { path: HierarchicalPath | string; indices: Array<Array<number>> | undefined }
 
 export function translateSelections(
     selections: Selections,
-    replaceWith: (selected: ParsedSteps) => ParsedSteps,
-    grammar: HierarchicalParsedGrammarDefinition
-): Array<{ path: HierarchicalPath; replaceWith: ParsedSteps }> {
+    getNewSteps: (path: HierarchicalPath) => ParsedSteps,
+    getOldSteps: (path: HierarchicalPath) => ParsedSteps | undefined
+): Array<{ path: HierarchicalPath; steps: ParsedSteps }> {
     //TODO: special cases with parallel and sequential
-    const stepMap = new Map<HierarchicalParsedSteps, Array<Array<number>> | undefined>()
-    for (const { path, index } of selections) {
-        const key = typeof steps === "string" ? grammar[steps] : steps
-        if (key == null) {
-            throw new Error(`unknown noun "${steps}"`)
+    return selections.map((selection) => {
+        const arrayPath = getPathFromSelection(selection)
+        return {
+            path: arrayPath,
+            steps: translateSelectionsForStep(arrayPath, selection.indices, getNewSteps, getOldSteps),
         }
-        if (index == null) {
-            stepMap.set(key, undefined)
-            continue
-        }
-        let indices = stepMap.get(key)
-        if (indices == null) {
-            indices = []
-            stepMap.set(key, indices)
-        }
-        indices.push(index)
+    })
+}
+
+export function getPathFromSelection({ path }: Selection): HierarchicalPath {
+    if (typeof path === "string") {
+        return [path]
     }
-    return Array.from(stepMap).map(([at, indices]) => ({
-        at,
-        replaceWith: translateSelectionsForStep(at, indices, replaceWith),
-    }))
+    return path
 }
 
 function translateSelectionsForStep(
-    steps: HierarchicalParsedSteps,
+    path: HierarchicalPath,
     indices: Array<Array<number>> | undefined,
-    replaceWith: (selected: ParsedSteps) => ParsedSteps
+    getNewSteps: (path: HierarchicalPath) => ParsedSteps,
+    getOldSteps: (path: HierarchicalPath) => ParsedSteps | undefined
 ): ParsedSteps {
-    const stepToReplace = replaceWith(steps)
+    const newSteps = getNewSteps(path)
+    const oldSteps = getOldSteps(path)
     //TODO: find groups
     //TODO: find pattern
     //TODO: translate pattern to ParsedSteps

@@ -1,9 +1,11 @@
 import { expect } from "chai"
 import { parse, serializeString, toHierachical } from "../src"
-import { add, createDefaultStep, remove, renameNoun, replace } from "../src/editor"
+import { insert, createDefaultStep, remove, renameNoun, replace } from "../src/editor"
 import { validateHierarchical } from "./hierarchical"
 
 //TODO: assure operator precedence correctness for serializing with bracket
+
+//TODO: A -> if true 
 
 describe("editor", () => {
     it("should translate selection into < step", () => {})
@@ -16,7 +18,7 @@ describe("editor", () => {
     it("should add after at substep", () => {
         const grammar = toHierachical(parse(`a -> 1 | this * 2 this + 3`))
         const at = grammar["a"].children![1]!.children![0]!
-        add(
+        insert(
             "after",
             at,
             createDefaultStep(
@@ -33,7 +35,7 @@ describe("editor", () => {
 
     it("should add before before at noun", () => {
         const grammar = toHierachical(parse(`a -> 1 | this * 2 this + 3`))
-        add(
+        insert(
             "before",
             "a",
             createDefaultStep(
@@ -51,7 +53,7 @@ describe("editor", () => {
     it("should add before before at substep", () => {
         const grammar = toHierachical(parse(`a -> 1 | this * 2 this + 3`))
         const at = grammar["a"].children![1]!.children![1]!
-        add(
+        insert(
             "before",
             at,
             createDefaultStep(
@@ -69,7 +71,7 @@ describe("editor", () => {
     it("should add parallel at substep", () => {
         const grammar = toHierachical(parse(`a -> 1 | this * 2 this + 3`))
         const at = grammar["a"].children![1]!
-        add(
+        insert(
             "parallel",
             at,
             createDefaultStep(
@@ -86,7 +88,7 @@ describe("editor", () => {
 
     it("should add parallel at noun", () => {
         const grammar = toHierachical(parse(`a -> 1 | this * 2 this + 3`))
-        add(
+        insert(
             "parallel",
             "a",
             createDefaultStep(

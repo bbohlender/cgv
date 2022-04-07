@@ -14,7 +14,7 @@ const operatorPrecedence: Array<Array<ParsedSteps["type"]>> = [
     ["add", "subtract"],
     ["multiply", "divide", "modulo"],
     ["invert"],
-    ["getVariable", "setVariable", "if", "switch", "random", "symbol", "operation", "this", "raw", "return"],
+    ["getVariable", "setVariable", "if", "switch", "random", "symbol", "operation", "this", "raw", "return", "null"],
 ]
 
 const bracketFree: Array<ParsedSteps["type"]> = ["if", "switch", "random", "operation"]

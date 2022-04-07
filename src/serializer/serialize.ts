@@ -2,6 +2,7 @@ import {
     ParsedBinaryOperator,
     ParsedGetVariable,
     ParsedIf,
+    ParsedNull,
     ParsedOperation,
     ParsedParallel,
     ParsedRandom,
@@ -69,6 +70,8 @@ export function serializeSteps<T>(
             return serializeReturn(steps, wrappedSerializeChild, join)
         case "random":
             return serializeRandom(steps, wrappedSerializeChild, join)
+        case "null":
+            return serializeNull(steps, wrappedSerializeChild, join)
     }
 }
 
@@ -169,6 +172,14 @@ function serializeReturn<T>(
     join: (...values: Array<T | string>) => T
 ): T {
     return join("return")
+}
+
+function serializeNull<T>(
+    nullStep: ParsedNull,
+    serializeChild: (child: ParsedSteps, index: number) => T,
+    join: (...values: Array<T | string>) => T
+): T {
+    return join("null")
 }
 
 function serializeGetVariable<T>(

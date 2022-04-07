@@ -28,6 +28,7 @@ export type ParsedSetVariable = AbstractParsedSetVariable<unknown>
 export type ParsedGetVariable = AbstractParsedGetVariable<unknown>
 export type ParsedReturn = AbstractParsedReturn<unknown>
 export type ParsedRandom = AbstractParsedRandom<unknown>
+export type ParsedNull = AbstractParsedNull<unknown>
 
 export type AbstractParsedSteps<T> =
     | AbstractParsedParallel<T>
@@ -44,6 +45,7 @@ export type AbstractParsedSteps<T> =
     | AbstractParsedGetVariable<T>
     | AbstractParsedReturn<T>
     | AbstractParsedRandom<T>
+    | AbstractParsedNull<T>
 
 export type AbstractParsedParallel<T> = {
     type: "parallel"
@@ -85,6 +87,10 @@ export type AbstractParsedRandom<T> = {
     type: "random"
     probabilities: Array<number> //should add up to ~1
     children: Array<AbstractParsedSteps<T>>
+} & T
+export type AbstractParsedNull<T> = {
+    type: "null"
+    children?: undefined
 } & T
 export type AbstractParsedBinaryOperator<T> = {
     type:

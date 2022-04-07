@@ -1,11 +1,11 @@
-import { isEqual, ParsedGrammarDefinition, replaceSymbolsGrammar, trimSteps } from ".."
+import { ParsedGrammarDefinition } from ".."
 import { AbstractParsedSteps, ParsedRandom, ParsedSteps } from "../parser"
 import { serializeStepString } from "../serializer"
 
 //TODO: keep grammar symbol names
-
+/*
 export function summarize(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
-    const steps = grammarDefinitions.map(replaceSymbolsGrammar).map(([, steps]) => trimSteps(steps))
+    const steps = grammarDefinitions.map(replaceSymbolsGrammar)
     const combinedSteps = combineSteps(steps, combineRandom)
     return { s1: unifyNestedRandom(combinedSteps) }
 }
@@ -23,7 +23,7 @@ type ParsedStepsSummary = AbstractParsedSteps<SummaryInfo>
  * the groups are established based on equality of the ParsedSteps
  * if there is only one resulting group, the ParsedStep itself is returned
  */
-export function combineRandom(steps1: ParsedStepsSummary, steps2: ParsedStepsSummary): ParsedStepsSummary {
+/*export function combineRandom(steps1: ParsedStepsSummary, steps2: ParsedStepsSummary): ParsedStepsSummary {
     const summarySize = steps1.summarySize + steps2.summarySize
     return {
         type: "random",
@@ -72,7 +72,7 @@ type StepsMap = Map<ParsedStepsSummary["type"], Set<ParsedStepsSummary>>
  * ParsedSteps are combined if they have the same ParsedStep.type and at least one equal child
  * a step is combined unordered (matching children don't need to have the same index) if a ParsedStep is a ParsedParallel step
  */
-export function combineSteps(
+/*export function combineSteps(
     stepsList: Array<ParsedSteps>,
     combine: (steps1: ParsedStepsSummary, steps2: ParsedStepsSummary) => ParsedStepsSummary
 ): ParsedStepsSummary {
@@ -302,7 +302,7 @@ function addRandomChild(steps: ParsedStepsSummary, index: number, mainParent: Pa
 /**
  * compares everything except for the children of the steps
  */
-function stepsMatchable(element1: ParsedStepsSummary, element2: ParsedStepsSummary) {
+/*function stepsMatchable(element1: ParsedStepsSummary, element2: ParsedStepsSummary) {
     switch (element1.type) {
         case "operation":
         case "getVariable":
@@ -319,3 +319,4 @@ function stepsMatchable(element1: ParsedStepsSummary, element2: ParsedStepsSumma
             return true
     }
 }
+*/

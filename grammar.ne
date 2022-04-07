@@ -4,6 +4,7 @@ import moo from "moo";
 
 const lexer = moo.compile({
     returnSymbol: /return/,
+    nullSymbol: /null/,
     thisSymbol: /this/,
     ifSymbol: /if/,
     thenSymbol: /then/,
@@ -122,6 +123,7 @@ Step                    ->  Operation                                           
                         |   Constant                                                        {% ([value]) => ({ type: "raw", value }) %}
                         |   ConditionalOperation                                            {% ([operation]) => operation %}
                         |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
+                        |   %nullSymbol                                                     {% () => ({ type: "null" }) %}
                         |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => steps }) %}
                         |   RandomSteps                                                     {% ([random]) => random %}
 

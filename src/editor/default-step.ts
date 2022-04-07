@@ -107,7 +107,10 @@ const binaryBooleanOperationChildren: Array<() => ParsedSteps> = [
 ]
 
 const defaultChildrenMap: {
-    [T in Exclude<ParsedSteps["type"], "operation">]: Array<() => ParsedSteps> | undefined
+    [T in Exclude<ParsedSteps["type"], "operation">]:
+        | Array<() => ParsedSteps>
+        | undefined
+        | ((index: number) => ParsedSteps)
 } = {
     add: binaryNumberOperationChildren,
     multiply: binaryNumberOperationChildren,
@@ -134,12 +137,17 @@ const defaultChildrenMap: {
             type: "this",
         }),
     ],
-    switch: [
-        () => ({
-            type: "raw",
-            value: 0,
-        }),
-    ],
+    switch: (index) => {
+        if (index === 0) {
+            return {
+                type: "raw",
+                value: 0,
+            }
+        }
+        return {
+            type: "null",
+        }
+    },
     setVariable: [
         () => ({
             type: "raw",
@@ -160,12 +168,13 @@ const defaultChildrenMap: {
     ],
     this: undefined,
     return: undefined,
-    random: [],
+    random: () => ({ type: "null" }),
     getVariable: undefined,
-    parallel: [],
+    parallel: () => ({ type: "null" }),
     raw: undefined,
     symbol: undefined,
-    sequential: [],
+    null: undefined,
+    sequential: () => ({ type: "this" }),
 }
 
 export function getDefaultChildren(

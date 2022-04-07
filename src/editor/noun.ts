@@ -1,5 +1,7 @@
-import { remove, replace } from "."
+import produce from "immer"
+import { removeOnDraft, EditorResult, replace } from "."
 import {
+    toHierarchicalSteps,
     Operations,
     AbstractParsedSymbol,
     HierarchicalParsedGrammarDefinition,
@@ -8,49 +10,47 @@ import {
     HierarchicalInfo,
 } from ".."
 
-export function removeNoun<T, A>(
-    at: string,
+export function removeNounOnDraft<T, A>(
+    name: string,
     operations: Operations<T, A>,
     grammar: HierarchicalParsedGrammarDefinition
-): HierarchicalParsedGrammarDefinition {
-    //remove noun from grammar
-    if (typeof at === "string") {
-        delete grammar[at]
-        const rootSteps = Object.values(grammar)
-        if (rootSteps.length > 0) {
-            for (const value of rootSteps) {
-                findSymbolsWithIdentifier(value, at, (step) => remove(step, undefined, operations, grammar))
+): EditorResult {
+    return {
+        grammar: produce(grammar, (draft) => {
+            //remove noun from grammar
+            delete draft[name]
+            const rootSteps = Object.values(draft)
+            if (rootSteps.length === 0) {
+                return toHierachical({ Start: { type: "this" } })
             }
-        } else {
-            Object.assign(grammar, toHierachical({ Start: { type: "this" } }))
-        }
-        return
+            for (const value of rootSteps) {
+                findSymbolsWithIdentifier(value, name, (step) => {
+                    //TODO: remove symbols with name
+                    removeOnDraft(draft, path)
+                })
+            }
+        }),
+        selections: [],
     }
 }
 
-export function renameNoun(at: string, renameWith: string, grammar: HierarchicalParsedGrammarDefinition): HierarchicalParsedGrammarDefinition {
-    if (renameWith in grammar) {
-        throw new Error(`can't  rename noun "${at}" into "${renameWith}" since it already exisits`)
-    }
-    const entry = grammar[at]
-    if (entry == null) {
-        throw new Error(`can't rename non exisiting noun "${at}"`)
-    }
-    delete grammar[at]
-    grammar[renameWith] = entry
-    entry.parent = renameWith
-    for (const value of Object.values(grammar)) {
-        findSymbolsWithIdentifier(value, at, (step) =>
-            replace(
-                step,
-                undefined,
-                {
-                    type: "symbol",
-                    identifier: renameWith,
-                },
-                grammar
-            )
-        )
+export function renameNoun(name: string, newName: string, grammar: HierarchicalParsedGrammarDefinition): EditorResult {
+    return {
+        grammar: produce(grammar, (draft) => {
+            if (newName in draft) {
+                throw new Error(`can't  rename noun "${name}" into "${newName}" since it already exisits`)
+            }
+            const entry = draft[name]
+            if (entry == null) {
+                throw new Error(`can't rename non exisiting noun "${name}"`)
+            }
+            delete draft[name]
+            draft[newName] = toHierarchicalSteps(entry, newName)
+            for (const value of Object.values(draft)) {
+                findSymbolsWithIdentifier(value, name, (step) => (step.identifier = newName))
+            }
+        }),
+        selections: [],
     }
 }
 

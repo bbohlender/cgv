@@ -39,7 +39,7 @@ import { toList } from "./list"
 export type Operation<T, A> = {
     execute: (parameters: Value<ReadonlyArray<T>, A>) => Observable<Array<Value<T, A>>>
     includeThis: boolean
-    defaultParameters: Array<() => ParsedSteps>
+    defaultParameters: Array<() => ParsedSteps> | ((index: number) => ParsedSteps)
 }
 
 export function simpleExecution<T, A>(
@@ -244,6 +244,8 @@ function translateStep<T, A, I>(
             return interpreteReturn()
         case "random":
             return interpreteRandom(step, context, next)
+        case "null":
+            return interpreteNull()
     }
 }
 
@@ -443,6 +445,10 @@ export function toValue<T, A>(
 
 function interpreteReturn<T, A>(): MonoTypeOperatorFunction<Value<T, A>> {
     return noop()
+}
+
+function interpreteNull<T, A>(): MonoTypeOperatorFunction<Value<T, A>> {
+    return () => EMPTY
 }
 
 function interpreteSetVariable<T, A, I>(

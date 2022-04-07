@@ -16,8 +16,6 @@ export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> 
     return true
 }
 
-export * from "./replace-symbols"
 export * from "./precendence"
-export * from "./equalize"
-export * from "./split"
 export * from "./hierarchical"
+export * from "./flatten"

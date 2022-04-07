@@ -1,24 +1,23 @@
-import { ParsedSteps, HierarchicalParsedGrammarDefinition } from ".."
-import type { Selections } from "."
-import { translateSelections } from "./selection"
+import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition, getAtPath, setAtPath } from ".."
+import type { EditorResult, Selections } from "."
+import { getPathFromSelection, translateSelections } from "."
 import { produce } from "immer"
-import { getAtPath, setAtPath } from "../util"
 
 export function replace(
     selections: Selections,
-    step: ParsedSteps | ((selected: ParsedSteps) => ParsedSteps),
+    replaceWith: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
-): { grammar: HierarchicalParsedGrammarDefinition; selections: Selections } {
-    const replaces = translateSelections(selections, step, grammar)
+): EditorResult {
+    const replaces = translateSelections(selections, replaceWith, (path) => getAtPath(grammar, path))
     const result = produce(grammar, (draft) => {
-        for (const { path, replaceWith } of replaces) {
-            setAtPath(draft, path, replaceWith)
+        for (const { path, steps } of replaces) {
+            setAtPath(draft, path, steps)
         }
     })
     return {
         grammar: result,
         selections: selections
-            .filter(({ path }) => getAtPath(result, path) == null)
-            .map(({ path }) => ({ path, index: undefined })),
+            .filter((selection) => getAtPath(result, getPathFromSelection(selection)) == null)
+            .map(({ path }) => ({ path, indices: undefined })),
     }
 }
