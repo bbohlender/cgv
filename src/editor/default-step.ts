@@ -123,7 +123,7 @@ export function createDefaultStep<T, A>(descriptor: StepDescriptor, operations: 
             }
             return {
                 type: descriptor.type,
-                children: operation.defaultParameters(),
+                children: operation.defaultParameters.map((generator) => generator()),
                 identifier: descriptor.identifier,
             }
         }

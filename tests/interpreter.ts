@@ -197,7 +197,7 @@ describe("interprete grammar", () => {
                     op1: {
                         execute: simpleExecution((num: number, str: any) => of<any>([`${str ?? ""}${num * num}`])),
                         includeThis: false,
-                        defaultParameters: () => [],
+                        defaultParameters: [],
                     },
                 },
                 {}
@@ -219,7 +219,7 @@ describe("interprete grammar", () => {
                             of<any>([current, str, num * num])
                         ),
                         includeThis: true,
-                        defaultParameters: () => [],
+                        defaultParameters: [],
                     },
                 },
                 {}

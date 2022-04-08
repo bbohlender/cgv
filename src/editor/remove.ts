@@ -1,37 +1,92 @@
-import { HierarchicalPath, HierarchicalParsedGrammarDefinition } from ".."
-import { Selections, EditorResult } from "."
-import { HierarchicalParsedSteps, translatePath } from "../util"
-import { insert } from "./insert"
-import { replace } from "./replace"
+import {
+    HierarchicalInfo,
+    HierarchicalParsedSteps,
+    TranslatedPath,
+    ParsedSteps,
+    HierarchicalPath,
+    HierarchicalParsedGrammarDefinition,
+    Operations,
+} from ".."
+import { replace, insert, Selections, EditorResult } from "."
 
-export function isStepRemoveable(path: HierarchicalPath, grammar: HierarchicalParsedGrammarDefinition): boolean {
-    const translatedPath = translatePath(grammar, path)
-    if (translatedPath == null) {
-        return false
+function getNeutralStep(
+    path: HierarchicalPath,
+    translatedPath: TranslatedPath<HierarchicalInfo>,
+    operations: Operations<any, any>,
+    index: number = translatedPath.length - 2
+): ParsedSteps {
+    if (index === 0) {
+        return {
+            type: "this",
+        } //we assume "this" is okay (it's probematic f.e.: "a -> 1 + b    b -> 2" to skip step "2" in "b")
     }
-    //-2 is okay since translatePath we return an array with at least 2 entries
-    for (let i = translatedPath.length - 2; i >= 0; i--) {
-        if (i === 0) {
-            return true //we assume this is okay (it's probematic f.e.: "a -> 1 + b    b -> 2" to skip step "2" in "b")
-        }
-        const step = translatedPath[i] as HierarchicalParsedSteps
-        switch (step.type) {
-            case "sequential":
-                return true
-            case "parallel":
-            case "random":
-            case "switch":
-                continue
-            case "if":
-                if (path[i] !== 0) {
-                    continue
+    const parent = translatedPath[index] as HierarchicalParsedSteps & { children: Array<ParsedSteps> }
+    const childIndex = path[index] as number
+    switch (parent.type) {
+        case "smaller":
+        case "smallerEqual":
+        case "greater":
+        case "greaterEqual":
+        case "add":
+        case "subtract":
+        case "invert":
+        case "unequal":
+        case "equal":
+            return {
+                type: "raw",
+                value: 0,
+            }
+        case "modulo":
+        case "multiply":
+        case "divide":
+            return {
+                type: "raw",
+                value: 1,
+            }
+        case "and":
+        case "or":
+        case "not":
+            return {
+                type: "raw",
+                value: false,
+            }
+        case "operation": {
+            const operation = operations[parent.identifier]
+            if (operation == null) {
+                throw new Error(`unknown operation "${parent.identifier}"`)
+            }
+            const defaultParameterGenerator = operation.defaultParameters[childIndex]
+            if (defaultParameterGenerator == null) {
+                return {
+                    type: "null",
                 }
-                return false
-            default:
-                return false
+            }
+            return defaultParameterGenerator()
         }
+        case "setVariable":
+            return {
+                type: "this",
+            }
+        case "sequential":
+            if (childIndex === 0) {
+                return getNeutralStep(path, translatedPath, operations, index - 1)
+            }
+            return { type: "this" }
+        case "parallel":
+        case "random":
+        case "switch":
+            return getNeutralStep(path, translatedPath, operations, index - 1)
+        case "if":
+            if (childIndex === 0) {
+                return {
+                    type: "raw",
+                    value: true,
+                }
+            }
+            return getNeutralStep(path, translatedPath, operations, index - 1)
+        default:
+            throw new Error(`unexpected parent type "${(parent as any).type}"`)
     }
-    return false
 }
 
 export function removeValue(selections: Selections, grammar: HierarchicalParsedGrammarDefinition): EditorResult {
@@ -39,6 +94,10 @@ export function removeValue(selections: Selections, grammar: HierarchicalParsedG
     return { grammar: result, selections: [] }
 }
 
-export function removeStep(selections: Selections, grammar: HierarchicalParsedGrammarDefinition): EditorResult {
-    return replace(selections, () => ({ type: "this" }), grammar)
+export function removeStep(
+    selections: Selections,
+    operations: Operations<any, any>,
+    grammar: HierarchicalParsedGrammarDefinition
+): EditorResult {
+    return replace(selections, (path, translatedPath) => getNeutralStep(path, translatedPath, operations), grammar)
 }

@@ -1,186 +1,262 @@
 import { expect } from "chai"
-import { parse, serializeString, toHierarchical } from "../src"
-import { insert, createDefaultStep, renameNoun, replace } from "../src/editor"
+import { EMPTY } from "rxjs"
+import {
+    insert,
+    createDefaultStep,
+    renameNoun,
+    replace,
+    removeStep,
+    parse,
+    serializeString,
+    toHierarchical,
+    removeValue,
+} from "../src"
 import { validateHierarchical } from "./hierarchical"
 
-//TODO: assure operator precedence correctness for serializing with bracket
+// TODO: simplifications
+// TODO: selection after edit
+// TODO: subselections (indices)
+/* TODO:
+it("should translate selection into < step", () => {})
+it("should translate selection into > step", () => {})
+it("should translate selection into != step", () => {})
+it("should translate selection into multiple > < != step connected with and", () => {})
+it("should translate selection into multiple > < != step connected with or", () => {})
+it("should translate selection into multiple > < != step connected with both: or, and", () => {})*/
 
-/*
 describe("editor", () => {
-    it("should translate selection into < step", () => {})
-    it("should translate selection into > step", () => {})
-    it("should translate selection into != step", () => {})
-    it("should translate selection into multiple > < != step connected with and", () => {})
-    it("should translate selection into multiple > < != step connected with or", () => {})
-    it("should translate selection into multiple > < != step connected with both: or, and", () => {})
+    it("should multi insert after at substep", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = insert(
+            "after",
+            [
+                { path: ["a", 1, 0], indices: undefined },
+                { path: ["a", 0], indices: undefined },
+            ],
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> 1 -> 2 + 1 | this * 2 -> 2 + 1 -> this + 3`)
+    })
 
     it("should insert after at substep", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | this * 2 this + 3`))
-        const at = grammar["a"].children![1]!.children![0]!
-        insert(
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = insert(
             "after",
-            at,
-            createDefaultStep(
-                {
-                    type: "add",
-                },
-                {}
-            ),
-            grammar
+            [{ path: ["a", 1, 0], indices: undefined }],
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 2 + 1 this + 3`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 -> 2 + 1 -> this + 3`)
     })
 
-    it("should insert before before at noun", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | this * 2 this + 3`))
-        insert(
+    it("should insert before at noun", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = insert(
             "before",
-            "a",
-            createDefaultStep(
-                {
-                    type: "add",
-                },
-                {}
-            ),
-            grammar
+            [{ path: "a", indices: undefined }],
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 2 + 1 (1 | this * 2 this + 3)`)
+        expect(serializeString(grammar)).to.equal(`a -> 2 + 1 -> (1 | this * 2 -> this + 3)`)
     })
 
-    it("should insert before before at substep", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | this * 2 this + 3`))
-        const at = grammar["a"].children![1]!.children![1]!
-        insert(
+    it("should insert before at substep", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = insert(
             "before",
-            at,
-            createDefaultStep(
-                {
-                    type: "add",
-                },
-                {}
-            ),
-            grammar
+            [{ path: ["a", 1, 0], indices: undefined }],
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 2 + 1 this + 3`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | 2 + 1 -> this * 2 -> this + 3`)
     })
 
     it("should insert parallel at substep", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | this * 2 this + 3`))
-        const at = grammar["a"].children![1]!
-        insert(
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = insert(
             "parallel",
-            at,
-            createDefaultStep(
-                {
-                    type: "add",
-                },
-                {}
-            ),
-            grammar
+            [{ path: "a", indices: undefined }],
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 this + 3 | 2 + 1`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 -> this + 3 | 2 + 1`)
     })
 
     it("should insert parallel at noun", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | this * 2 this + 3`))
-        insert(
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = insert(
             "parallel",
-            "a",
-            createDefaultStep(
-                {
-                    type: "add",
-                },
-                {}
-            ),
-            grammar
+            [{ path: "a", indices: undefined }],
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 this + 3 | 2 + 1`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | this * 2 -> this + 3 | 2 + 1`)
     })
 
     it("should replace step", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | this * 2 this + 3`))
-        const at = grammar["a"].children![1]!.children![0].children![1]!
-        replace(
-            at,
-            {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = replace(
+            [{ path: ["a", 1, 0, 1], indices: undefined }],
+            () => ({
                 type: "this",
-            },
-            grammar
+            }),
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | this * this this + 3`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | this * this -> this + 3`)
+    })
+
+    it("should multi replace step", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
+        const { grammar } = replace(
+            [
+                { path: ["a", 1, 0, 1], indices: undefined },
+                { path: ["a", 0], indices: undefined },
+            ],
+            () => ({
+                type: "this",
+            }),
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> this | this * this -> this + 3`)
     })
 
     it("should rename noun", () => {
-        const oldGrammar = toHierarchical(parse(`a -> 1 | b * 2 this + 3\n\nb -> 2`))
-        const { grammar } = renameNoun("b", "xyz", oldGrammar)
+        const inputGrammar = toHierarchical(parse(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`))
+        const { grammar } = renameNoun("b", "xyz", inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | xyz * 2 this + 3\n\nxyz -> 2`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | xyz * 2 -> this + 3\n\nxyz -> 2`)
     })
 
-    it("should remove noun", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | b * 1 this + 3\nb -> 2`))
-        remove("b", {}, grammar)
+    it("should remove step at noun", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | b -> this + 3\n\nb -> 2`))
+        const { grammar } = removeStep([{ path: "b", indices: undefined }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1 | 2 * 1 this + 3`)
+        expect(serializeString(grammar)).to.equal(`a -> 1 | this + 3`)
     })
 
-    it("should remove from parallel", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | b * 2 this + 3\n\nb -> 2`))
-        const at = grammar["a"].children![0]
-        remove(at, {}, grammar)
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> b * 2 this + 3\n\nb -> 2`)
-    })
-
-    it("should remove from parallel and simplify", () => {
-        const grammar = toHierarchical(parse(`a -> 1 | 2`))
-        const at = grammar["a"].children![0]
-        remove(at, {}, grammar)
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(grammar).to.deep.equal({
-            //a -> 2
-            a: {
-                type: "raw",
-                value: 2,
-                parent: "a",
-                children: undefined,
-                childrenIndex: undefined,
-            },
-        })
-    })
-
-    it("should remove from if", () => {
-        const grammar = toHierarchical(parse(`a -> if (this > 5) then 22 else (this + 2)`))
-        const at = grammar["a"].children![0]
-        remove(at, {}, grammar)
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> if true then 22 else (this + 2)`)
-    })
-
-    it("should remove from operator", () => {
-        const grammar = toHierarchical(parse(`a -> if (this > 5) then operator("abc", 3) else (this + 2)`))
-        const at = grammar["a"].children![1]!.children![0]
-        remove(
-            at,
-            {
-                operator: {
-                    execute: () => {
-                        throw new Error(`not implemented`)
-                    },
-                    includeThis: true,
-                    defaultParameters: [() => ({ type: "raw", value: "" }), () => ({ type: "raw", value: 1 })],
-                },
-            },
-            grammar
+    it("should multi remove value at noun", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | 2 -> 3 | b -> this + 3\n\nb -> 2`))
+        const { grammar } = removeValue(
+            [
+                { path: "b", indices: undefined },
+                { path: ["a", 1, 1], indices: undefined },
+            ],
+            inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> if (this > 5) then operator("", 3) else (this + 2)`)
+        expect(serializeString(grammar)).to.equal(`a -> 1`)
+    })
+
+    it("should remove value at noun", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | b -> this + 3\n\nb -> 2`))
+        const { grammar } = removeValue([{ path: "b", indices: undefined }], inputGrammar)
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> 1`)
+    })
+
+    it("should remove step from parallel", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`))
+        const { grammar } = removeStep([{ path: ["a", 0], indices: undefined }], {}, inputGrammar)
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> this | b * 2 -> this + 3\n\nb -> 2`)
+    })
+
+    it("should remove step from sequential and simplify", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 -> drive() -> 2`))
+        const { grammar } = removeStep([{ path: ["a", 1], indices: undefined }], {}, inputGrammar)
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> 1 -> 2`)
+    })
+
+    it("should multi remove step from sequential and simplify", () => {
+        const inputGrammar = toHierarchical(parse(`a -> 1 -> test() -> drive() -> 2`))
+        const { grammar } = removeStep(
+            [
+                { path: ["a", 1], indices: undefined },
+                { path: ["a", 2], indices: undefined },
+            ],
+            {},
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> 1 -> 2`)
+    })
+
+    it("should remove step from if condition", () => {
+        const inputGrammar = toHierarchical(parse(`a -> if this > 5 then { 22 } else { this + 2 }`))
+        const { grammar } = removeStep([{ path: ["a", 0], indices: undefined }], {}, inputGrammar)
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> if true then { 22 } else { this + 2 }`)
+    })
+
+    it("should remove step from operation", () => {
+        const inputGrammar = toHierarchical(parse(`a -> if this > 5 then { operation("abc", 3) } else { this + 2 }`))
+        const { grammar } = removeStep(
+            [{ path: ["a", 1, 0], indices: undefined }],
+            {
+                operation: {
+                    execute: () => EMPTY,
+                    defaultParameters: [() => ({ type: "raw", value: "xyz" })],
+                    includeThis: true,
+                },
+            },
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> if this > 5 then { operation("xyz", 3) } else { this + 2 }`)
+    })
+
+    it("should remove step from if in multiplication", () => {
+        const inputGrammar = toHierarchical(
+            parse(`a -> 1 | b * if true then { "123" } else { 3 } -> this + 3\n\nb -> 2`)
+        )
+        const { grammar } = removeStep([{ path: ["a", 1, 0, 1, 1], indices: undefined }], {}, inputGrammar)
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar)).to.equal(`a -> 1 | b * if true then { 1 } else { 3 } -> this + 3\n\nb -> 2`)
     })
 })
-*/

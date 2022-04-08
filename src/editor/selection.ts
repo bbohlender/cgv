@@ -25,6 +25,9 @@ export function translateSelectionsForStep(
     newSteps: ParsedSteps,
     oldSteps: ParsedSteps
 ): ParsedSteps {
+    if (indices == null) {
+        return newSteps
+    }
     //TODO: find groups
     //TODO: find pattern
     //TODO: translate pattern to ParsedSteps

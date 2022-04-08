@@ -3,11 +3,11 @@ import type { EditorResult, Selections } from "."
 import { getPathFromSelection } from "."
 import { Draft, produce } from "immer"
 import { translateSelectionsForStep } from "./selection"
-import { getAtPath, translatePath } from "../util"
+import { getAtPath, HierarchicalInfo, TranslatedPath, translatePath } from "../util"
 
 export function replace(
     selections: Selections,
-    replaceWith: (path: HierarchicalPath) => ParsedSteps,
+    replaceWith: (path: HierarchicalPath, translatedPath: TranslatedPath<HierarchicalInfo>) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorResult {
     const result = produce(grammar, (draft) => replaceOnDraft(draft, replaceWith, selections))
@@ -19,7 +19,7 @@ export function replace(
 
 export function replaceOnDraft(
     draft: Draft<HierarchicalParsedGrammarDefinition>,
-    replaceWith: (path: HierarchicalPath) => ParsedSteps,
+    replaceWith: (path: HierarchicalPath, translatedPath: TranslatedPath<HierarchicalInfo>) => ParsedSteps,
     selections: Selections
 ): void {
     for (const selection of selections) {
@@ -28,7 +28,7 @@ export function replaceOnDraft(
         if (translatedPath == null) {
             continue
         }
-        const newSteps = replaceWith(arrayPath)
+        const newSteps = replaceWith(arrayPath, translatedPath)
         const currentSteps = getAtPath(translatedPath, arrayPath.length - 1)
         const steps = translateSelectionsForStep(arrayPath, selection.indices, newSteps, currentSteps)
         setAtPath(arrayPath, translatedPath, arrayPath.length - 1, steps)

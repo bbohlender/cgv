@@ -20,7 +20,7 @@ export const defaultOperations: Operations<any, any> = {
             ])
         },
         includeThis: false,
-        defaultParameters: () => [],
+        defaultParameters: [],
     },
     select: {
         execute: (value) => {
@@ -38,17 +38,11 @@ export const defaultOperations: Operations<any, any> = {
             )
         },
         includeThis: true,
-        defaultParameters: () => [
-            { type: "raw", value: 1 },
-            { type: "raw", value: 2 },
-        ],
+        defaultParameters: [() => ({ type: "raw", value: 1 }), () => ({ type: "raw", value: 2 })],
     },
     randomFloat: {
         execute: simpleExecution((min: number, max: number) => of([min + (max - min) * Math.random()])),
         includeThis: false,
-        defaultParameters: () => [
-            { type: "raw", value: 0 },
-            { type: "raw", value: 1 },
-        ],
+        defaultParameters: [() => ({ type: "raw", value: 0 }), () => ({ type: "raw", value: 1 })],
     },
 }

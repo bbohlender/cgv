@@ -2,10 +2,8 @@ import produce from "immer"
 import { EditorResult } from "."
 import {
     toHierarchicalSteps,
-    Operations,
     AbstractParsedSymbol,
     HierarchicalParsedGrammarDefinition,
-    toHierarchical,
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."

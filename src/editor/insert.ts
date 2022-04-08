@@ -8,20 +8,9 @@ import {
     ParsedSteps,
     HierarchicalParsedGrammarDefinition,
     HierarchicalPath,
+    getPathFromSelection,
+    translateSelectionsForStep,
 } from ".."
-import { getPathFromSelection, translateSelectionsForStep } from "./selection"
-
-function generateNull(): ParsedSteps {
-    return {
-        type: "null",
-    }
-}
-
-function generateThis(): ParsedSteps {
-    return {
-        type: "this",
-    }
-}
 
 export function insert(
     position: "before" | "after" | "parallel",

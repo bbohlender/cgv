@@ -8,8 +8,8 @@ export type EditorResult = {
 
 export * from "./selection"
 export * from "./replace"
+export * from "./insert"
 export * from "./remove"
 export * from "./noun"
-export * from "./insert"
 export * from "./noun"
 export * from "./default-step"

@@ -5,7 +5,11 @@ export type HierarchicalInfo = { path: HierarchicalPath }
 export type HierarchicalParsedSteps = AbstractParsedSteps<HierarchicalInfo>
 export type HierarchicalParsedGrammarDefinition = AbstractParsedGrammarDefinition<HierarchicalInfo>
 
-export type TranslatedPath<I> = [AbstractParsedGrammarDefinition<I>, ...Array<AbstractParsedSteps<I>>]
+export type TranslatedPath<I> = [
+    AbstractParsedGrammarDefinition<I>,
+    AbstractParsedSteps<I>,
+    ...Array<AbstractParsedSteps<I>>
+]
 
 export function translatePath<I>(
     grammar: AbstractParsedGrammarDefinition<I>,
