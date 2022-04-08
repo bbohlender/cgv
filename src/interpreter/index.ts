@@ -39,7 +39,7 @@ import { toList } from "./list"
 export type Operation<T, A> = {
     execute: (parameters: Value<ReadonlyArray<T>, A>) => Observable<Array<Value<T, A>>>
     includeThis: boolean
-    defaultParameters: Array<() => ParsedSteps> | ((index: number) => ParsedSteps)
+    defaultParameters: () => Array<ParsedSteps>
 }
 
 export function simpleExecution<T, A>(

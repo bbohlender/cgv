@@ -59,7 +59,7 @@ ParallelStep            ->  ws %parallel SequentialSteps                        
 
 SequentialSteps         ->  PrimarySteps SequentialStep:+                                   {% ([primary,primaries]) => ({ type: "sequential", children: [primary, ...primaries] }) %}
                         |   PrimarySteps                                                    {% ([primary]) => primary %}
-SequentialStep          ->  %ws PrimarySteps                                                {% ([,primary]) => primary %}
+SequentialStep          ->  ws %arrow ws PrimarySteps                                       {% ([,,,primary]) => primary %}
 
 PrimarySteps            ->  ws BasicOperation                                               {% ([,operation]) => operation %}
 
@@ -121,13 +121,13 @@ Step                    ->  Operation                                           
                         |   GetVariable                                                     {% ([getVariable]) => getVariable %}
                         |   SetVariable                                                     {% ([setVariable]) => setVariable %}
                         |   Constant                                                        {% ([value]) => ({ type: "raw", value }) %}
-                        |   ConditionalOperation                                            {% ([operation]) => operation %}
+                        |   Conditional                                                     {% ([operation]) => operation %}
                         |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
                         |   %nullSymbol                                                     {% () => ({ type: "null" }) %}
-                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => steps }) %}
-                        |   RandomSteps                                                     {% ([random]) => random %}
+                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => steps %}
+                        |   Random                                                          {% ([random]) => random %}
 
-RandomSteps             ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
+Random                  ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
 RandomStep              ->  ws %number %percent ws %colon ws Steps                          {% ([,{ value },,,,, steps]) => ({ probability: Number.parseFloat(value) / 100, steps }) %}
 
 Operation               ->  %identifier %openBracket EmptyParameters ws %closedBracket      {% ([{ value },,children]) => ({ type: "operation", children, identifier: value }) %}
@@ -139,7 +139,6 @@ Parameter               ->  ws %comma Steps                                     
 
 Symbol                  ->  %identifier                                                     {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
 
-JS                      ->  %js                                                             {% ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn)) %}
 ws                      ->  %ws | null
 
 Constant                ->  %boolean                                                        {% ([{ value }]) => value === "true" %}
@@ -150,10 +149,12 @@ Constant                ->  %boolean                                            
 GetVariable             ->  %thisSymbol %point %identifier                                  {% ([,,{ value: identifier }]) => ({ type: "getVariable", identifier }) %}
 SetVariable             ->  %thisSymbol %point %identifier ws %equal ws Step                {% ([,,{ value: identifier },,,,value]) => ({ type: "setVariable", identifier, children: [value] }) %}
 
-ConditionalOperation    ->  IfThenElseOperation                                             {% ([value]) => value %}                               
-                        |   SwitchOperation                                                 {% ([value]) => value %}
+Conditional             ->  IfThenElse                                                      {% ([value]) => value %}                               
+                        |   Switch                                                          {% ([value]) => value %}
 
-IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
+IfThenElse              ->  %ifSymbol %ws Steps %ws Then ws Else                                                {% ([,,condition,,ifStep,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
+Then                    ->  %thenSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
+Else                    ->  %elseSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
 
-SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
-SwitchCase              ->  %ws %caseSymbol %ws Constant %colon ws Step                           {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}
+Switch                  ->  %switchSymbol %ws Steps ws %openCurlyBracket SwitchCase:+ ws %closedCurlyBracket    {% ([,,value,,,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+SwitchCase              ->  ws %caseSymbol %ws Constant %colon ws Steps                                         {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}

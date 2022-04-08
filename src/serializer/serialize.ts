@@ -219,10 +219,11 @@ function serializeIf<T>(
     return join(
         `if `,
         serializeChild(step.children[0], 0),
-        ` then `,
+        ` then { `,
         serializeChild(step.children[1], 1),
-        ` else `,
-        serializeChild(step.children[2], 2)
+        ` } else { `,
+        serializeChild(step.children[2], 2),
+        ` }`
     )
 }
 
@@ -234,14 +235,15 @@ function serializeSwitch<T>(
     return join(
         "switch ",
         serializeChild(step.children[0], 0),
-        " ",
+        " { ",
         ...insertBetweenAll(
             step.cases.map((caseValue, i) => [
                 `case ${serializeConstant(caseValue)}: `,
                 serializeChild(step.children[i + 1], i + 1),
             ]),
             " "
-        ).reduce<Array<T | string>>((v1, v2) => v1.concat(v2), [])
+        ).reduce<Array<T | string>>((v1, v2) => v1.concat(v2), []),
+        " }"
     )
 }
 
@@ -279,7 +281,7 @@ function serializeSequentialAbstract<T>(
     serializeChild: (child: ParsedSteps, index: number) => T,
     join: (...values: Array<T | string>) => T
 ): T {
-    return join(...insertBetweenAll(sequentialStep.children.map(serializeChild), " "))
+    return join(...insertBetweenAll(sequentialStep.children.map(serializeChild), " -> "))
 }
 
 function serializeSymbolAbstract<T>(

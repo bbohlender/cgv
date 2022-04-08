@@ -34,5 +34,5 @@ export function hasHigherPrecendence(s1: ParsedSteps, s2: ParsedSteps): boolean 
 }
 
 export function requiresBracket(parent: ParsedSteps, child: ParsedSteps): boolean {
-    return bracketFree.includes(parent.type) && hasHigherPrecendence(parent, child)
+    return !bracketFree.includes(parent.type) && hasHigherPrecendence(parent, child)
 }

@@ -12,21 +12,6 @@ export type Selections = Array<Selection>
  */
 export type Selection = { path: HierarchicalPath | string; indices: Array<Array<number>> | undefined }
 
-export function translateSelections(
-    selections: Selections,
-    getNewSteps: (path: HierarchicalPath) => ParsedSteps,
-    getOldSteps: (path: HierarchicalPath) => ParsedSteps | undefined
-): Array<{ path: HierarchicalPath; steps: ParsedSteps }> {
-    //TODO: special cases with parallel and sequential
-    return selections.map((selection) => {
-        const arrayPath = getPathFromSelection(selection)
-        return {
-            path: arrayPath,
-            steps: translateSelectionsForStep(arrayPath, selection.indices, getNewSteps, getOldSteps),
-        }
-    })
-}
-
 export function getPathFromSelection({ path }: Selection): HierarchicalPath {
     if (typeof path === "string") {
         return [path]
@@ -34,14 +19,12 @@ export function getPathFromSelection({ path }: Selection): HierarchicalPath {
     return path
 }
 
-function translateSelectionsForStep(
+export function translateSelectionsForStep(
     path: HierarchicalPath,
     indices: Array<Array<number>> | undefined,
-    getNewSteps: (path: HierarchicalPath) => ParsedSteps,
-    getOldSteps: (path: HierarchicalPath) => ParsedSteps | undefined
+    newSteps: ParsedSteps,
+    oldSteps: ParsedSteps
 ): ParsedSteps {
-    const newSteps = getNewSteps(path)
-    const oldSteps = getOldSteps(path)
     //TODO: find groups
     //TODO: find pattern
     //TODO: translate pattern to ParsedSteps

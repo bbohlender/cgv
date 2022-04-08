@@ -2,11 +2,11 @@ import { HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, Hierarchi
 
 export function validateHierarchical(grammar: HierarchicalParsedGrammarDefinition): void {
     for (const [name, step] of Object.entries(grammar)) {
-        validateHierarchicalSteps(step, [name])
+        validateHierarchicalSteps(step, name)
     }
 }
 
-export function validateHierarchicalSteps(step: HierarchicalParsedSteps, path: HierarchicalPath): void {
+export function validateHierarchicalSteps(step: HierarchicalParsedSteps, ...path: HierarchicalPath): void {
     if (!shallowEqual(step.path, path)) {
         throw new Error(`path at "${path.join(" -> ")}" is wrong. Found: "${step.path.join(" -> ")}"`)
     }
@@ -15,6 +15,6 @@ export function validateHierarchicalSteps(step: HierarchicalParsedSteps, path: H
     }
     for (let i = 0; i < step.children.length; i++) {
         const child = step.children[i]
-        validateHierarchicalSteps(child, [...step.path, i])
+        validateHierarchicalSteps(child, ...step.path, i)
     }
 }

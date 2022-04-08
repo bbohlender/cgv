@@ -30,6 +30,7 @@ const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation" | "sy
     { type: "switch" },
     { type: "this" },
     { type: "unequal" },
+    { type: "null" },
 ]
 
 export function getAllStepDescriptors(operations: Operations<any, any>): Array<StepDescriptor> {
@@ -40,26 +41,92 @@ export function getAllStepDescriptors(operations: Operations<any, any>): Array<S
 }
 
 export function createDefaultStep<T, A>(descriptor: StepDescriptor, operations: Operations<T, A>): ParsedSteps {
-    const children = getDefaultChildren(descriptor, operations)
     switch (descriptor.type) {
+        case "add":
+        case "multiply":
+        case "subtract":
+        case "divide":
+        case "modulo":
+        case "equal":
+        case "unequal":
+        case "greater":
+        case "greaterEqual":
+        case "smaller":
+        case "smallerEqual":
+            return {
+                type: descriptor.type,
+                children: [
+                    {
+                        type: "raw",
+                        value: 2,
+                    },
+                    {
+                        type: "raw",
+                        value: 1,
+                    },
+                ],
+            }
+        case "and":
+        case "or":
+            return {
+                type: descriptor.type,
+                children: [
+                    {
+                        type: "raw",
+                        value: true,
+                    },
+                    {
+                        type: "raw",
+                        value: false,
+                    },
+                ],
+            }
+        case "if":
+            return {
+                type: descriptor.type,
+                children: [
+                    {
+                        type: "raw",
+                        value: true,
+                    },
+                    {
+                        type: "this",
+                    },
+                    {
+                        type: "this",
+                    },
+                ],
+            }
+        case "parallel":
+        case "sequential":
         case "random":
             return {
                 type: descriptor.type,
-                children: children!,
+                children: [],
                 probabilities: [],
             }
         case "switch":
             return {
                 type: descriptor.type,
                 cases: [],
-                children: children!,
+                children: [
+                    {
+                        type: "raw",
+                        value: 0,
+                    },
+                ],
             }
-        case "operation":
+        case "operation": {
+            const operation = operations[descriptor.identifier]
+            if (operation == null) {
+                throw new Error(`unknown operation "${descriptor.identifier}"`)
+            }
             return {
                 type: descriptor.type,
-                children: children!,
+                children: operation.defaultParameters(),
                 identifier: descriptor.identifier,
             }
+        }
         case "raw":
             return {
                 type: descriptor.type,
@@ -74,143 +141,38 @@ export function createDefaultStep<T, A>(descriptor: StepDescriptor, operations: 
             return {
                 type: descriptor.type,
                 identifier: "x",
-                children: children! as [ParsedSteps],
+                children: [
+                    {
+                        type: "raw",
+                        value: 1,
+                    },
+                ],
             }
-        default:
+        case "not":
             return {
                 type: descriptor.type,
-                children: children as any,
+                children: [
+                    {
+                        type: "raw",
+                        value: true,
+                    },
+                ],
             }
-    }
-}
-
-const binaryNumberOperationChildren: Array<() => ParsedSteps> = [
-    () => ({
-        type: "raw",
-        value: 2,
-    }),
-    () => ({
-        type: "raw",
-        value: 1,
-    }),
-]
-
-const binaryBooleanOperationChildren: Array<() => ParsedSteps> = [
-    () => ({
-        type: "raw",
-        value: true,
-    }),
-    () => ({
-        type: "raw",
-        value: false,
-    }),
-]
-
-const defaultChildrenMap: {
-    [T in Exclude<ParsedSteps["type"], "operation">]:
-        | Array<() => ParsedSteps>
-        | undefined
-        | ((index: number) => ParsedSteps)
-} = {
-    add: binaryNumberOperationChildren,
-    multiply: binaryNumberOperationChildren,
-    subtract: binaryNumberOperationChildren,
-    divide: binaryNumberOperationChildren,
-    modulo: binaryNumberOperationChildren,
-    equal: binaryNumberOperationChildren,
-    unequal: binaryNumberOperationChildren,
-    greater: binaryNumberOperationChildren,
-    greaterEqual: binaryNumberOperationChildren,
-    smaller: binaryNumberOperationChildren,
-    smallerEqual: binaryNumberOperationChildren,
-    and: binaryBooleanOperationChildren,
-    or: binaryBooleanOperationChildren,
-    if: [
-        () => ({
-            type: "raw",
-            value: true,
-        }),
-        () => ({
-            type: "this",
-        }),
-        () => ({
-            type: "this",
-        }),
-    ],
-    switch: (index) => {
-        if (index === 0) {
+        case "invert":
             return {
-                type: "raw",
-                value: 0,
+                type: descriptor.type,
+                children: [
+                    {
+                        type: "raw",
+                        value: 1,
+                    },
+                ],
             }
-        }
-        return {
-            type: "null",
-        }
-    },
-    setVariable: [
-        () => ({
-            type: "raw",
-            value: 1,
-        }),
-    ],
-    not: [
-        () => ({
-            type: "raw",
-            value: true,
-        }),
-    ],
-    invert: [
-        () => ({
-            type: "raw",
-            value: 1,
-        }),
-    ],
-    this: undefined,
-    return: undefined,
-    random: () => ({ type: "null" }),
-    getVariable: undefined,
-    parallel: () => ({ type: "null" }),
-    raw: undefined,
-    symbol: undefined,
-    null: undefined,
-    sequential: () => ({ type: "this" }),
-}
-
-export function getDefaultChildren(
-    descriptor: StepDescriptor,
-    operations: Operations<any, any>
-): Array<ParsedSteps> | undefined {
-    return getDefaultChildrenGenerators(descriptor, operations)?.map((fn) => fn())
-}
-
-export function getDefaultChildAtIndex(
-    descriptor: StepDescriptor,
-    operations: Operations<any, any>,
-    index: number
-): ParsedSteps | undefined {
-    const generators = getDefaultChildrenGenerators(descriptor, operations)
-    if (generators == null) {
-        return undefined
+        case "return":
+        case "this":
+        case "null":
+            return {
+                type: descriptor.type,
+            }
     }
-    const generator = generators[index]
-    if (generator == null) {
-        return undefined
-    }
-    return generator()
-}
-
-function getDefaultChildrenGenerators(
-    descriptor: StepDescriptor,
-    operations: Operations<any, any>
-): Array<() => ParsedSteps> | undefined {
-    if (descriptor.type !== "operation") {
-        return defaultChildrenMap[descriptor.type]
-    }
-
-    const operation = operations[descriptor.identifier]
-    if (operation == null) {
-        throw new Error(`unknown operator "${descriptor.identifier}"`)
-    }
-    return operation.defaultParameters
 }

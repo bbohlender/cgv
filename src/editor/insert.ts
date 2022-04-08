@@ -1,6 +1,15 @@
 import produce from "immer"
-import { EditorResult, Selections, translateSelections } from "."
-import { createPathWalker, flatten, ParsedSteps, HierarchicalParsedGrammarDefinition, HierarchicalPath } from ".."
+import { EditorResult, Selections } from "."
+import {
+    getAtPath,
+    HierarchicalInfo,
+    setAtPath,
+    translatePath,
+    ParsedSteps,
+    HierarchicalParsedGrammarDefinition,
+    HierarchicalPath,
+} from ".."
+import { getPathFromSelection, translateSelectionsForStep } from "./selection"
 
 function generateNull(): ParsedSteps {
     return {
@@ -21,40 +30,47 @@ export function insert(
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorResult {
     const type = position === "parallel" ? "parallel" : "sequential"
-
-    const inserts = translateSelections(selections, stepGenerator, type === "parallel" ? generateNull : generateThis)
-    const newSelections: Selections = []
     const result = produce(grammar, (draft) => {
-        for (const { path, steps } of inserts) {
-            const walker = createPathWalker<any>(draft, path)
-            if (!walker.walk(-1)) {
+        for (const selection of selections) {
+            const arrayPath = getPathFromSelection(selection)
+            const newSteps = stepGenerator(arrayPath)
+            const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
+            const steps = translateSelectionsForStep(arrayPath, selection.indices, newSteps, oldSteps)
+            const translatedPath = translatePath<HierarchicalInfo>(draft, arrayPath)
+            if (translatedPath == null) {
                 continue
             }
-            const parent = walker.get()
-            const parentPath = walker.getPath()
-            const childIndex = walker.getNextIndex()
-            if (!walker.walk(1)) {
-                continue
-            }
-            const current = walker.get()
-            walker.set({
+            const current = getAtPath(translatedPath, arrayPath.length - 1)
+            setAtPath(arrayPath, translatedPath, arrayPath.length - 1, {
                 type,
                 children: position === "before" ? [steps, current] : [current, steps],
             })
             const insertIndex = position === "before" ? 0 : 1
-            const flattened = flatten(parent, childIndex)
-            const newStepPath: HierarchicalPath = flattened
-                ? [...parentPath, childIndex + insertIndex]
-                : [...parentPath, childIndex, insertIndex]
+            /*if (path.length > 1) {
+                const parent = getAtPath(translatedPath, path.length - 2)
+                const parentPath = path.slice(0, -1) as HierarchicalPath
+                const childIndex = path[path.length - 1] as number
+                const flattened = flatten(parent, childIndex)
+                if (flattened) {
+                    newSelections.push({
+                        indices: undefined,
+                        path: [...parentPath, childIndex + insertIndex],
+                    })
+                    continue
+                }
+            }
+
             newSelections.push({
                 indices: undefined,
-                path: newStepPath,
-            })
+                path: [...path, insertIndex],
+            })*/
         }
     })
 
+    //TODO: generic solution (together with remove) for simplification (e.g. flatten) while remapping the selections
+
     return {
         grammar: result,
-        selections: newSelections,
+        selections: [],
     }
 }

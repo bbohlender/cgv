@@ -1,16 +1,16 @@
 import produce from "immer"
-import { removeOnDraft, EditorResult, replace } from "."
+import { EditorResult } from "."
 import {
     toHierarchicalSteps,
     Operations,
     AbstractParsedSymbol,
     HierarchicalParsedGrammarDefinition,
-    toHierachical,
+    toHierarchical,
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
 
-export function removeNounOnDraft<T, A>(
+/*export function removeNounOnDraft<T, A>(
     name: string,
     operations: Operations<T, A>,
     grammar: HierarchicalParsedGrammarDefinition
@@ -26,13 +26,13 @@ export function removeNounOnDraft<T, A>(
             for (const value of rootSteps) {
                 findSymbolsWithIdentifier(value, name, (step) => {
                     //TODO: remove symbols with name
-                    removeOnDraft(draft, path)
+                    removeStepOnDraft(draft, path)
                 })
             }
         }),
         selections: [],
     }
-}
+}*/
 
 export function renameNoun(name: string, newName: string, grammar: HierarchicalParsedGrammarDefinition): EditorResult {
     return {

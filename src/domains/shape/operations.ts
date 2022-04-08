@@ -1,7 +1,16 @@
 import { from, map, Observable, of, shareReplay } from "rxjs"
 import { LinePrimitive, loadMap, PointPrimitive } from "."
 import { Operations, simpleExecution } from "../.."
-import { makeRotationMatrix, makeScaleMatrix, makeTranslationMatrix, createPhongMaterialGenerator, FacePrimitive, Primitive, Axis, Split } from "."
+import {
+    makeRotationMatrix,
+    makeScaleMatrix,
+    makeTranslationMatrix,
+    createPhongMaterialGenerator,
+    FacePrimitive,
+    Primitive,
+    Axis,
+    Split,
+} from "."
 import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
 import { defaultOperations } from ".."
 
@@ -113,89 +122,92 @@ export const operations: Operations<any, any> = {
     translate: {
         execute: simpleExecution<any, unknown>(computeTranslate),
         includeThis: true,
-        defaultParameters: [
-            () => ({ type: "raw", value: 0 }),
-            () => ({ type: "raw", value: 0 }),
-            () => ({ type: "raw", value: 0 }),
+        defaultParameters: () => [
+            { type: "raw", value: 0 },
+            { type: "raw", value: 0 },
+            { type: "raw", value: 0 },
         ],
     },
     scale: {
         execute: simpleExecution<any, unknown>(computeScale),
         includeThis: true,
-        defaultParameters: [
-            () => ({ type: "raw", value: 1 }),
-            () => ({ type: "raw", value: 1 }),
-            () => ({ type: "raw", value: 1 }),
+        defaultParameters: () => [
+            { type: "raw", value: 1 },
+            { type: "raw", value: 1 },
+            { type: "raw", value: 1 },
         ],
     },
     rotate: {
         execute: simpleExecution<any, unknown>(computeRotate),
         includeThis: true,
-        defaultParameters: [
-            () => ({ type: "raw", value: 0 }),
-            () => ({ type: "raw", value: 0 }),
-            () => ({ type: "raw", value: 0 }),
+        defaultParameters: () => [
+            { type: "raw", value: 0 },
+            { type: "raw", value: 0 },
+            { type: "raw", value: 0 },
         ],
     },
     extrude: {
         execute: simpleExecution<any, unknown>(computeExtrude),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 100 })],
+        defaultParameters: () => [{ type: "raw", value: 100 }],
     },
     split: {
         execute: simpleExecution<any, unknown>(computeSplit),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: "x" }), () => ({ type: "raw", value: 10 })],
+        defaultParameters: () => [
+            { type: "raw", value: "x" },
+            { type: "raw", value: 10 },
+        ],
     },
     multiSplit: {
         execute: simpleExecution<any, unknown>(computeMultiSplit),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: "x" })],
+        defaultParameters: () => [{ type: "raw", value: "x" }],
     },
     toPoints: {
         execute: simpleExecution<any, unknown>(computeComponents.bind(null, "points")),
         includeThis: true,
-        defaultParameters: [],
+        defaultParameters: () => [],
     },
     toLines: {
         execute: simpleExecution<any, unknown>(computeComponents.bind(null, "lines")),
         includeThis: true,
-        defaultParameters: [],
+        defaultParameters: () => [],
     },
     toFaces: {
         execute: simpleExecution<any, unknown>(computeComponents.bind(null, "faces")),
         includeThis: true,
-        defaultParameters: [],
+        defaultParameters: () => [],
     },
     color: {
         execute: simpleExecution<any, unknown>(computeColorChange),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: "#ff0000" })],
+        defaultParameters: () => [{ type: "raw", value: "#ff0000" }],
     },
     size: {
         execute: simpleExecution<any, unknown>(computeSize),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: "x" })],
+        defaultParameters: () => [{ type: "raw", value: "x" }],
     },
     mapbox: {
         execute: simpleExecution<any, unknown>(computeMapbox),
         includeThis: false,
-        defaultParameters: [],
+        defaultParameters: () => [],
     },
     point: {
         execute: simpleExecution<any, unknown>(computePoint),
         includeThis: false,
-        defaultParameters: [
-            () => ({ type: "raw", value: 0 }),
-            () => ({ type: "raw", value: 0 }),
-            () => ({ type: "raw", value: 0 }),
+        defaultParameters: () => [
+            { type: "raw", value: 0 },
+            { type: "raw", value: 0 },
+            { type: "raw", value: 0 },
         ],
     },
     line: {
         execute: simpleExecution<any, unknown>(computeLine),
         includeThis: false,
-        defaultParameters: [
-            () => ({
+        defaultParameters: () => [
+            {
                 type: "operation",
                 identifier: "point",
                 children: [
@@ -203,8 +215,8 @@ export const operations: Operations<any, any> = {
                     { type: "raw", value: 0 },
                     { type: "raw", value: 0 },
                 ],
-            }),
-            () => ({
+            },
+            {
                 type: "operation",
                 identifier: "point",
                 children: [
@@ -212,12 +224,12 @@ export const operations: Operations<any, any> = {
                     { type: "raw", value: 0 },
                     { type: "raw", value: 0 },
                 ],
-            }),
+            },
         ],
     },
     face: {
         execute: simpleExecution<any, unknown>(computeFace),
         includeThis: false,
-        defaultParameters: [],
+        defaultParameters: () => [],
     },
 }
