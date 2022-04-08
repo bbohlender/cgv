@@ -16,6 +16,8 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             {nouns.map(([name, value]) => (
                 <>
                     {`${name} -> `} <InteractableSteps key={name} value={value} />
+                    <br />
+                    <br />
                 </>
             ))}
             <button

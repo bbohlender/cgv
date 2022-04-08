@@ -264,15 +264,15 @@ function serializeRaw<T>(
 }
 
 function serializeConstant(constant: string | number | boolean): string {
-    const type = typeof constant
-    switch (type) {
+    switch (typeof constant) {
         case "string":
             return `"${constant}"`
         case "number":
+            return `${Math.round(constant * 100) / 100}`
         case "boolean":
             return constant.toString()
         default:
-            throw new Error(`constant "${constant}" of unknown type "${type}"`)
+            throw new Error(`constant "${constant}" of unexpected type`)
     }
 }
 

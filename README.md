@@ -186,7 +186,7 @@ Roof -> color("#881111")
 
 Floor -> split("x", 20) -> WindowFrame
 
-WindowFrame -> if (size("x") >= 20)
+WindowFrame -> if size("x") >= 20
 	then {
 		multiSplit("x", 5, 10) -> switch index() {
 			case 0: this

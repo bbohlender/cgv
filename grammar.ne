@@ -53,19 +53,13 @@ RuleDefinition          ->  %identifier ws %arrow ws Steps                      
 
 Steps                   ->  ParallelSteps                                                   {% ([steps]) => steps %}
 
-ParallelSteps           ->  SequentialSteps ParallelStep:+                                  {% ([sequential,sequentials]) => ({ type: "parallel", children: [sequential, ...sequentials] }) %}
+ParallelSteps           ->  ParallelStep:+ SequentialSteps                                  {% ([sequentials,sequential]) => ({ type: "parallel", children: [...sequentials, sequential] }) %}
                         |   SequentialSteps                                                 {% ([sequential]) => sequential %}
-ParallelStep            ->  ws %parallel SequentialSteps                                    {% ([,,sequential]) => sequential %}
+ParallelStep            ->  SequentialSteps ws %parallel ws                                 {% ([sequential]) => sequential %}
 
-SequentialSteps         ->  PrimarySteps SequentialStep:+                                   {% ([primary,primaries]) => ({ type: "sequential", children: [primary, ...primaries] }) %}
-                        |   PrimarySteps                                                    {% ([primary]) => primary %}
-SequentialStep          ->  ws %arrow ws PrimarySteps                                       {% ([,,,primary]) => primary %}
-
-PrimarySteps            ->  ws BasicOperation                                               {% ([,operation]) => operation %}
-
-BasicOperation          ->  BooleanOperation                                                {% ([value]) => value %}
-
-BooleanOperation        ->  OrOperation                                                     {% ([value]) => value %}
+SequentialSteps         ->  SequentialStep:+ OrOperation                                    {% ([primaries,primary]) => ({ type: "sequential", children: [...primaries, primary] }) %}
+                        |   OrOperation                                                     {% ([primary]) => primary %}
+SequentialStep          ->  OrOperation ws %arrow ws                                        {% ([primary]) => primary %}
 
 OrOperation             ->  OrOperation ws %or ws AndOperation                              {% ([op1,,,,op2]) => ({ type: "or", children: [op1, op2] }) %}
                         |   AndOperation                                                    {% ([value]) => value %}
@@ -127,15 +121,14 @@ Step                    ->  Operation                                           
                         |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => steps %}
                         |   Random                                                          {% ([random]) => random %}
 
-Random                  ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
+Random                  ->  %openCurlyBracket RandomStep:* ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
 RandomStep              ->  ws %number %percent ws %colon ws Steps                          {% ([,{ value },,,,, steps]) => ({ probability: Number.parseFloat(value) / 100, steps }) %}
 
 Operation               ->  %identifier %openBracket EmptyParameters ws %closedBracket      {% ([{ value },,children]) => ({ type: "operation", children, identifier: value }) %}
-EmptyParameters         ->  Parameters                                                      {% ([parameters]) => parameters%}
+EmptyParameters         ->  ws Parameters                                                   {% ([,parameters]) => parameters%}
                         |   null                                                            {% () => [] %}
-Parameters              ->  Steps Parameter:+                                               {% ([steps, stepsList]) => [steps, ...stepsList] %}
-                        |   Steps                                                           {% ([steps]) => [steps] %}
-Parameter               ->  ws %comma Steps                                                 {% ([,,steps]) =>  steps %}
+Parameters              ->  Parameter:* Steps                                               {% ([stepsList, steps]) => [...stepsList, steps] %}
+Parameter               ->  Steps ws %comma ws                                              {% ([steps]) =>  steps %}
 
 Symbol                  ->  %identifier                                                     {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
 
@@ -156,5 +149,5 @@ IfThenElse              ->  %ifSymbol %ws Steps %ws Then ws Else                
 Then                    ->  %thenSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
 Else                    ->  %elseSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
 
-Switch                  ->  %switchSymbol %ws Steps ws %openCurlyBracket SwitchCase:+ ws %closedCurlyBracket    {% ([,,value,,,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+Switch                  ->  %switchSymbol %ws Steps ws %openCurlyBracket SwitchCase:* ws %closedCurlyBracket    {% ([,,value,,,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
 SwitchCase              ->  ws %caseSymbol %ws Constant %colon ws Steps                                         {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}
