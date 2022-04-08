@@ -1,6 +1,5 @@
 import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition, setAtPath } from ".."
 import type { EditorResult, Selections } from "."
-import { getPathFromSelection } from "."
 import { Draft, produce } from "immer"
 import { translateSelectionsForStep } from "./selection"
 import { getAtPath, HierarchicalInfo, TranslatedPath, translatePath } from "../util"
@@ -23,7 +22,7 @@ export function replaceOnDraft(
     selections: Selections
 ): void {
     for (const selection of selections) {
-        const arrayPath = getPathFromSelection(selection)
+        const arrayPath = selection.steps.path
         const translatedPath = translatePath(draft, arrayPath)
         if (translatedPath == null) {
             continue

@@ -11,7 +11,7 @@ export function GUIExtrudeStep({ value }: { value: AbstractParsedOperation<Hiera
             type="number"
             className="mx-3 mb-3 w-auto form-control form-control-sm"
             onBlur={(e) =>
-                store.getState().replace(value, {
+                store.getState().replace(() => ({
                     type: "operation",
                     identifier: "extrude",
                     children: [
@@ -20,7 +20,7 @@ export function GUIExtrudeStep({ value }: { value: AbstractParsedOperation<Hiera
                             value: e.target.valueAsNumber,
                         },
                     ],
-                })
+                }), value)
             }
         />
     )

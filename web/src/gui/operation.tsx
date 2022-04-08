@@ -21,14 +21,16 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
         <div className="d-flex flex-column mx-3 mb-3">
             {value.children.map((child, i) => (
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
-                    <div className="flex-grow-1 p-3 pointer" onClick={store.getState().select.bind(null, child)}>
+                    <div
+                        className="flex-grow-1 p-3 pointer"
+                        onClick={() => store.getState().select(child, undefined, false)}>
                         {serializeStepString(child)}
                     </div>
-                    <div
-                        onClick={() => store.getState().remove(child)}
+                    {/*<div
+                        onClick={() => store.getState().removeStep(child)}
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
-                    </div>
+            </div>*/}
                 </div>
             ))}
             <div className="btn btn-outline-success" onClick={addParameter.bind(null, value, store)}>
@@ -39,8 +41,11 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
 }
 
 function addParameter(value: AbstractParsedOperation<HierarchicalInfo>, store: UseBaseStore) {
-    store.getState().replace(value, {
-        ...value,
-        children: [...value.children, { type: "this" }],
-    })
+    store.getState().replace(
+        () => ({
+            ...value,
+            children: [...value.children, { type: "this" }],
+        }),
+        value
+    )
 }

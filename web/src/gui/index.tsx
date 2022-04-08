@@ -2,6 +2,8 @@ import {
     AbstractParsedOperation,
     HierarchicalInfo,
     HierarchicalParsedSteps,
+    HierarchicalPath,
+    Selections,
     serializeStepString,
     StepDescriptor,
 } from "cgv"
@@ -20,37 +22,34 @@ export type OperationGUIMap = {
     [name in string]?: (props: { value: AbstractParsedOperation<HierarchicalInfo> }) => JSX.Element | null
 }
 
-export function getLabel(descriptor: StepDescriptor | { type: "symbol" }) {
-    if (descriptor.type === "operation") {
-        return descriptor.identifier
+export function getSelectionTitle(selections: Selections) {
+    if (selections.length === 1) {
+        const steps = selections[0].steps
+        return steps.type === "operation" ? steps.identifier : steps.type
     }
-    return descriptor.type
+    return `${selections.length} steps selected`
 }
 
 function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") {
-    store.getState().request("create-step", (step) => store.getState().add(type, step))
+    store.getState().request("create-step", (step) => store.getState().insert(type, step))
 }
 
-function requestReplace(store: UseBaseStore, at: HierarchicalParsedSteps) {
-    store.getState().request("create-step", (step) => store.getState().replace(at, step))
+function requestReplace(store: UseBaseStore) {
+    store.getState().request("create-step", (step) => store.getState().replace(step))
 }
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const selected = store((state) => (state.type === "gui" && state.requested == null ? state.selected : undefined))
-    if (selected == null) {
+    const selections = store((state) =>
+        state.type === "gui" && state.requested == null && state.selections.length > 0 ? state.selections : undefined
+    )
+    if (selections == null) {
         return null
     }
     return (
         <div {...rest} className={`${className} d-flex flex-column px-0 pt-2 overflow-hidden`}>
             <div className="d-flex flex-column">
-                <h3 className="p-0 mx-3 mb-3">
-                    {typeof selected === "string"
-                        ? selected
-                        : selected.type === "symbol"
-                        ? "symbol"
-                        : getLabel(selected)}
-                </h3>
+                <h3 className="p-0 mx-3 mb-3">{getSelectionTitle(selections)}</h3>
                 <div className="btn-group mx-3 mb-2 d-flex">
                     <button
                         onClick={requestAdd.bind(null, store, "before")}
@@ -70,24 +69,26 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 </div>
                 <div className="btn-group mx-3 mb-3 d-flex">
                     <button
-                        onClick={store.getState().select.bind(null, undefined)}
+                        onClick={() => {
+                            //TODO: unselect all
+                        }}
                         className="d-flex align-items-center justify-content-center btn btn-sm btn-outline-primary flex-grow-1 flex-basis-0">
                         <CheckIcon />
                     </button>
-                    {typeof selected !== "string" && (
-                        <button
-                            onClick={requestReplace.bind(null, store, selected)}
-                            className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
-                            Replace
-                        </button>
-                    )}
                     <button
-                        onClick={store.getState().remove.bind(null, undefined)}
+                        onClick={requestReplace.bind(null, store)}
+                        className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
+                        Replace
+                    </button>
+                    <button
+                        onClick={store.getState().removeStep.bind(null, undefined)}
                         className="d-flex align-items-center justify-content-center btn btn-sm btn-outline-danger flex-grow-1 flex-basis-0">
                         <DeleteIcon />
                     </button>
                 </div>
-                <GUISteps value={selected} />
+                {selections.map((selection) => (
+                    <GUISteps value={selection.steps} />
+                ))}
             </div>
         </div>
     )
@@ -122,13 +123,10 @@ function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
         <div className="d-flex flex-column mx-3 mb-3">
             {value.children.map((child, i) => (
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
-                    <div className="flex-grow-1 p-3 pointer" onClick={store.getState().select.bind(null, child)}>
-                        {serializeStepString(child)}
-                    </div>
                     <div
-                        onClick={() => store.getState().remove(child)}
-                        className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
-                        <DeleteIcon />
+                        className="flex-grow-1 p-3 pointer"
+                        onClick={() => store.getState().select(child, undefined, false)}>
+                        {serializeStepString(child)}
                     </div>
                 </div>
             ))}

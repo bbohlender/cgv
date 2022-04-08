@@ -40,7 +40,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                         onBlur={(e) => store.getState().replace(child, { type: "raw", value: e.target.valueAsNumber })}
                     />
                     <div
-                        onClick={() => store.getState().remove(child)}
+                        onClick={() => store.getState().removeStep(child)}
                         className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
                         <DeleteIcon />
                     </div>

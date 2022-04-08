@@ -14,24 +14,32 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                         type="text"
                         value={value.probabilities[i] * 100}
                         onBlur={(e) =>
-                            store.getState().replace(value, {
-                                ...value,
-                                probabilities: value.probabilities.map((currentValue, value) =>
-                                    i === value ? toProbability(e.target.value) : currentValue
-                                ),
-                            })
+                            store.getState().replace(
+                                () => ({
+                                    ...value,
+                                    probabilities: value.probabilities.map((currentValue, value) =>
+                                        i === value ? toProbability(e.target.value) : currentValue
+                                    ),
+                                }),
+                                value
+                            )
                         }
                     />
-                    <div className="flex-grow-1 ms-2 p-3 pointer" onClick={store.getState().select.bind(null, child)}>
+                    <div
+                        className="flex-grow-1 ms-2 p-3 pointer"
+                        onClick={() => store.getState().select(child, undefined, false)}>
                         {serializeStepString(child)}
                     </div>
                     <div
                         onClick={() =>
-                            store.getState().replace(value, {
-                                ...value,
-                                children: value.children.filter((_, index) => i != index),
-                                probabilities: value.probabilities.filter((_, index) => i != index),
-                            })
+                            store.getState().replace(
+                                () => ({
+                                    ...value,
+                                    children: value.children.filter((_, index) => i != index),
+                                    probabilities: value.probabilities.filter((_, index) => i != index),
+                                }),
+                                value
+                            )
                         }
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
@@ -46,11 +54,14 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
 }
 
 function add(value: AbstractParsedRandom<HierarchicalInfo>, store: UseBaseStore) {
-    store.getState().replace(value, {
-        ...value,
-        children: [...value.children, { type: "this" }],
-        probabilities: [...value.probabilities, 0],
-    })
+    store.getState().replace(
+        () => ({
+            ...value,
+            children: [...value.children, { type: "this" }],
+            probabilities: [...value.probabilities, 0],
+        }),
+        value
+    )
 }
 
 function toProbability(value: string) {

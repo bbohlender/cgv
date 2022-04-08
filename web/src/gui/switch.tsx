@@ -1,4 +1,4 @@
-import { AbstractParsedSwitch, HierarchicalInfo, HierarchicalParsedSteps, ParsedSwitch, serializeStepString } from "cgv"
+import { AbstractParsedSwitch, HierarchicalInfo, HierarchicalPath, serializeStepString } from "cgv"
 import { UseBaseStore, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
@@ -10,7 +10,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
     return (
         <div className="d-flex flex-column mb-3 mx-3">
             <StartLabel
-                onClick={store.getState().select.bind(null, value.children[0])}
+                onClick={() => store.getState().select(value.children[0], undefined, false)}
                 value="Condition"
                 className="pointer mb-3">
                 <div className="flex-grow-1 text-end px-2">{serializeStepString(value.children[0])}</div>
@@ -22,24 +22,32 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                         type="text"
                         value={value.cases[i]}
                         onBlur={(e) =>
-                            store.getState().replace(value, {
-                                ...value,
-                                cases: value.cases.map((currentValue, value) =>
-                                    i === value ? stringToConstant(e.target.value) : currentValue
-                                ),
-                            })
+                            store.getState().replace(
+                                () => ({
+                                    ...value,
+                                    cases: value.cases.map((currentValue, value) =>
+                                        i === value ? stringToConstant(e.target.value) : currentValue
+                                    ),
+                                }),
+                                value
+                            )
                         }
                     />
-                    <div className="flex-grow-1 ms-2 p-3 pointer" onClick={store.getState().select.bind(null, child)}>
+                    <div
+                        className="flex-grow-1 ms-2 p-3 pointer"
+                        onClick={() => store.getState().select(child, undefined, false)}>
                         {serializeStepString(child)}
                     </div>
                     <div
                         onClick={() => {
-                            store.getState().replace(value, {
-                                ...value,
-                                children: value.children.filter((_, index) => i + 1 != index),
-                                cases: value.cases.filter((_, index) => i != index),
-                            })
+                            store.getState().replace(
+                                () => ({
+                                    ...value,
+                                    children: value.children.filter((_, index) => i + 1 != index),
+                                    cases: value.cases.filter((_, index) => i != index),
+                                }),
+                                value
+                            )
                         }}
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
@@ -54,9 +62,12 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
 }
 
 function addCase(value: AbstractParsedSwitch<HierarchicalInfo>, store: UseBaseStore) {
-    store.getState().replace(value, {
-        ...value,
-        children: [...value.children, { type: "this" }],
-        cases: [...value.cases, 0],
-    })
+    store.getState().replace(
+        () => ({
+            ...value,
+            children: [...value.children, { type: "this" }],
+            cases: [...value.cases, 0],
+        }),
+        value
+    )
 }

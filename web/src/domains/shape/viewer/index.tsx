@@ -17,15 +17,12 @@ import { Dispatch, SetStateAction } from "react"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
 
-export type Annotation = Array<ParsedSteps>
+export type Annotation = ParsedSteps | undefined
 
 function annotateBeforeStep(value: Value<Primitive, Annotation>, step: ParsedSteps): Annotation {
-    return [...value.annotation, step]
+    return step
 }
 
-function combineAnnotations(values: ReadonlyArray<Value<Primitive, Annotation>>): Annotation {
-    return values.reduce<Annotation>((prev, value) => prev.concat(value.annotation), [])
-}
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
@@ -40,9 +37,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
         try {
             const subscription = of(point)
                 .pipe(
-                    toValue([]),
-                    interprete<Primitive, Annotation>(grammar, operations, {
-                        combineAnnotations,
+                    toValue(),
+                    interprete<Primitive, Annotation, {}>(grammar, operations, {
                         annotateBeforeStep,
                     }),
                     toObject3D((value) => {
@@ -102,14 +98,13 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 if (state.requested != null) {
                                     return
                                 }
-                                const steps = e.object.userData.annotation as Array<HierarchicalParsedSteps>
-                                console.log(e.object.userData.index)
+                                /*const steps = e.object.userData.annotation as Array<HierarchicalParsedSteps>
                                 const selectedIndex = steps.indexOf(state.selected as any)
                                 const nextSelectIndex =
                                     selectedIndex === -1
                                         ? steps.length - 1
                                         : (selectedIndex - 1 + steps.length) % steps.length
-                                state.select(steps[nextSelectIndex])
+                                state.select(steps[nextSelectIndex])*/
                             }}>
                             <primitive object={object} />
                         </group>

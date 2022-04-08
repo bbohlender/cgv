@@ -10,16 +10,19 @@ export function GUIColorStep({ value }: { value: AbstractParsedOperation<Hierarc
             type="color"
             className="mx-3 mb-3 w-auto form-control form-control-sm"
             onChange={(e) =>
-                store.getState().replace(value, {
-                    type: "operation",
-                    identifier: "color",
-                    children: [
-                        {
-                            type: "raw",
-                            value: e.target.value,
-                        },
-                    ],
-                })
+                store.getState().replace(
+                    () => ({
+                        type: "operation",
+                        identifier: "color",
+                        children: [
+                            {
+                                type: "raw",
+                                value: e.target.value,
+                            },
+                        ],
+                    }),
+                    value
+                )
             }
         />
     )

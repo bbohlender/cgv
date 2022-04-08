@@ -1,8 +1,14 @@
 import { createDefaultStep, getAllStepDescriptors, Operations, ParsedSteps, ParsedSymbol, StepDescriptor } from "cgv"
 import { useCallback, useMemo, useState } from "react"
-import { getLabel } from ".."
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
+
+function getLabel(descriptor: StepDescriptor | { type: "symbol" }) {
+    if (descriptor.type === "operation") {
+        return descriptor.identifier
+    }
+    return descriptor.type
+}
 
 function getStepDescriptors(operations: Operations<any, any>) {
     return getAllStepDescriptors(operations)

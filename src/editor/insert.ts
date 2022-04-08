@@ -8,7 +8,6 @@ import {
     ParsedSteps,
     HierarchicalParsedGrammarDefinition,
     HierarchicalPath,
-    getPathFromSelection,
     translateSelectionsForStep,
 } from ".."
 
@@ -21,7 +20,7 @@ export function insert(
     const type = position === "parallel" ? "parallel" : "sequential"
     const result = produce(grammar, (draft) => {
         for (const selection of selections) {
-            const arrayPath = getPathFromSelection(selection)
+            const arrayPath = selection.steps.path
             const newSteps = stepGenerator(arrayPath)
             const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
             const steps = translateSelectionsForStep(arrayPath, selection.indices, newSteps, oldSteps)

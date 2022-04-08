@@ -9,7 +9,9 @@ export function GUIRawStep({ value }: { value: AbstractParsedRaw<HierarchicalInf
         <BlurInput
             value={value.value}
             className="mx-3 mb-3 w-auto form-control form-control-sm"
-            onBlur={(e) => store.getState().replace(value, { type: "raw", value: stringToConstant(e.target.value) })}
+            onBlur={(e) =>
+                store.getState().replace(() => ({ type: "raw", value: stringToConstant(e.target.value) }), value)
+            }
         />
     )
 }

@@ -1,22 +1,22 @@
 import { HierarchicalParsedSteps, serializeSteps, serializeStepString, shallowEqual } from "cgv"
 import { HTMLProps, MouseEvent, useMemo, useRef } from "react"
 import { useBaseGlobal } from "../global"
-import { useBaseStore, useBaseStoreState } from "../global"
+import { useBaseStore } from "../global"
 import { EditIcon } from "../icons/edit"
 import { BaseState } from "../base-state"
 
-//TODO: parsedSteps with additional information (for the editor we need the subject to change a constant, for the summarizer we need parent & childrenIndex info)
-
 export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const nouns = store((state) => (state.type === "gui" ? Object.keys(state.grammar) : undefined), shallowEqual)
+    const nouns = store((state) => (state.type === "gui" ? Object.entries(state.grammar) : undefined), shallowEqual)
     if (nouns == null) {
         return null
     }
     return (
         <div {...rest} className={`${className} position-relative`}>
-            {nouns.map((noun) => (
-                <InteractableSteps key={noun} path={[noun]} />
+            {nouns.map(([name, value]) => (
+                <>
+                    {`${name} -> `} <InteractableSteps key={name} value={value} />
+                </>
             ))}
             <button
                 className="d-flex align-items-center btn btn-sm btn-primary"
@@ -28,37 +28,13 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function selectStep([noun, ...indices]: [noun: string, ...indices: Array<number>], state: BaseState) {
-    if (state.type != "gui") {
-        return undefined
-    }
-    if (indices.length === 0) {
-        return noun
-    }
-    let current: HierarchicalParsedSteps | undefined = state.grammar[noun]
-    for (const index of indices.slice(1)) {
-        if (current?.children == null) {
-            return undefined
-        }
-        current = current.children[index]
-    }
-    return current
+function Steps({ value }: { value: HierarchicalParsedSteps }): JSX.Element | null {
+    return <>{serializeStepString(value)}</>
 }
 
-function Steps({ path }: { path: [noun: string, ...indices: Array<number>] }): JSX.Element | null {
-    return useBaseStoreState((state) => {
-        const step = selectStep(path, state)
-        if (step == null || typeof step == "string") {
-            return null
-        }
-        return <>{serializeStepString(step)}</>
-    })
-}
-
-function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<number>] }): JSX.Element | null {
+function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.Element | null {
     const ref = useRef<HTMLSpanElement>(null)
     const store = useBaseStore()
-    const value = store(selectStep.bind(null, path))
     const mutations = useMemo(() => {
         if (value == null) {
             return undefined
@@ -69,7 +45,7 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
             onStartHover: onStartHover.bind(null, value),
             select: (e: MouseEvent) => {
                 if (e.target === ref.current) {
-                    select(value)
+                    select(value, undefined, e.shiftKey)
                 }
             },
         }
@@ -98,15 +74,13 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
                 onMouseLeave={mutations.onEndHover}
                 onMouseEnter={mutations.onStartHover}
                 className={cssClassName}>
-                {typeof value === "string" ? (
-                    <>
-                        {`${value} -> `} <Substep path={[...path, 0]} />
-                    </>
-                ) : (
-                    serializeSteps<JSX.Element>(
-                        value,
-                        (_, i) => <Substep key={i} path={[...path, i]} />,
-                        (...values) => <>{values}</>
+                {serializeSteps<JSX.Element>(
+                    value,
+                    (_, i) => (
+                        <Substep key={i} value={value.children![i]} />
+                    ),
+                    (...values) => (
+                        <>{values}</>
                     )
                 )}
             </span>
@@ -120,11 +94,11 @@ function InteractableSteps({ path }: { path: [noun: string, ...indices: Array<nu
     )
 }
 
-function computeCssClassName(steps: HierarchicalParsedSteps | string, state: BaseState): string | undefined {
+function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): string | undefined {
     if (state.type != "gui") {
         return undefined
     }
-    if (state.selected === steps) {
+    if (state.selections.find(({ steps: selectedSteps }) => selectedSteps === steps) != null) {
         return "selected"
     }
     if (state.hovered.length > 0 && state.hovered[state.hovered.length - 1] === steps) {

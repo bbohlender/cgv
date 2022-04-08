@@ -19,7 +19,7 @@ export function Editor() {
                     break
                 case "Delete":
                     if (e.target == document.body) {
-                        store.getState().remove()
+                        store.getState().removeStep()
                     }
                     break
             }
