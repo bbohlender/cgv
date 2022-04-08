@@ -20,14 +20,19 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                     onChange={() =>
                         store
                             .getState()
-                            .replace(value, createDefaultStep({ type: "operation", identifier: "split" }, operations))
+                            .replace(
+                                () => createDefaultStep({ type: "operation", identifier: "split" }, operations),
+                                value
+                            )
                     }
                 />
             </EndLabel>
             <StartLabel value="Axis" className="mb-3 ">
                 <AxisInput
                     value={axis}
-                    onChange={(e) => store.getState().replace(child1, { type: "raw", value: e.currentTarget.value })}
+                    onChange={(e) =>
+                        store.getState().replace(() => ({ type: "raw", value: e.currentTarget.value }), child1)
+                    }
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
             </StartLabel>
@@ -37,13 +42,15 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                         className="min-w-0 form-control form-control-sm"
                         type="number"
                         value={(child.type === "raw" ? child.value : undefined) ?? 10}
-                        onBlur={(e) => store.getState().replace(child, { type: "raw", value: e.target.valueAsNumber })}
+                        onBlur={(e) =>
+                            store.getState().replace(() => ({ type: "raw", value: e.target.valueAsNumber }), child)
+                        }
                     />
-                    <div
+                    {/*<div
                         onClick={() => store.getState().removeStep(child)}
                         className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
                         <DeleteIcon />
-                    </div>
+            </div>*/}
                 </StartLabel>
             ))}
             <div
@@ -51,7 +58,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                 onClick={() =>
                     store
                         .getState()
-                        .replace(value, { ...value, children: [...value.children, { type: "raw", value: 10 }] })
+                        .replace(() => ({ ...value, children: [...value.children, { type: "raw", value: 10 }] }), value)
                 }>
                 Add
             </div>

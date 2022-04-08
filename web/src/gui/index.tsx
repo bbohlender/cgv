@@ -31,11 +31,11 @@ export function getSelectionTitle(selections: Selections) {
 }
 
 function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") {
-    store.getState().request("create-step", (step) => store.getState().insert(type, step))
+    store.getState().request("create-step", (stepGenerator) => store.getState().insert(type, stepGenerator))
 }
 
 function requestReplace(store: UseBaseStore) {
-    store.getState().request("create-step", (step) => store.getState().replace(step))
+    store.getState().request("create-step", (stepGenerator) => store.getState().replace(stepGenerator))
 }
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {

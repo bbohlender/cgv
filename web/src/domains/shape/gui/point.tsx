@@ -16,14 +16,17 @@ export function GUI3ValueOperationStep(
     const store = useBaseStore()
 
     const update = (...xyz: [number, number, number]) =>
-        store.getState().replace(value, {
-            type: "operation",
-            identifier,
-            children: xyz.map((value) => ({
-                type: "raw",
-                value,
-            })),
-        })
+        store.getState().replace(
+            () => ({
+                type: "operation",
+                identifier,
+                children: xyz.map((value) => ({
+                    type: "raw",
+                    value,
+                })),
+            }),
+            value
+        )
     return (
         <div className={className}>
             <BlurInput

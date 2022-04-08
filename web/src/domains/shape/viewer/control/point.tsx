@@ -11,13 +11,13 @@ export function PointControl({ value }: { value: AbstractParsedOperation<Hierarc
         <TransformControl
             position={[x, y, z]}
             set={(...xyz) =>
-                store.getState().replace(value, {
+                store.getState().replace(() => ({
                     ...value,
                     children: xyz.map((value) => ({
                         type: "raw",
                         value,
                     })),
-                })
+                }), value)
             }
         />
     )

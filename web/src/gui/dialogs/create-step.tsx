@@ -79,15 +79,14 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
 function createStep(
     descriptor: StepDescriptor | { type: "symbol" },
     request: (type: string, fulfill: (value: any) => void) => void,
-    response: (step: ParsedSteps) => void,
+    response: (stepGenerator: () => ParsedSteps) => void,
     operations: Operations<any, any>
 ) {
     if (descriptor.type === "symbol") {
         request("select-noun", (noun) => {
-            const step: ParsedSymbol = { type: "symbol", identifier: noun }
-            response(step)
+            response(() => ({ type: "symbol", identifier: noun }))
         })
     } else {
-        response(createDefaultStep(descriptor, operations))
+        response(() => createDefaultStep(descriptor, operations))
     }
 }
