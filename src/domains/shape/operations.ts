@@ -43,7 +43,6 @@ function computeFace(...points: ReadonlyArray<Primitive>): Observable<Array<Prim
     return of([new FacePrimitive(new Matrix4(), new Shape(points2d), redMaterialGenerator)])
 }
 
-//TODO: make capable of 3d (currently only 2d)
 function computeLine(...points: ReadonlyArray<Primitive>): Observable<Array<Primitive>> {
     if (points.length < 2) {
         return of([])

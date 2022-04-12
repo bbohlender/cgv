@@ -7,7 +7,7 @@ import {
     HierarchicalParsedGrammarDefinition,
     Operations,
 } from ".."
-import { replace, insert, Selections, EditorResult } from "."
+import { replace, insert, Selections, EditorResult as EditorState } from "."
 
 function getNeutralStep(
     path: HierarchicalPath,
@@ -89,7 +89,7 @@ function getNeutralStep(
     }
 }
 
-export function removeValue(selections: Selections, grammar: HierarchicalParsedGrammarDefinition): EditorResult {
+export function removeValue(selections: Selections, grammar: HierarchicalParsedGrammarDefinition): EditorState {
     const { grammar: result } = insert("after", selections, () => ({ type: "null" }), grammar)
     return { grammar: result, selections: [] }
 }
@@ -98,6 +98,11 @@ export function removeStep(
     selections: Selections,
     operations: Operations<any, any>,
     grammar: HierarchicalParsedGrammarDefinition
-): EditorResult {
-    return replace(selections, (path, translatedPath) => getNeutralStep(path, translatedPath, operations), grammar)
+): EditorState {
+    const { grammar: result } = replace(
+        selections,
+        (_, path, translatedPath) => getNeutralStep(path, translatedPath, operations),
+        grammar
+    )
+    return { grammar: result, selections: [] }
 }

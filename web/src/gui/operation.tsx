@@ -33,19 +33,15 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
             </div>*/}
                 </div>
             ))}
-            <div className="btn btn-outline-success" onClick={addParameter.bind(null, value, store)}>
+            <div
+                className="btn btn-outline-success"
+                onClick={() =>
+                    store.getState().replace<"operation">((draft) => {
+                        draft.children.push({ type: "this" })
+                    })
+                }>
                 Add Parameter
             </div>
         </div>
-    )
-}
-
-function addParameter(value: AbstractParsedOperation<HierarchicalInfo>, store: UseBaseStore) {
-    store.getState().replace(
-        () => ({
-            ...value,
-            children: [...value.children, { type: "this" }],
-        }),
-        value
     )
 }

@@ -22,15 +22,9 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                         type="text"
                         value={value.cases[i]}
                         onBlur={(e) =>
-                            store.getState().replace(
-                                () => ({
-                                    ...value,
-                                    cases: value.cases.map((currentValue, value) =>
-                                        i === value ? stringToConstant(e.target.value) : currentValue
-                                    ),
-                                }),
-                                value
-                            )
+                            store.getState().replace<"switch">((draft) => {
+                                draft.cases[i] = stringToConstant(e.target.value)
+                            })
                         }
                     />
                     <div
@@ -40,34 +34,27 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                     </div>
                     <div
                         onClick={() => {
-                            store.getState().replace(
-                                () => ({
-                                    ...value,
-                                    children: value.children.filter((_, index) => i + 1 != index),
-                                    cases: value.cases.filter((_, index) => i != index),
-                                }),
-                                value
-                            )
+                            store.getState().replace<"switch">((draft) => {
+                                delete draft.children[i]
+                                delete draft.cases[i]
+                            })
                         }}
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
                     </div>
                 </div>
             ))}
-            <div onClick={() => addCase(value, store)} className="btn btn-outline-success">
+            <div
+                onClick={() =>
+                    store.getState().replace<"switch">((draft) => {
+                        draft.children.push({ type: "this" })
+                        draft.cases.push(0)
+                    })
+                }
+                className="btn btn-outline-success">
                 Add Case
             </div>
         </div>
     )
 }
 
-function addCase(value: AbstractParsedSwitch<HierarchicalInfo>, store: UseBaseStore) {
-    store.getState().replace(
-        () => ({
-            ...value,
-            children: [...value.children, { type: "this" }],
-            cases: [...value.cases, 0],
-        }),
-        value
-    )
-}

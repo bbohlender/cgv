@@ -1,8 +1,8 @@
 import { Operations } from "cgv"
 import { createContext, HTMLProps, PropsWithChildren, useContext } from "react"
-import { StateSelector, EqualityChecker, UseBoundStore } from "zustand"
+import { StateSelector, EqualityChecker, StateListener, StateSliceListener, GetState, SetState, Destroy } from "zustand"
 import { OperationGUIMap } from "./gui"
-import { BaseState, BaseStateFunctions } from "./base-state"
+import { BaseStore } from "./base-state"
 
 export type BaseDomainContext = {
     operationGuiMap: OperationGUIMap
@@ -15,13 +15,32 @@ export const domainContext = createContext<BaseDomainContext>(null as any)
 
 export const useBaseGlobal = () => useContext(domainContext)
 
-export type UseBaseStore = UseBoundStore<BaseState & BaseStateFunctions>
+export type UseBaseStore = {
+    (): BaseStore
+    <U>(selector: StateSelector<BaseStore, U>, equalityFn?: EqualityChecker<U>): U
+    setState: SetState<BaseStore>
+    getState: GetState<BaseStore>
+    destroy: Destroy
+    subscribe: {
+        (listener: StateListener<BaseStore>): () => void
+        <StateSlice>(
+            selector: StateSelector<BaseStore, StateSlice>,
+            listener: StateSliceListener<StateSlice>, //okay (same as in subscribeWithSelector)
+            options?:
+                | {
+                      equalityFn?: EqualityChecker<StateSlice>
+                      fireImmediately?: boolean
+                  }
+                | undefined
+        ): () => void
+    }
+}
 
 export function useBaseStore(): UseBaseStore {
     return useContext(domainContext).store
 }
 
-export function useBaseStoreState<U>(selector: StateSelector<BaseState, U>, equalityFn?: EqualityChecker<U>): U {
+export function useBaseStoreState<U>(selector: StateSelector<BaseStore, U>, equalityFn?: EqualityChecker<U>): U {
     return useBaseStore()(selector, equalityFn)
 }
 

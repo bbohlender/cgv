@@ -115,16 +115,6 @@ function toFixedMax(value: number, max: number): string {
     return (Math.round(value * multiplier) / multiplier).toString()
 }
 
-/*
-TODO: add brackets implicitly
-function serializeBracket<T>(
-    step: ParsedBracket,
-    serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
-): T {
-    return join(`(`, serializeChild(step.children[0], 0), `)`)
-}*/
-
 function serializeUnaryOperator<T>(
     unaryOperatorStep: ParsedUnaryOperator,
     serializeChild: (child: ParsedSteps, index: number) => T,

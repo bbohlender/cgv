@@ -10,14 +10,15 @@ import {
     toHierarchical,
     toHierarchicalSteps,
     Selections,
-    HierarchicalPath,
     insert,
-    renameNoun,
     removeStep,
     removeValue,
+    HierarchicalPath,
+    AbstractParsedSteps,
 } from "cgv"
+import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
-import { combine } from "zustand/middleware"
+import { combine, subscribeWithSelector } from "zustand/middleware"
 import { UseBaseStore } from "./global"
 
 export type BaseState = CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>
@@ -53,7 +54,9 @@ export type TuiIncorrectState = {
 }
 
 export function createBaseState(operations: Operations<any, any>) {
-    return create(combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations))) as UseBaseStore
+    return create(
+        subscribeWithSelector(combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations)))
+    ) as UseBaseStore
 }
 
 function createBaseStateInitial(): BaseState {
@@ -141,13 +144,13 @@ function createBaseStateFunctions(
             }
             set({ ...state, hovered: state.hovered.filter((hoveredStep) => hoveredStep != step) })
         },
-        select: (selected: HierarchicalParsedSteps, indices: Array<number> | undefined, shiftDown: boolean) => {
+        select: (selected: HierarchicalParsedSteps, index: Array<number> | undefined, shiftDown: boolean) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
             if (!shiftDown) {
-                set({ selections: [{ steps: selected, indices: undefined }] })
+                set({ selections: [{ steps: selected, indices: index == null ? undefined : [index] }] })
             }
         },
         request: (type: string, fulfill: (value: any) => void) => {
@@ -221,18 +224,21 @@ function createBaseStateFunctions(
 
             set(renameNoun(Array.isArray(selection.path) ? selection.path[0] : selection.path, name, state.grammar))*/
         },
-        replace: (replaceWith: () => ParsedSteps, steps?: HierarchicalParsedSteps) => {
+        replace: <Type extends ParsedSteps["type"]>(
+            replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void
+        ) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            const selections: Selections = steps == null ? state.selections : [{ steps, indices: undefined }]
-            if (selections.length <= 0) {
+            if (state.selections.length <= 0) {
                 return
             }
-            set(replace(selections, replaceWith, state.grammar))
+            set(replace(state.selections, replaceWith as any, state.grammar))
         },
     }
 }
 
 export type BaseStateFunctions = ReturnType<typeof createBaseStateFunctions>
+
+export type BaseStore = BaseState & BaseStateFunctions

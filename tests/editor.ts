@@ -19,9 +19,9 @@ import {
 import { validateHierarchical } from "./hierarchical"
 
 // TODO: simplifications
-// TODO: selection after edit
-// TODO: subselections (indices)
-/* TODO:
+// TODO: test selection after edit
+// TODO: test subselections (indices)
+/* TODO: recognize condition patterns
 it("should translate selection into < step", () => {})
 it("should translate selection into > step", () => {})
 it("should translate selection into != step", () => {})

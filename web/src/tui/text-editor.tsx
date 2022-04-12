@@ -32,7 +32,7 @@ export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 </button>
             ) : (
                 <ErrorMessage
-                    style={{ position: "absolute", bottom: "1rem", right: "1rem" }}
+                    style={{ position: "fixed", bottom: "1rem", right: "1rem" }}
                     align="right"
                     message={error}
                 />

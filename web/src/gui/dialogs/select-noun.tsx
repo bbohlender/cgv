@@ -26,7 +26,6 @@ export function SelectNounDialog({ fulfill }: { fulfill: (value: any) => void })
                     className="btn btn-sm btn-outline-primary"
                     onClick={() =>
                         store.getState().request("create-noun", (name) => {
-                            //TODO: add noun
                             fulfill(name)
                         })
                     }>

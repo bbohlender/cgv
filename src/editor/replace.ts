@@ -1,35 +1,39 @@
-import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition, setAtPath } from ".."
+import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition } from ".."
 import type { EditorResult, Selections } from "."
-import { Draft, produce } from "immer"
+import { Draft, original, produce, current } from "immer"
 import { translateSelectionsForStep } from "./selection"
-import { getAtPath, HierarchicalInfo, TranslatedPath, translatePath } from "../util"
+import { getAtPath, HierarchicalInfo, HierarchicalParsedSteps, setAtPath, TranslatedPath, translatePath } from "../util"
 
 export function replace(
     selections: Selections,
-    replaceWith: (path: HierarchicalPath, translatedPath: TranslatedPath<HierarchicalInfo>) => ParsedSteps,
+    replaceWith: (
+        draft: Draft<ParsedSteps>,
+        path: HierarchicalPath,
+        translatedPath: TranslatedPath<HierarchicalInfo>
+    ) => Draft<ParsedSteps> | void,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorResult {
-    const result = produce(grammar, (draft) => replaceOnDraft(draft, replaceWith, selections))
-    return {
-        grammar: result,
-        selections: [], //TODO
-    }
-}
+    //TODO: generic solution (together with insert) for simplification (e.g. flatten)
+    return produce({ grammar, selections: [] as Selections }, ({ grammar: draft, selections: newSelections }) => {
+        for (const selection of selections) {
+            const arrayPath = selection.steps.path
+            const translatedPath = translatePath(draft, arrayPath)
+            if (translatedPath == null) {
+                continue
+            }
 
-export function replaceOnDraft(
-    draft: Draft<HierarchicalParsedGrammarDefinition>,
-    replaceWith: (path: HierarchicalPath, translatedPath: TranslatedPath<HierarchicalInfo>) => ParsedSteps,
-    selections: Selections
-): void {
-    for (const selection of selections) {
-        const arrayPath = selection.steps.path
-        const translatedPath = translatePath(draft, arrayPath)
-        if (translatedPath == null) {
-            continue
+            const currentSteps: Draft<HierarchicalParsedSteps> = getAtPath(translatedPath, arrayPath.length - 1)
+
+            const newSteps = replaceWith(currentSteps, arrayPath, translatedPath) ?? currentSteps
+            const oldSteps = original(currentSteps)!
+            const translatedSteps = translateSelectionsForStep(selection.indices, newSteps, oldSteps)
+
+            setAtPath(arrayPath, translatedPath, arrayPath.length - 1, translatedSteps)
+
+            newSelections.push({
+                steps: newSteps as HierarchicalParsedSteps,
+                indices: undefined,
+            })
         }
-        const newSteps = replaceWith(arrayPath, translatedPath)
-        const currentSteps = getAtPath(translatedPath, arrayPath.length - 1)
-        const steps = translateSelectionsForStep(arrayPath, selection.indices, newSteps, currentSteps)
-        setAtPath(arrayPath, translatedPath, arrayPath.length - 1, steps)
-    }
+    })
 }

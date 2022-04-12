@@ -14,16 +14,13 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
     const store = useBaseStore()
     const setLimit = useCallback(
         (limit: number | undefined) => {
-            store.getState().replace(
-                () => ({
-                    ...value,
-                    children:
-                        limit == null || isNaN(limit)
-                            ? [child1, child2]
-                            : [child1, child2, { type: "raw", value: limit }],
-                }),
-                value
-            )
+            store.getState().replace<"operation">((draft) => {
+                if (limit == null || isNaN(limit)) {
+                    delete draft.children[2]
+                } else {
+                    draft.children[2] = { type: "raw", value: limit }
+                }
+            })
         },
         [store, value]
     )
@@ -37,9 +34,8 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     onChange={() =>
                         store
                             .getState()
-                            .replace(
-                                () => createDefaultStep({ type: "operation", identifier: "multiSplit" }, operations),
-                                value
+                            .replace(() =>
+                                createDefaultStep({ type: "operation", identifier: "multiSplit" }, operations)
                             )
                     }
                 />
@@ -48,7 +44,9 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                 <AxisInput
                     value={axis}
                     onChange={(e) =>
-                        store.getState().replace(() => ({ type: "raw", value: e.currentTarget.value }), child1)
+                        store.getState().replace<"operation">((draft) => {
+                            draft.children[0] = { type: "raw", value: e.currentTarget.value }
+                        })
                     }
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
@@ -59,7 +57,9 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     type="number"
                     value={splitSize ?? 10}
                     onBlur={(e) =>
-                        store.getState().replace(() => ({ type: "raw", value: e.target.valueAsNumber }), child2)
+                        store.getState().replace<"operation">((draft) => {
+                            draft.children[1] = { type: "raw", value: e.target.valueAsNumber }
+                        })
                     }
                 />
             </StartLabel>

@@ -1,3 +1,4 @@
+import produce, { isDraft } from "immer"
 import { ParsedGrammarDefinition, ParsedSteps, AbstractParsedGrammarDefinition, AbstractParsedSteps } from ".."
 
 export type HierarchicalPath = [string, ...Array<number>]
@@ -51,16 +52,21 @@ export function getAtPath<I>(path: TranslatedPath<I>, pathIndex: number): Abstra
 }
 
 export function toHierarchicalSteps(steps: ParsedSteps, ...basePath: HierarchicalPath): HierarchicalParsedSteps {
-    return {
-        ...steps,
-        path: basePath,
-        children: steps.children?.map((child, i) => toHierarchicalSteps(child, ...basePath, i)) as any,
+    const hierachicalSteps = steps as HierarchicalParsedSteps
+    if (Object.isFrozen(hierachicalSteps)) {
+        return produce(hierachicalSteps, (draft) => toHierarchicalSteps(draft, ...basePath))
     }
+    hierachicalSteps.path = basePath
+    hierachicalSteps.children = hierachicalSteps.children?.map((child, i) => toHierarchicalSteps(child, ...basePath, i))
+    return hierachicalSteps
 }
 
 export function toHierarchical(grammar: ParsedGrammarDefinition) {
     return Object.entries(grammar).reduce<HierarchicalParsedGrammarDefinition>(
-        (prev, [name, steps]) => ({ ...prev, [name]: toHierarchicalSteps(steps, name) }),
+        (prev, [name, steps]) => ({
+            ...prev,
+            [name]: toHierarchicalSteps(steps, name),
+        }),
         {}
     )
 }

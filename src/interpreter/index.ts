@@ -48,7 +48,7 @@ export function simpleExecution<T, A>(
     return (parameters) =>
         execute(...parameters.raw).pipe(
             map((results) =>
-                results.length === 0
+                results.length === 1
                     ? [
                           {
                               ...parameters,
@@ -509,7 +509,17 @@ function interpreteParallel<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    return parallel(...step.children.map((childStep) => interpreteStep(childStep, context, next)))
+    return (input) => {
+        const shared = input.pipe(shareReplay({ refCount: true })) //TODO: buffer size unlimited???
+        return merge(
+            ...step.children.map((childStep, i) =>
+                shared.pipe(
+                    map((value) => ({ ...value, index: [i, ...value.index] })),
+                    interpreteStep(childStep, context, next)
+                )
+            )
+        )
+    }
 }
 
 function interpreteSequential<T, A, I>(
@@ -572,35 +582,28 @@ function noop<T>(): MonoTypeOperatorFunction<T> {
     return (input) => input
 }
 
-function parallel<T, A>(
-    ...operatorFunctions: Array<MonoTypeOperatorFunction<Value<T, A>>>
-): MonoTypeOperatorFunction<Value<T, A>> {
-    return (input) => {
-        const shared = input.pipe(shareReplay({ refCount: true })) //TODO: buffer size unlimited???
-        return merge(
-            ...operatorFunctions.map((func, i) =>
-                shared.pipe(
-                    func,
-                    map((value) => ({ ...value, index: [i, ...value.index] }))
-                )
-            )
-        )
-    }
-}
-
 /**
  * only emits when all results are present
  */
 function operatorsToArray<T, A>(
     ...operatorFunctions: Array<MonoTypeOperatorFunction<Value<T, A>>>
 ): OperatorFunction<Value<T, A>, Value<ReadonlyArray<T>, A>> {
-    return (input) =>
-        input.pipe(
-            parallel(noop(), ...operatorFunctions),
-            toArray(),
+    return (input) => {
+        const shared = input.pipe(shareReplay({ refCount: true })) //TODO: buffer size unlimited???
+        const functions: Array<MonoTypeOperatorFunction<Value<T, A>>> = [noop(), ...operatorFunctions]
+        return merge(
+            ...functions.map((func, i) =>
+                shared.pipe(
+                    func,
+                    map((value) => ({ ...value, index: [i, ...value.index] }))
+                )
+            )
+        ).pipe(
+            toArray(), //TODO: toArray only for the first index (maybe groupBy ?)
             filter((value) => value.length === operatorFunctions.length + 1),
             outputsToValue()
         )
+    }
 }
 
 function outputsToValue<T, A>(): OperatorFunction<ReadonlyArray<Value<T, A>>, Value<ReadonlyArray<T>, A>> {

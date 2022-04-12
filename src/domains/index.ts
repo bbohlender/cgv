@@ -22,6 +22,31 @@ export const defaultOperations: Operations<any, any> = {
         includeThis: false,
         defaultParameters: [],
     },
+    id: {
+        execute: (value) => {
+            return of([
+                {
+                    ...value,
+                    raw: value.index.join(","),
+                },
+            ])
+        },
+        includeThis: false,
+        defaultParameters: [],
+    },
+    log: {
+        execute: (value) => {
+            console.log(value.raw[1])
+            return of([
+                {
+                    ...value,
+                    raw: value.raw[0],
+                },
+            ])
+        },
+        includeThis: true,
+        defaultParameters: [],
+    },
     select: {
         execute: (value) => {
             const index = value.index[value.index.length - 1] ?? 0

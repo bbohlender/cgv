@@ -2,6 +2,7 @@ import { ParsedSteps, toHierarchical, toHierarchicalSteps } from "../src"
 import { expect } from "chai"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
 import { validateHierarchical, validateHierarchicalSteps } from "./hierarchical"
+import produce from "immer"
 
 //TOOD: precedence
 
@@ -34,9 +35,12 @@ describe("hierarchical steps", () => {
                 },
             ],
         }
-        const hierachical = toHierarchicalSteps(steps, "a")
-        hierachical.children![1]!.children![1]!.path = ["a", 1, 0]
-        expect(() => validateHierarchicalSteps(hierachical, "a")).to.throw(
+        const correct = toHierarchicalSteps(steps, "a")
+        const incorrect = produce(correct, (draft) => {
+            draft.children![1]!.children![1]!.path = ["a", 1, 0]
+        })
+        expect(() => validateHierarchicalSteps(correct, "a")).to.not.throw()
+        expect(() => validateHierarchicalSteps(incorrect, "a")).to.throw(
             `path at "a -> 1 -> 1" is wrong. Found: "a -> 1 -> 0"`
         )
     })

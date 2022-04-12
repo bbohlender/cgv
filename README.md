@@ -288,3 +288,14 @@ SmallTile -> if (size("x") >= 180)
 
 Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```
+
+# TODO 14.04:
+
+- getOutline on primitive (store primitive)
+- store intermediate results while annotating (not only at the end) to show outlines for intermediate results
+- GUI dropdown for the selected/unselected indices
+- disable remove & replace when beforeIndex != afterIndex
+- fix interpretion tests
+- shift add & shift remove from selection
+- parent selection through multiselect
+- pass unselected for pattern recognition (+ undefined if all selected)

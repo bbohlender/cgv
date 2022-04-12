@@ -20,10 +20,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                     onChange={() =>
                         store
                             .getState()
-                            .replace(
-                                () => createDefaultStep({ type: "operation", identifier: "split" }, operations),
-                                value
-                            )
+                            .replace(() => createDefaultStep({ type: "operation", identifier: "split" }, operations))
                     }
                 />
             </EndLabel>
@@ -31,19 +28,23 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                 <AxisInput
                     value={axis}
                     onChange={(e) =>
-                        store.getState().replace(() => ({ type: "raw", value: e.currentTarget.value }), child1)
+                        store.getState().replace<"operation">((draft) => {
+                            draft.children[0] = { type: "raw", value: e.currentTarget.value }
+                        })
                     }
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
             </StartLabel>
-            {value.children.slice(1).map((child) => (
+            {value.children.slice(1).map((child, i) => (
                 <StartLabel value="Size" className="mb-3">
                     <BlurInput
                         className="min-w-0 form-control form-control-sm"
                         type="number"
                         value={(child.type === "raw" ? child.value : undefined) ?? 10}
                         onBlur={(e) =>
-                            store.getState().replace(() => ({ type: "raw", value: e.target.valueAsNumber }), child)
+                            store.getState().replace<"operation">((draft) => {
+                                draft.children[i + 1] = { type: "raw", value: e.target.valueAsNumber }
+                            })
                         }
                     />
                     {/*<div
@@ -56,9 +57,9 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
             <div
                 className="btn btn-outline-success mb-3"
                 onClick={() =>
-                    store
-                        .getState()
-                        .replace(() => ({ ...value, children: [...value.children, { type: "raw", value: 10 }] }), value)
+                    store.getState().replace<"operation">((draft) => {
+                        draft.children.push({ type: "raw", value: 10 })
+                    })
                 }>
                 Add
             </div>

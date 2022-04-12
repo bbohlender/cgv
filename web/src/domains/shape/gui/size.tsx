@@ -8,19 +8,12 @@ export function GUISizeStep({ value }: { value: AbstractParsedOperation<Hierarch
     return (
         <AxisInput
             onChange={(e) =>
-                store.getState().replace(
-                    () => ({
-                        type: "operation",
-                        identifier: "size",
-                        children: [
-                            {
-                                type: "raw",
-                                value: e.currentTarget.value,
-                            },
-                        ],
-                    }),
-                    value
-                )
+                store.getState().replace<"operation">((draft) => {
+                    draft.children[0] = {
+                        type: "raw",
+                        value: e.currentTarget.value,
+                    }
+                })
             }
             value={selection ?? "x"}
             className="form-select mx-3 mb-3 w-auto form-select-sm"

@@ -22,7 +22,7 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             ))}
             <button
                 className="d-flex align-items-center btn btn-sm btn-primary"
-                style={{ position: "absolute", right: "1rem", bottom: "1rem" }}
+                style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
                 onClick={() => store.getState().setType("tui")}>
                 <EditIcon />
             </button>
