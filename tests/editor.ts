@@ -43,8 +43,8 @@ describe("editor", () => {
         const { grammar } = insert(
             "after",
             [
-                { steps: getLastStepInPath(["a", 1, 0], inputGrammar), indices: undefined },
-                { steps: getLastStepInPath(["a", 0], inputGrammar), indices: undefined },
+                { steps: getLastStepInPath(["a", 1, 0], inputGrammar) },
+                { steps: getLastStepInPath(["a", 0], inputGrammar) },
             ],
             () =>
                 createDefaultStep(
@@ -63,7 +63,7 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = insert(
             "after",
-            [{ steps: getLastStepInPath(["a", 1, 0], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a", 1, 0], inputGrammar) }],
             () =>
                 createDefaultStep(
                     {
@@ -81,7 +81,7 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = insert(
             "before",
-            [{ steps: getLastStepInPath(["a"], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a"], inputGrammar) }],
             () =>
                 createDefaultStep(
                     {
@@ -99,7 +99,7 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = insert(
             "before",
-            [{ steps: getLastStepInPath(["a", 1, 0], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a", 1, 0], inputGrammar) }],
             () =>
                 createDefaultStep(
                     {
@@ -117,7 +117,7 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = insert(
             "parallel",
-            [{ steps: getLastStepInPath(["a"], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a"], inputGrammar) }],
             () =>
                 createDefaultStep(
                     {
@@ -135,7 +135,7 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = insert(
             "parallel",
-            [{ steps: getLastStepInPath(["a"], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a"], inputGrammar) }],
             () =>
                 createDefaultStep(
                     {
@@ -152,7 +152,7 @@ describe("editor", () => {
     it("should replace step", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = replace(
-            [{ steps: getLastStepInPath(["a", 1, 0, 1], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a", 1, 0, 1], inputGrammar) }],
             () => ({
                 type: "this",
             }),
@@ -166,8 +166,8 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | this * 2 -> this + 3`))
         const { grammar } = replace(
             [
-                { steps: getLastStepInPath(["a", 1, 0, 1], inputGrammar), indices: undefined },
-                { steps: getLastStepInPath(["a", 0], inputGrammar), indices: undefined },
+                { steps: getLastStepInPath(["a", 1, 0, 1], inputGrammar) },
+                { steps: getLastStepInPath(["a", 0], inputGrammar) },
             ],
             () => ({
                 type: "this",
@@ -187,7 +187,7 @@ describe("editor", () => {
 
     it("should remove step at noun", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | b -> this + 3\n\nb -> 2`))
-        const { grammar } = removeStep([{ steps: getLastStepInPath(["b"], inputGrammar), indices: undefined }], {}, inputGrammar)
+        const { grammar } = removeStep([{ steps: getLastStepInPath(["b"], inputGrammar) }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> 1 | this + 3`)
     })
@@ -196,8 +196,8 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | 2 -> 3 | b -> this + 3\n\nb -> 2`))
         const { grammar } = removeValue(
             [
-                { steps: getLastStepInPath(["b"], inputGrammar), indices: undefined },
-                { steps: getLastStepInPath(["a", 1, 1], inputGrammar), indices: undefined },
+                { steps: getLastStepInPath(["b"], inputGrammar) },
+                { steps: getLastStepInPath(["a", 1, 1], inputGrammar) },
             ],
             inputGrammar
         )
@@ -207,21 +207,21 @@ describe("editor", () => {
 
     it("should remove value at noun", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | b -> this + 3\n\nb -> 2`))
-        const { grammar } = removeValue([{ steps: getLastStepInPath(["b"], inputGrammar), indices: undefined }], inputGrammar)
+        const { grammar } = removeValue([{ steps: getLastStepInPath(["b"], inputGrammar) }], inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> 1`)
     })
 
     it("should remove step from parallel", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`))
-        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 0], inputGrammar), indices: undefined }], {}, inputGrammar)
+        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 0], inputGrammar) }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> this | b * 2 -> this + 3\n\nb -> 2`)
     })
 
     it("should remove step from sequential and simplify", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 -> drive() -> 2`))
-        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 1], inputGrammar), indices: undefined }], {}, inputGrammar)
+        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 1], inputGrammar) }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> 1 -> 2`)
     })
@@ -230,8 +230,8 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 -> test() -> drive() -> 2`))
         const { grammar } = removeStep(
             [
-                { steps: getLastStepInPath(["a", 1], inputGrammar), indices: undefined },
-                { steps: getLastStepInPath(["a", 2], inputGrammar), indices: undefined },
+                { steps: getLastStepInPath(["a", 1], inputGrammar) },
+                { steps: getLastStepInPath(["a", 2], inputGrammar) },
             ],
             {},
             inputGrammar
@@ -242,7 +242,7 @@ describe("editor", () => {
 
     it("should remove step from if condition", () => {
         const inputGrammar = toHierarchical(parse(`a -> if this > 5 then { 22 } else { this + 2 }`))
-        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 0], inputGrammar), indices: undefined }], {}, inputGrammar)
+        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 0], inputGrammar) }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> if true then { 22 } else { this + 2 }`)
     })
@@ -250,7 +250,7 @@ describe("editor", () => {
     it("should remove step from operation", () => {
         const inputGrammar = toHierarchical(parse(`a -> if this > 5 then { operation("abc", 3) } else { this + 2 }`))
         const { grammar } = removeStep(
-            [{ steps: getLastStepInPath(["a", 1, 0], inputGrammar), indices: undefined }],
+            [{ steps: getLastStepInPath(["a", 1, 0], inputGrammar) }],
             {
                 operation: {
                     execute: () => EMPTY,
@@ -268,7 +268,7 @@ describe("editor", () => {
         const inputGrammar = toHierarchical(
             parse(`a -> 1 | b * if true then { "123" } else { 3 } -> this + 3\n\nb -> 2`)
         )
-        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 1, 0, 1, 1], inputGrammar), indices: undefined }], {}, inputGrammar)
+        const { grammar } = removeStep([{ steps: getLastStepInPath(["a", 1, 0, 1, 1], inputGrammar) }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> 1 | b * if true then { 1 } else { 3 } -> this + 3\n\nb -> 2`)
     })

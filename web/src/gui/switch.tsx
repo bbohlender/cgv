@@ -1,5 +1,5 @@
-import { AbstractParsedSwitch, HierarchicalInfo, HierarchicalPath, serializeStepString } from "cgv"
-import { UseBaseStore, useBaseStore } from "../global"
+import { AbstractParsedSwitch, HierarchicalInfo, serializeStepString } from "cgv"
+import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
 import { StartLabel } from "./label"
@@ -10,7 +10,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
     return (
         <div className="d-flex flex-column mb-3 mx-3">
             <StartLabel
-                onClick={() => store.getState().select(value.children[0], undefined, false)}
+                onClick={(e) => store.getState().select(value.children[0], undefined, undefined, e.shiftKey)}
                 value="Condition"
                 className="pointer mb-3">
                 <div className="flex-grow-1 text-end px-2">{serializeStepString(value.children[0])}</div>
@@ -29,14 +29,14 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                     />
                     <div
                         className="flex-grow-1 ms-2 p-3 pointer"
-                        onClick={() => store.getState().select(child, undefined, false)}>
+                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
                         {serializeStepString(child)}
                     </div>
                     <div
                         onClick={() => {
                             store.getState().replace<"switch">((draft) => {
-                                delete draft.children[i]
-                                delete draft.cases[i]
+                                draft.children.splice(i, 1)
+                                draft.cases.splice(i, 1)
                             })
                         }}
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
@@ -57,4 +57,3 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
         </div>
     )
 }
-

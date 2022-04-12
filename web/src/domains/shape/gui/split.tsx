@@ -16,7 +16,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
         (limit: number | undefined) => {
             store.getState().replace<"operation">((draft) => {
                 if (limit == null || isNaN(limit)) {
-                    delete draft.children[2]
+                    draft.children.splice(2, 1)
                 } else {
                     draft.children[2] = { type: "raw", value: limit }
                 }

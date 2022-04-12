@@ -47,7 +47,7 @@ function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.E
             onStartHover: onStartHover.bind(null, value),
             select: (e: MouseEvent) => {
                 if (e.target === ref.current) {
-                    select(value, undefined, e.shiftKey)
+                    select(value, undefined, undefined, e.shiftKey)
                 }
             },
         }

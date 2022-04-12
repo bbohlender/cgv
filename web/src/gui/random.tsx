@@ -21,14 +21,14 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                     />
                     <div
                         className="flex-grow-1 ms-2 p-3 pointer"
-                        onClick={() => store.getState().select(child, undefined, false)}>
+                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
                         {serializeStepString(child)}
                     </div>
                     <div
                         onClick={() =>
                             store.getState().replace<"random">((draft) => {
-                                delete draft.children[i]
-                                delete draft.probabilities[i]
+                                draft.children.splice(i, 1)
+                                draft.probabilities.splice(i, 1)
                             })
                         }
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">

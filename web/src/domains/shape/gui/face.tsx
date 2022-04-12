@@ -1,6 +1,6 @@
-import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps } from "cgv"
-import { Draft } from "immer"
+import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
 import { useBaseStore } from "../../../global"
+import { DeleteIcon } from "../../../icons/delete"
 import { GUIVector3 } from "./vector3"
 
 export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
@@ -17,11 +17,15 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                             value={child}
                         />
                     )}
-                    {/*<div
-                        onClick={() => store.getState().removeStep(child)}
+                    <div
+                        onClick={() =>
+                            store.getState().replace<"operation">((draft) => {
+                                draft.children.splice(i, 1)
+                            })
+                        }
                         className="ms-2 d-flex align-items-center btn-sm btn btn-outline-danger">
                         <DeleteIcon />
-            </div>*/}
+                    </div>
                 </div>
             ))}
             <div

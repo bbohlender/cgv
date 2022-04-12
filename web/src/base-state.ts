@@ -15,6 +15,8 @@ import {
     removeValue,
     HierarchicalPath,
     AbstractParsedSteps,
+    toggleSelection,
+    setSelection,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -144,14 +146,26 @@ function createBaseStateFunctions(
             }
             set({ ...state, hovered: state.hovered.filter((hoveredStep) => hoveredStep != step) })
         },
-        select: (selected: HierarchicalParsedSteps, index: Array<number> | undefined, shiftDown: boolean) => {
+        select: (
+            steps: HierarchicalParsedSteps,
+            index: Array<number> | undefined,
+            allIndices: Array<Array<number>> | undefined,
+            shiftDown: boolean
+        ) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            if (!shiftDown) {
-                set({ selections: [{ steps: selected, indices: index == null ? undefined : [index] }] })
-            }
+            const selections = shiftDown
+                ? toggleSelection(state.selections, steps, index, allIndices)
+                : setSelection(steps, index, allIndices)
+            console.log(selections)
+            set({
+                selections,
+            })
+        },
+        unselect: () => {
+            set({ selections: [] })
         },
         request: (type: string, fulfill: (value: any) => void) => {
             const state = get()

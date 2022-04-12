@@ -47,11 +47,15 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                             })
                         }
                     />
-                    {/*<div
-                        onClick={() => store.getState().removeStep(child)}
+                    <div
+                        onClick={() =>
+                            store.getState().replace<"operation">((draft) => {
+                                draft.children.splice(i + 1, 1)
+                            })
+                        }
                         className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
                         <DeleteIcon />
-            </div>*/}
+                    </div>
                 </StartLabel>
             ))}
             <div

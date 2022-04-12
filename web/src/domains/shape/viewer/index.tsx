@@ -206,7 +206,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 }
                                 const annotation = e.object.userData.annotation
                                 if (annotation != null) {
-                                    store.getState().select(annotation, e.object.userData.index, false)
+                                    //e.object.userData.index
+                                    store.getState().select(annotation, undefined, undefined, e.nativeEvent.shiftKey)
                                 }
                             }}>
                             <primitive object={object} />
@@ -273,7 +274,7 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
 function getSelectedBoxes(selections: Selections, boxMap: BoxMap): Array<Box3> {
     return selections
         .map((selection) => {
-            const selectionIndices = selection.indices
+            const selectionIndices = selection.selectedIndices
             const boxMapEntry = boxMap.get(selection.steps)
             if (boxMapEntry == null) {
                 return []

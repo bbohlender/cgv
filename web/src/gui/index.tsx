@@ -70,7 +70,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 <div className="btn-group mx-3 mb-3 d-flex">
                     <button
                         onClick={() => {
-                            //TODO: unselect all
+                            store.getState().unselect()
                         }}
                         className="d-flex align-items-center justify-content-center btn btn-sm btn-outline-primary flex-grow-1 flex-basis-0">
                         <CheckIcon />
@@ -125,7 +125,7 @@ function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
                     <div
                         className="flex-grow-1 p-3 pointer"
-                        onClick={() => store.getState().select(child, undefined, false)}>
+                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
                         {serializeStepString(child)}
                     </div>
                 </div>

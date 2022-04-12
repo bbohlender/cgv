@@ -26,13 +26,17 @@ export function replace(
 
             const newSteps = replaceWith(currentSteps, arrayPath, translatedPath) ?? currentSteps
             const oldSteps = original(currentSteps)!
-            const translatedSteps = translateSelectionsForStep(selection.indices, newSteps, oldSteps)
+            const translatedSteps = translateSelectionsForStep(
+                selection.selectedIndices,
+                selection.allIndices,
+                newSteps,
+                oldSteps
+            )
 
             setAtPath(arrayPath, translatedPath, arrayPath.length - 1, translatedSteps)
 
             newSelections.push({
                 steps: newSteps as HierarchicalParsedSteps,
-                indices: undefined,
             })
         }
     })

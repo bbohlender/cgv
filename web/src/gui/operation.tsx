@@ -23,14 +23,20 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
                     <div
                         className="flex-grow-1 p-3 pointer"
-                        onClick={() => store.getState().select(child, undefined, false)}>
+                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
                         {serializeStepString(child)}
                     </div>
-                    {/*<div
-                        onClick={() => store.getState().removeStep(child)}
-                        className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
-                        <DeleteIcon />
-            </div>*/}
+                    {
+                        <div
+                            onClick={() =>
+                                store.getState().replace<"operation">((draft) => {
+                                    draft.children.splice(i, 1)
+                                })
+                            }
+                            className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
+                            <DeleteIcon />
+                        </div>
+                    }
                 </div>
             ))}
             <div

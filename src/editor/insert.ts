@@ -31,7 +31,12 @@ export function insert(
 
             const newSteps = stepGenerator(arrayPath)
             const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
-            const steps = translateSelectionsForStep(selection.indices, newSteps, oldSteps)
+            const steps = translateSelectionsForStep(
+                selection.selectedIndices,
+                selection.allIndices,
+                newSteps,
+                oldSteps
+            )
 
             const current = getAtPath(translatedPath, arrayPath.length - 1)
             setAtPath(arrayPath, translatedPath, arrayPath.length - 1, {
@@ -41,7 +46,6 @@ export function insert(
 
             newSelections.push({
                 steps: newSteps as HierarchicalParsedSteps,
-                indices: undefined,
             })
         }
     })

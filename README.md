@@ -296,6 +296,6 @@ Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 - GUI dropdown for the selected/unselected indices
 - disable remove & replace when beforeIndex != afterIndex
 - fix interpretion tests
-- shift add & shift remove from selection
 - parent selection through multiselect
-- pass unselected for pattern recognition (+ undefined if all selected)
+- finish select calls
+- grammar list (add btn)
