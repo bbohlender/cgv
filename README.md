@@ -293,9 +293,8 @@ Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 
 - getOutline on primitive (store primitive)
 - store intermediate results while annotating (not only at the end) to show outlines for intermediate results
-- GUI dropdown for the selected/unselected indices
+- allIndices always (never undefined + update when change)
 - disable remove & replace when beforeIndex != afterIndex
 - fix interpretion tests
 - parent selection through multiselect
-- finish select calls
 - grammar list (add btn)

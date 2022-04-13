@@ -6,11 +6,13 @@ import {
     Selections,
     serializeStepString,
     StepDescriptor,
+    Selection,
 } from "cgv"
 import { HTMLProps } from "react"
-import { UseBaseStore, useBaseStore } from "../global"
+import { UseBaseStore, useBaseStore, useBaseStoreState } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
+import { MultiSelect } from "./multi-select"
 import { GUINounStep } from "./noun"
 import { GUIOperation } from "./operation"
 import { GUIRandomStep } from "./random"
@@ -47,9 +49,8 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
         return null
     }
     return (
-        <div {...rest} className={`${className} d-flex flex-column px-0 pt-2 overflow-hidden`}>
+        <div {...rest} className={`${className} d-flex flex-column px-0 pt-2`}>
             <div className="d-flex flex-column">
-                <h3 className="p-0 mx-3 mb-3">{getSelectionTitle(selections)}</h3>
                 <div className="btn-group mx-3 mb-2 d-flex">
                     <button
                         onClick={requestAdd.bind(null, store, "before")}
@@ -86,12 +87,42 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         <DeleteIcon />
                     </button>
                 </div>
-                {selections.map((selection) => (
-                    <GUISteps value={selection.steps} />
+                {selections.map((selection, selectionIndex) => (
+                    <div className="d-flex flex-column">
+                        <label className="mb-3 mx-3">
+                            {selection.steps.type === "operation" ? selection.steps.identifier : selection.steps.type}
+                        </label>
+                        <MultiSelect<Array<number>>
+                            selectAll={() => store.getState().selectSelection(selectionIndex)}
+                            unselectAll={() => {}}
+                            className="mb-3 mx-3"
+                            label={
+                                selection.selectedIndices == null
+                                    ? "all"
+                                    : `${selection.selectedIndices.length} selected`
+                            }
+                            onChange={(index, selected) => {
+                                store.getState().selectIndex(selectionIndex, index, selected)
+                            }}
+                            values={getValues(selection)}
+                        />
+                        <GUISteps value={selection.steps} />
+                    </div>
                 ))}
             </div>
         </div>
     )
+}
+
+function getValues(selection: Selection): Array<[label: string, selected: boolean, value: Array<number>]> {
+    if (selection.allIndices == null || selection.selectedIndices == null) {
+        return []
+    }
+    const selectedJoinedIndices = selection.selectedIndices.map((index) => index.join(","))
+    return selection.allIndices.map((index) => {
+        const key = index.join(",")
+        return [key, selectedJoinedIndices.includes(key), index]
+    })
 }
 
 function GUISteps({ value }: { value: HierarchicalParsedSteps | string }): JSX.Element | null {

@@ -17,6 +17,7 @@ import {
     AbstractParsedSteps,
     toggleSelection,
     setSelection,
+    setSelectionIndex,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -158,14 +159,34 @@ function createBaseStateFunctions(
             }
             const selections = shiftDown
                 ? toggleSelection(state.selections, steps, index, allIndices)
-                : setSelection(steps, index, allIndices)
-            console.log(selections)
+                : setSelection(steps, index, allIndices, true, true)
             set({
                 selections,
             })
         },
+        //TODO: unify all these select actions
         unselect: () => {
             set({ selections: [] })
+        },
+        selectSelection: (selectionIndex: number) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            const selections = setSelection(state.selections[selectionIndex].steps, undefined, undefined, true, false)
+            set({
+                selections,
+            })
+        },
+        selectIndex: (selectionIndex: number, index: Array<number>, selected: boolean) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            const selections = setSelectionIndex(state.selections, selectionIndex, index, selected)
+            set({
+                selections,
+            })
         },
         request: (type: string, fulfill: (value: any) => void) => {
             const state = get()

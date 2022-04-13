@@ -11,7 +11,7 @@ import {
     HierarchicalPath,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, toObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, useState, startTransition } from "react"
+import { HTMLProps, useEffect, useState, startTransition, useMemo } from "react"
 import { of, Subscription } from "rxjs"
 import { Box3, BoxBufferGeometry, Color, EdgesGeometry, LineBasicMaterial, Matrix4, Object3D, Vector3 } from "three"
 import { ErrorMessage } from "../../../error-message"
@@ -83,11 +83,12 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
     const [showBackground, setShowBackground] = useState(false)
     const store = useBaseStore()
 
+    const boxMap: BoxMap = useMemo(() => new Map(), [])
+
     useEffect(() => {
         //TODO: optimize / rewrite
         //TODO: disable delete step and replace when beforeIndex != afterIndex
         let subscription: Subscription | undefined
-        const boxMap: BoxMap = new Map()
         const state = store.getState()
         let selections: Selections = state.type === "gui" ? state.selections : []
         const updateSelectedBoxes = () => startTransition(() => setSelectedBoxes(getSelectedBoxes(selections, boxMap)))
@@ -205,10 +206,19 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                     return
                                 }
                                 const annotation = e.object.userData.annotation
-                                if (annotation != null) {
-                                    //e.object.userData.index
-                                    store.getState().select(annotation, undefined, undefined, e.nativeEvent.shiftKey)
+                                if (annotation == null) {
+                                    return
                                 }
+                                const boxMapEntry = boxMap.get(annotation)
+                                if (boxMapEntry == null) {
+                                    return
+                                }
+                                const allIndices = Array.from(boxMapEntry.keys()).map((key) =>
+                                    key.split(",").map((val) => parseInt(val))
+                                )
+                                store
+                                    .getState()
+                                    .select(annotation, e.object.userData.index, allIndices, e.nativeEvent.shiftKey)
                             }}>
                             <primitive object={object} />
                         </group>

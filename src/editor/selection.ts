@@ -48,6 +48,9 @@ function toAndUnequalCondition(
     selectedIndices: Array<Array<number>>,
     allIndices: Array<string>
 ): ParsedSteps | undefined {
+    if(selectedIndices.length === 0) {
+        return undefined
+    }
     const restCondition = toAndUnequalCondition(selectedIndices.slice(1), allIndices)
     const key = selectedIndices.join(",")
     const firstCondition: ParsedSteps | undefined = allIndices.includes(key)
@@ -94,16 +97,21 @@ function toOrEqualCondition(index: Array<Array<number>>): ParsedSteps {
     }
 }
 
+//TODO: unify all these select functions
+
 //must return a new array
 export function setSelection(
     steps: HierarchicalParsedSteps,
     index: Array<number> | undefined,
-    allIndices: Array<Array<number>> | undefined
+    allIndices: Array<Array<number>> | undefined,
+    selected: boolean,
+    replace: boolean
 ): Selections {
+    //TODO
     if (allIndices == null || index == null) {
         return [{ steps }]
     }
-    if (index.length === allIndices.length) {
+    if (1 === allIndices.length) {
         return [{ steps }]
     }
     return [
@@ -113,6 +121,37 @@ export function setSelection(
             selectedIndices: [index],
         },
     ]
+}
+
+export function setSelectionIndex(
+    selections: Selections,
+    selectionIndex: number,
+    index: Array<number>,
+    selected: boolean
+): Selections {
+    return produce(selections, (draft) => {
+        const selection = draft[selectionIndex]
+
+        if (selection.allIndices == null || selection.selectedIndices == null) {
+            return
+        }
+
+        const indexKey = index.join(",")
+        const indexIndex = selection.selectedIndices.findIndex((i) => i.join(",") === indexKey)
+
+        const currentlySelected = indexIndex != -1
+
+        if (currentlySelected === selected) {
+            return
+        }
+
+        if (selected) {
+            selection.selectedIndices.push(index)
+        } else {
+            selection.selectedIndices.splice(indexIndex, 1)
+        }
+        clearEmptySelectionOnDraft(draft, selectionIndex, selection)
+    })
 }
 
 export function toggleSelection(
@@ -157,5 +196,19 @@ export function toggleSelection(
         } else {
             selection.selectedIndices.splice(indexIndex, 1)
         }
+        clearEmptySelectionOnDraft(draft, selectionIndex, selection)
     })
+}
+
+function clearEmptySelectionOnDraft(draft: Selections, selectionIndex: number, selection: Selection): void {
+    if(selection.allIndices == null || selection.selectedIndices == null) {
+        return
+    }
+    if (selection.selectedIndices.length === 0) {
+        draft.splice(selectionIndex, 1)
+    }
+    if (selection.selectedIndices.length === selection.allIndices.length) {
+        selection.allIndices = undefined
+        selection.selectedIndices = undefined
+    }
 }
