@@ -1,11 +1,12 @@
 import type { HierarchicalParsedGrammarDefinition } from ".."
-import type { Selections } from "."
+import { IndicesMap } from "./indices"
 
-export type EditorResult = {
+export type EditorState = {
     grammar: HierarchicalParsedGrammarDefinition
-    selections: Selections
+    selectionsMap: IndicesMap
 }
 
+export * from "./indices"
 export * from "./selection"
 export * from "./replace"
 export * from "./insert"

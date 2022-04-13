@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorResult } from "."
+import { EditorState } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -32,7 +32,7 @@ import {
     }
 }*/
 
-export function renameNoun(name: string, newName: string, grammar: HierarchicalParsedGrammarDefinition): EditorResult {
+export function renameNoun(name: string, newName: string, grammar: HierarchicalParsedGrammarDefinition): EditorState {
     return {
         grammar: produce(grammar, (draft) => {
             if (newName in draft) {
@@ -48,7 +48,7 @@ export function renameNoun(name: string, newName: string, grammar: HierarchicalP
                 findSymbolsWithIdentifier(value, name, (step) => (step.identifier = newName))
             }
         }),
-        selections: [],
+        selectionsMap: {},
     }
 }
 

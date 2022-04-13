@@ -21,7 +21,7 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                     />
                     <div
                         className="flex-grow-1 ms-2 p-3 pointer"
-                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
+                        onClick={(e) => store.getState().select(child, undefined, e.shiftKey ? "toggle" : "replace")}>
                         {serializeStepString(child)}
                     </div>
                     <div

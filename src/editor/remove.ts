@@ -7,7 +7,8 @@ import {
     HierarchicalParsedGrammarDefinition,
     Operations,
 } from ".."
-import { replace, insert, Selections, EditorResult as EditorState } from "."
+import { replace, insert, EditorState } from "."
+import { IndicesMap } from "./indices"
 
 function getNeutralStep(
     path: HierarchicalPath,
@@ -89,20 +90,26 @@ function getNeutralStep(
     }
 }
 
-export function removeValue(selections: Selections, grammar: HierarchicalParsedGrammarDefinition): EditorState {
-    const { grammar: result } = insert("after", selections, () => ({ type: "null" }), grammar)
-    return { grammar: result, selections: [] }
+export function removeValue(
+    indicesMap: IndicesMap,
+    selectionsMap: IndicesMap,
+    grammar: HierarchicalParsedGrammarDefinition
+): EditorState {
+    const { grammar: result } = insert("after", indicesMap, selectionsMap, () => ({ type: "null" }), grammar)
+    return { grammar: result, selectionsMap: {} }
 }
 
 export function removeStep(
-    selections: Selections,
+    indicesMap: IndicesMap,
+    selectionsMap: IndicesMap,
     operations: Operations<any, any>,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
     const { grammar: result } = replace(
-        selections,
+        indicesMap,
+        selectionsMap,
         (_, path, translatedPath) => getNeutralStep(path, translatedPath, operations),
         grammar
     )
-    return { grammar: result, selections: [] }
+    return { grammar: result, selectionsMap: {} }
 }

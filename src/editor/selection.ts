@@ -1,29 +1,17 @@
-import produce from "immer"
 import { Value } from "../interpreter"
 import { ParsedSteps } from "../parser"
-import { HierarchicalParsedSteps } from "../util"
 
 export type InterpretedInfo = {
     values?: Array<Value<any, any>>
 }
 
-export type Selections = Array<Selection>
-/**
- * index = undefined - means everything is selected
- */
-export type Selection = {
-    steps: HierarchicalParsedSteps
-    selectedIndices?: Array<Array<number>>
-    allIndices?: Array<Array<number>>
-}
-
 export function translateSelectionsForStep(
-    selectedIndices: Array<Array<number>> | undefined,
-    allIndices: Array<Array<number>> | undefined,
+    allIndices: Array<Array<number>>,
+    selectedIndices: Array<Array<number>>,
     newSteps: ParsedSteps,
     oldSteps: ParsedSteps
 ): ParsedSteps {
-    if (selectedIndices == null || allIndices == null) {
+    if (selectedIndices.length === allIndices.length) {
         return newSteps
     }
 
@@ -48,7 +36,7 @@ function toAndUnequalCondition(
     selectedIndices: Array<Array<number>>,
     allIndices: Array<string>
 ): ParsedSteps | undefined {
-    if(selectedIndices.length === 0) {
+    if (selectedIndices.length === 0) {
         return undefined
     }
     const restCondition = toAndUnequalCondition(selectedIndices.slice(1), allIndices)
@@ -94,121 +82,5 @@ function toOrEqualCondition(index: Array<Array<number>>): ParsedSteps {
     return {
         type: "or",
         children: [firstCondition, toOrEqualCondition(index.slice(1))],
-    }
-}
-
-//TODO: unify all these select functions
-
-//must return a new array
-export function setSelection(
-    steps: HierarchicalParsedSteps,
-    index: Array<number> | undefined,
-    allIndices: Array<Array<number>> | undefined,
-    selected: boolean,
-    replace: boolean
-): Selections {
-    //TODO
-    if (allIndices == null || index == null) {
-        return [{ steps }]
-    }
-    if (1 === allIndices.length) {
-        return [{ steps }]
-    }
-    return [
-        {
-            steps,
-            allIndices,
-            selectedIndices: [index],
-        },
-    ]
-}
-
-export function setSelectionIndex(
-    selections: Selections,
-    selectionIndex: number,
-    index: Array<number>,
-    selected: boolean
-): Selections {
-    return produce(selections, (draft) => {
-        const selection = draft[selectionIndex]
-
-        if (selection.allIndices == null || selection.selectedIndices == null) {
-            return
-        }
-
-        const indexKey = index.join(",")
-        const indexIndex = selection.selectedIndices.findIndex((i) => i.join(",") === indexKey)
-
-        const currentlySelected = indexIndex != -1
-
-        if (currentlySelected === selected) {
-            return
-        }
-
-        if (selected) {
-            selection.selectedIndices.push(index)
-        } else {
-            selection.selectedIndices.splice(indexIndex, 1)
-        }
-        clearEmptySelectionOnDraft(draft, selectionIndex, selection)
-    })
-}
-
-export function toggleSelection(
-    selections: Selections,
-    steps: HierarchicalParsedSteps,
-    index: Array<number> | undefined,
-    allIndices: Array<Array<number>> | undefined
-): Selections {
-    const selectionIndex = selections.findIndex((selection) => selection.steps === steps)
-    return produce(selections, (draft) => {
-        if (index == null || allIndices == null) {
-            if (selectionIndex === -1) {
-                draft.push({ steps })
-            } else {
-                draft.splice(selectionIndex, 1)
-            }
-            return
-        }
-
-        if (selectionIndex === -1) {
-            draft.push({
-                steps,
-                allIndices,
-                selectedIndices: [index],
-            })
-            return
-        }
-
-        const selection = draft[selectionIndex]
-
-        if (selection.allIndices == null || selection.selectedIndices == null) {
-            selection.allIndices = allIndices
-            selection.selectedIndices = allIndices
-        }
-
-        const indexKey = index.join(",")
-
-        const indexIndex = selection.selectedIndices.findIndex((i) => i.join(",") === indexKey)
-
-        if (indexIndex === -1) {
-            selection.selectedIndices.push(index)
-        } else {
-            selection.selectedIndices.splice(indexIndex, 1)
-        }
-        clearEmptySelectionOnDraft(draft, selectionIndex, selection)
-    })
-}
-
-function clearEmptySelectionOnDraft(draft: Selections, selectionIndex: number, selection: Selection): void {
-    if(selection.allIndices == null || selection.selectedIndices == null) {
-        return
-    }
-    if (selection.selectedIndices.length === 0) {
-        draft.splice(selectionIndex, 1)
-    }
-    if (selection.selectedIndices.length === selection.allIndices.length) {
-        selection.allIndices = undefined
-        selection.selectedIndices = undefined
     }
 }

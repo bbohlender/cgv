@@ -71,7 +71,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 <div className="btn-group mx-3 mb-3 d-flex">
                     <button
                         onClick={() => {
-                            store.getState().unselect()
+                            store.getState().unselectAll()
                         }}
                         className="d-flex align-items-center justify-content-center btn btn-sm btn-outline-primary flex-grow-1 flex-basis-0">
                         <CheckIcon />
@@ -93,8 +93,8 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                             {selection.steps.type === "operation" ? selection.steps.identifier : selection.steps.type}
                         </label>
                         <MultiSelect<Array<number>>
-                            selectAll={() => store.getState().selectSelection(selectionIndex)}
-                            unselectAll={() => {}}
+                            selectAll={() => store.getState().select(selection.steps, undefined, "add")}
+                            unselectAll={() => store.getState().select(selection.steps, undefined, "remove")}
                             className="mb-3 mx-3"
                             label={
                                 selection.selectedIndices == null
@@ -102,7 +102,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                                     : `${selection.selectedIndices.length} selected`
                             }
                             onChange={(index, selected) => {
-                                store.getState().selectIndex(selectionIndex, index, selected)
+                                store.getState().select(selection.steps, index, selected ? "add" : "remove")
                             }}
                             values={getValues(selection)}
                         />
@@ -156,7 +156,7 @@ function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
                     <div
                         className="flex-grow-1 p-3 pointer"
-                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
+                        onClick={(e) => store.getState().select(child, undefined, e.shiftKey ? "toggle" : "replace")}>
                         {serializeStepString(child)}
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorResult, Selections } from "."
+import { EditorState } from "."
 import {
     getAtPath,
     HierarchicalInfo,
@@ -10,19 +10,24 @@ import {
     HierarchicalPath,
     translateSelectionsForStep,
 } from ".."
-import { HierarchicalParsedSteps } from "../util"
+import { IndicesMap } from "./indices"
 
 export function insert(
     position: "before" | "after" | "parallel",
-    selections: Selections,
+    indicesMap: IndicesMap,
+    selectionsMap: IndicesMap,
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
-): EditorResult {
+): EditorState {
     //TODO: generic solution (together with replace) for simplification (e.g. flatten)
-    return produce({ grammar, selections: [] as Selections }, ({ grammar: draft, selections: newSelections }) => {
+    return produce({ grammar, selectionsMap: {} as IndicesMap }, ({ grammar: draft, selectionsMap: newSelections }) => {
         const type = position === "parallel" ? "parallel" : "sequential"
-        for (const selection of selections) {
-            const arrayPath = selection.steps.path
+        for (const [id, selectedIndices] of Object.entries(selectionsMap)) {
+            const allIndices = indicesMap[id]
+            if(selectedIndices == null || allIndices == null) {
+                continue
+            }
+            const arrayPath = id.split(",").map((val, i) => (i === 0 ? val : parseInt(val))) as HierarchicalPath
 
             const translatedPath = translatePath<HierarchicalInfo>(draft, arrayPath)
             if (translatedPath == null) {
@@ -31,12 +36,7 @@ export function insert(
 
             const newSteps = stepGenerator(arrayPath)
             const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
-            const steps = translateSelectionsForStep(
-                selection.selectedIndices,
-                selection.allIndices,
-                newSteps,
-                oldSteps
-            )
+            const steps = translateSelectionsForStep(allIndices, selectedIndices, newSteps, oldSteps)
 
             const current = getAtPath(translatedPath, arrayPath.length - 1)
             setAtPath(arrayPath, translatedPath, arrayPath.length - 1, {
@@ -44,9 +44,7 @@ export function insert(
                 children: position === "before" ? [steps, current] : [current, steps],
             })
 
-            newSelections.push({
-                steps: newSteps as HierarchicalParsedSteps,
-            })
+            newSelections[id] = []
         }
     })
 }

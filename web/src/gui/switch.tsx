@@ -10,7 +10,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
     return (
         <div className="d-flex flex-column mb-3 mx-3">
             <StartLabel
-                onClick={(e) => store.getState().select(value.children[0], undefined, undefined, e.shiftKey)}
+                onClick={(e) => store.getState().select(value.children[0], undefined, e.shiftKey ? "toggle" : "replace")}
                 value="Condition"
                 className="pointer mb-3">
                 <div className="flex-grow-1 text-end px-2">{serializeStepString(value.children[0])}</div>
@@ -29,7 +29,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                     />
                     <div
                         className="flex-grow-1 ms-2 p-3 pointer"
-                        onClick={(e) => store.getState().select(child, undefined, undefined, e.shiftKey)}>
+                        onClick={(e) => store.getState().select(child, undefined, e.shiftKey ? "toggle" : "replace")}>
                         {serializeStepString(child)}
                     </div>
                     <div

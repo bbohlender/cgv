@@ -3,8 +3,8 @@ import { ParsedGrammarDefinition, ParsedSteps, AbstractParsedGrammarDefinition, 
 
 export type HierarchicalPath = [string, ...Array<number>]
 export type HierarchicalInfo = { path: HierarchicalPath }
-export type HierarchicalParsedSteps = AbstractParsedSteps<HierarchicalInfo>
-export type HierarchicalParsedGrammarDefinition = AbstractParsedGrammarDefinition<HierarchicalInfo>
+export type HierarchicalParsedSteps<T = unknown> = AbstractParsedSteps<HierarchicalInfo & T>
+export type HierarchicalParsedGrammarDefinition<T = unknown> = AbstractParsedGrammarDefinition<HierarchicalInfo & T>
 
 export type TranslatedPath<I> = [
     AbstractParsedGrammarDefinition<I>,
@@ -51,7 +51,10 @@ export function getAtPath<I>(path: TranslatedPath<I>, pathIndex: number): Abstra
     return path[pathIndex + 1] as AbstractParsedSteps<I>
 }
 
-export function toHierarchicalSteps(steps: ParsedSteps, ...basePath: HierarchicalPath): HierarchicalParsedSteps {
+export function toHierarchicalSteps<T = unknown>(
+    steps: AbstractParsedSteps<T>,
+    ...basePath: HierarchicalPath
+): HierarchicalParsedSteps<T> {
     const hierachicalSteps = steps as HierarchicalParsedSteps
     if (Object.isFrozen(hierachicalSteps)) {
         return produce(hierachicalSteps, (draft) => toHierarchicalSteps(draft, ...basePath))
@@ -61,8 +64,10 @@ export function toHierarchicalSteps(steps: ParsedSteps, ...basePath: Hierarchica
     return hierachicalSteps
 }
 
-export function toHierarchical(grammar: ParsedGrammarDefinition) {
-    return Object.entries(grammar).reduce<HierarchicalParsedGrammarDefinition>(
+export function toHierarchical<T = unknown>(
+    grammar: AbstractParsedGrammarDefinition<T>
+): HierarchicalParsedGrammarDefinition<T> {
+    return Object.entries(grammar).reduce<HierarchicalParsedGrammarDefinition<T>>(
         (prev, [name, steps]) => ({
             ...prev,
             [name]: toHierarchicalSteps(steps, name),

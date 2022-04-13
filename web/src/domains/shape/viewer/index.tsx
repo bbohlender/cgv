@@ -5,7 +5,6 @@ import {
     ParsedSteps,
     toValue,
     Value,
-    Selections,
     HierarchicalParsedSteps,
     HierarchicalInfo,
     HierarchicalPath,
@@ -28,7 +27,7 @@ import { BackIcon } from "../../../icons/back"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
-function annotateAfterStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
+function getAnnotationAfterStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
     if (value.annotation == null) {
         return step
     }
@@ -42,7 +41,7 @@ function annotateAfterStep(value: Value<Primitive, Annotation>, step: Hierarchic
     return step
 }
 
-function annotateBeforeStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
+function getAnnotationBeforeStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
     if (step.type === "symbol") {
         return undefined
     }
@@ -114,8 +113,14 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                         .pipe(
                             toValue(),
                             interprete<Primitive, Annotation, HierarchicalInfo>(grammar, operations, {
-                                annotateAfterStep,
-                                annotateBeforeStep,
+                                //TODO: we need a possibility to know when a value is removed
+                                annotateAfterStep: (value, steps) => {
+                                    store.getState().editIndex(steps, value.index, true)
+                                    return getAnnotationAfterStep(value, steps)
+                                },
+                                annotateBeforeStep: (value, steps) => {
+                                    return getAnnotationBeforeStep(value, steps)
+                                }
                             }),
                             toObject3D(
                                 (value) => {
@@ -209,16 +214,13 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 if (annotation == null) {
                                     return
                                 }
-                                const boxMapEntry = boxMap.get(annotation)
-                                if (boxMapEntry == null) {
-                                    return
-                                }
-                                const allIndices = Array.from(boxMapEntry.keys()).map((key) =>
-                                    key.split(",").map((val) => parseInt(val))
-                                )
                                 store
                                     .getState()
-                                    .select(annotation, e.object.userData.index, allIndices, e.nativeEvent.shiftKey)
+                                    .select(
+                                        annotation,
+                                        e.object.userData.index,
+                                        e.nativeEvent.shiftKey ? "toggle" : "replace"
+                                    )
                             }}>
                             <primitive object={object} />
                         </group>

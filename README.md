@@ -289,12 +289,25 @@ SmallTile -> if (size("x") >= 180)
 Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```
 
-# TODO 14.04:
+# TODO before 14.04:
 
 - getOutline on primitive (store primitive)
 - store intermediate results while annotating (not only at the end) to show outlines for intermediate results
 - allIndices always (never undefined + update when change)
-- disable remove & replace when beforeIndex != afterIndex
+
+
+# TODO after 14.04:
+
+- disable remove & replace when beforeIndex not found && selectedIndices.length != allIndices.length
+- disable add (after/before/parallel) when afterIndex not found && selectedIndices.length != allIndices.length
+- remove/replace/add based on before/after index
 - fix interpretion tests
 - parent selection through multiselect
-- grammar list (add btn)
+- add grammars and show grammars (+ make sure that grammars can be clicked through in the gui + small (back) button to go to parent)
+- roof
+----
+- more complex selection pattern recognition
+- simplification after edit
+- set-name (instead of add symbol) as button on gui
+- search nouns in create-step-dialog (also from other grammars) instead of symbol => select noun
+- summarize and concretize!
