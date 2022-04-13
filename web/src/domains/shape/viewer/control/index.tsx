@@ -1,19 +1,19 @@
-import { HierarchicalParsedSteps } from "cgv"
+import { hasSelected, HierarchicalParsedSteps } from "cgv"
 import { useBaseStore } from "../../../../global"
 import { MultiplePointsControl } from "./multiple-points"
 import { PointControl } from "./point"
 
 export function Control() {
     const store = useBaseStore()
-    const selections = store((state) =>
-        state.type === "gui" && state.requested == null ? state.selections : undefined
+    const selectionsMap = store((state) =>
+        state.type === "gui" && state.requested == null ? state.selectionsMap : undefined
     )
-    if (selections == null) {
+    if (selectionsMap == null) {
         return null
     }
     return (
         <>
-            {selections.map((selection) => (
+            {Object.values(selectionsMap).filter(hasSelected).map((selection) => (
                 <OperationControl value={selection.steps} />
             ))}
         </>

@@ -1,46 +1,60 @@
 import produce from "immer"
-import { HierarchicalParsedSteps } from "../util";
+import { HierarchicalParsedSteps } from "../util"
 
-export type IndicesMap = { [Path in string]?: Array<Array<number>> }
+export type SelectionsMap = {
+    [Path in string]?: {
+        all: Array<Array<number>>
+        selected?: Array<Array<number>>
+        steps: HierarchicalParsedSteps
+    }
+}
+
+export function hasSelected(
+    selections: SelectionsMap[string]
+): selections is SelectionsMap[string] & { selected: Array<Array<number>> } {
+    return selections?.selected != null
+}
 
 /**
  * adds/removes an index to allIndices
  */
 export function editIndex(
-    indicesMap: IndicesMap,
-    selectionsMap: IndicesMap,
+    selectionsMap: SelectionsMap,
     steps: HierarchicalParsedSteps,
     index: Array<number>,
     add: boolean
-): { selectionsMap: IndicesMap; indicesMap: IndicesMap } {
+): SelectionsMap {
     const stepsId = steps.path.join(",")
-    return produce({ selectionsMap, indicesMap }, ({ selectionsMap: selectionDraft, indicesMap: indicesDraft }) => {
-        let indices = indicesDraft[stepsId]
-        let selections = selectionDraft[stepsId]
+    return produce(selectionsMap, (draft) => {
+        let selections = draft[stepsId]
 
         if (!add) {
             const key = index.join(",")
-            if (indices != null) {
-                splice(indices, key, (value) => value.join(","))
-            }
             if (selections != null) {
-                splice(selections, key, (value) => value.join(","))
-                if(selections.length === 0) {
-                    delete selectionDraft[stepsId]
+                splice(selections.all, key, (value) => value.join(","))
+            }
+            if (selections != null && selections.selected != null) {
+                splice(selections.selected, key, (value) => value.join(","))
+                if (selections.selected.length === 0) {
+                    selections.selected = undefined
                 }
             }
             return
         }
 
-        if (indices == null) {
-            indices = []
-            indicesDraft[stepsId] = indices
+        if (selections == null) {
+            selections = {
+                all: [],
+                steps,
+            }
+            draft[stepsId] = selections
         }
-        indices.push(index)
 
-        if (selections != null && indices.length === selections.length) {
-            selections.push(index)
+        if (selections.selected != null && selections.all.length === selections.selected.length) {
+            selections.selected.push(index)
         }
+        
+        selections.all.push(index)
     })
 }
 
@@ -53,21 +67,23 @@ function splice<T, K>(array: Array<T>, value: K, transform: (value: T) => K) {
 }
 
 export function editSelection(
-    indicesMap: IndicesMap,
-    selectionsMap: IndicesMap,
+    selectionsMap: SelectionsMap,
     steps: HierarchicalParsedSteps,
     index: Array<number> | undefined,
     type: "replace" | "toggle" | "add" | "remove"
-): IndicesMap {
+): SelectionsMap {
     const stepsId = steps.path.join(",")
-    return produce(type === "replace" ? {} : selectionsMap, (draft) => {
-        let selections = type === "replace" ? undefined : draft[stepsId]
+    return produce(type === "replace" ? unselectAll(selectionsMap) : selectionsMap, (draft) => {
+        const selections = draft[stepsId]
         if (selections == null) {
+            return
+        }
+        if (selections.selected == null) {
             if (type === "remove") {
                 return
             }
             //can only happen for replace, add, toggle
-            draft[stepsId] = index == null ? indicesMap[stepsId] ?? [] : [index]
+            selections.selected = index == null ? selections.all : [index]
             return
         }
 
@@ -78,20 +94,34 @@ export function editSelection(
                 delete draft[stepsId]
             } else {
                 //add
-                draft[stepsId] = indicesMap[stepsId] ?? []
+                selections.selected = selections.all
             }
             return
         }
 
         const indexKey = index.join(",")
-        const indexIndex = selections.findIndex((i) => i.join(",") === indexKey)
+        const indexIndex = selections.selected.findIndex((i) => i.join(",") === indexKey)
 
         const shouldBeSelected = (type === "toggle" && indexIndex == -1) || type === "add" //else it is "remove" => false
 
         if (shouldBeSelected) {
-            selections.push(index)
+            selections.selected.push(index)
         } else {
-            selections.splice(indexIndex, 1)
+            selections.selected.splice(indexIndex, 1)
+            if (selections.selected.length === 0) {
+                selections.selected = undefined
+            }
+        }
+    })
+}
+
+export function unselectAll(selectionsMap: SelectionsMap): SelectionsMap {
+    return produce(selectionsMap, (draft) => {
+        for (const value of Object.values(draft)) {
+            if (value == null) {
+                continue
+            }
+            value.selected = undefined
         }
     })
 }

@@ -2,14 +2,12 @@ import {
     AbstractParsedOperation,
     HierarchicalInfo,
     HierarchicalParsedSteps,
-    HierarchicalPath,
-    Selections,
     serializeStepString,
-    StepDescriptor,
-    Selection,
+    SelectionsMap,
+    hasSelected,
 } from "cgv"
 import { HTMLProps } from "react"
-import { UseBaseStore, useBaseStore, useBaseStoreState } from "../global"
+import { UseBaseStore, useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
 import { MultiSelect } from "./multi-select"
@@ -24,7 +22,7 @@ export type OperationGUIMap = {
     [name in string]?: (props: { value: AbstractParsedOperation<HierarchicalInfo> }) => JSX.Element | null
 }
 
-export function getSelectionTitle(selections: Selections) {
+export function getSelectionTitle(selections: Array<SelectionsMap[string] & { selected: Array<Array<number>> }>) {
     if (selections.length === 1) {
         const steps = selections[0].steps
         return steps.type === "operation" ? steps.identifier : steps.type
@@ -42,10 +40,14 @@ function requestReplace(store: UseBaseStore) {
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const selections = store((state) =>
-        state.type === "gui" && state.requested == null && state.selections.length > 0 ? state.selections : undefined
+    const selectionsMap = store((state) =>
+        state.type === "gui" && state.requested == null ? state.selectionsMap : undefined
     )
-    if (selections == null) {
+    if (selectionsMap == null) {
+        return null
+    }
+    const selected = Object.values(selectionsMap).filter(hasSelected)
+    if(selected.length === 0) {
         return null
     }
     return (
@@ -87,7 +89,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         <DeleteIcon />
                     </button>
                 </div>
-                {selections.map((selection, selectionIndex) => (
+                {selected.map((selection) => (
                     <div className="d-flex flex-column">
                         <label className="mb-3 mx-3">
                             {selection.steps.type === "operation" ? selection.steps.identifier : selection.steps.type}
@@ -96,11 +98,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                             selectAll={() => store.getState().select(selection.steps, undefined, "add")}
                             unselectAll={() => store.getState().select(selection.steps, undefined, "remove")}
                             className="mb-3 mx-3"
-                            label={
-                                selection.selectedIndices == null
-                                    ? "all"
-                                    : `${selection.selectedIndices.length} selected`
-                            }
+                            label={selection.selected == null ? "all" : `${selection.selected.length} selected`}
                             onChange={(index, selected) => {
                                 store.getState().select(selection.steps, index, selected ? "add" : "remove")
                             }}
@@ -114,12 +112,11 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function getValues(selection: Selection): Array<[label: string, selected: boolean, value: Array<number>]> {
-    if (selection.allIndices == null || selection.selectedIndices == null) {
-        return []
-    }
-    const selectedJoinedIndices = selection.selectedIndices.map((index) => index.join(","))
-    return selection.allIndices.map((index) => {
+function getValues(
+    selection: SelectionsMap[string] & { selected: Array<Array<number>> }
+): Array<[label: string, selected: boolean, value: Array<number>]> {
+    const selectedJoinedIndices = selection.selected.map((index) => index.join(","))
+    return selection.all.map((index) => {
         const key = index.join(",")
         return [key, selectedJoinedIndices.includes(key), index]
     })

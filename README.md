@@ -289,15 +289,15 @@ SmallTile -> if (size("x") >= 180)
 Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```
 
-# TODO before 14.04:
-
-- getOutline on primitive (store primitive)
-- store intermediate results while annotating (not only at the end) to show outlines for intermediate results
-- allIndices always (never undefined + update when change)
-
-
 # TODO after 14.04:
 
+- performance:
+    - steps map (no more translation from path => steps, just look it up)
+    - no steps in selections (go back to indices- & selectionMap)
+    - bundle editIndex calls
+    - improve viewer
+- show outlines for intermediate results
+- getOutline on primitive (store primitive)
 - disable remove & replace when beforeIndex not found && selectedIndices.length != allIndices.length
 - disable add (after/before/parallel) when afterIndex not found && selectedIndices.length != allIndices.length
 - remove/replace/add based on before/after index

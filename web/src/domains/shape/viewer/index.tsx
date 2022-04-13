@@ -8,6 +8,7 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
     HierarchicalPath,
+    SelectionsMap,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, toObject3D } from "cgv/domains/shape"
 import { HTMLProps, useEffect, useState, startTransition, useMemo } from "react"
@@ -89,12 +90,13 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
         //TODO: disable delete step and replace when beforeIndex != afterIndex
         let subscription: Subscription | undefined
         const state = store.getState()
-        let selections: Selections = state.type === "gui" ? state.selections : []
-        const updateSelectedBoxes = () => startTransition(() => setSelectedBoxes(getSelectedBoxes(selections, boxMap)))
+        let selectionsMap: SelectionsMap = state.type === "gui" ? state.selectionsMap : {}
+        const updateSelectedBoxes = () =>
+            startTransition(() => setSelectedBoxes(getSelectedBoxes(selectionsMap, boxMap)))
         const unsubscribeSelections = store.subscribe(
-            (state) => (state.type === "gui" ? state.selections : []),
+            (state) => (state.type === "gui" ? state.selectionsMap : {}),
             (s) => {
-                selections = s
+                selectionsMap = s
                 updateSelectedBoxes()
             }
         )
@@ -120,7 +122,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 },
                                 annotateBeforeStep: (value, steps) => {
                                     return getAnnotationBeforeStep(value, steps)
-                                }
+                                },
                             }),
                             toObject3D(
                                 (value) => {
@@ -196,12 +198,14 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     ))}
                     {object != null && (
                         <group
-                            onPointerLeave={(e) =>
-                                store.getState().onEndHover(e.object.userData[e.object.userData.length - 1])
-                            }
-                            onPointerEnter={(e) =>
-                                store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
-                            }
+                            onPointerLeave={(e) => {
+                                //e.intersections[0].object
+                                //store.getState().onEndHover(e.object.userData[e.object.userData.length - 1])
+                            }}
+                            onPointerEnter={(e) => {
+                                //e.intersections[0].object
+                                //store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
+                            }}
                             onClick={(e) => {
                                 const state = store.getState()
                                 if (state.type != "gui") {
@@ -210,7 +214,9 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 if (state.requested != null) {
                                     return
                                 }
-                                const annotation = e.object.userData.annotation
+                                const object = e.intersections[0].object
+                                console.log(object)
+                                const annotation = object.userData.annotation
                                 if (annotation == null) {
                                     return
                                 }
@@ -218,7 +224,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                     .getState()
                                     .select(
                                         annotation,
-                                        e.object.userData.index,
+                                        object.userData.index,
                                         e.nativeEvent.shiftKey ? "toggle" : "replace"
                                     )
                             }}>
@@ -283,19 +289,18 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function getSelectedBoxes(selections: Selections, boxMap: BoxMap): Array<Box3> {
-    return selections
-        .map((selection) => {
-            const selectionIndices = selection.selectedIndices
-            const boxMapEntry = boxMap.get(selection.steps)
+function getSelectedBoxes(selectionsMap: SelectionsMap, boxMap: BoxMap): Array<Box3> {
+    return Object.values(selectionsMap)
+        .map((selections) => {
+            if (selections == null || selections.selected == null) {
+                return []
+            }
+            const boxMapEntry = boxMap.get(selections.steps)
             if (boxMapEntry == null) {
                 return []
             }
             const boxes = Array.from(boxMapEntry)
-            if (selectionIndices == null) {
-                return boxes
-            }
-            const selectionKeys = selectionIndices.map((indexy) => indexy.join(","))
+            const selectionKeys = selections.selected.map((indexy) => indexy.join(","))
             return boxes.filter(([key]) => selectionKeys.includes(key))
         })
         .reduce((v1, v2) => v1.concat(v2), [])
