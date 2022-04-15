@@ -1,16 +1,15 @@
 import type { HierarchicalParsedGrammarDefinition } from ".."
-import { SelectionsMap } from "./indices"
+import { SelectionState } from "./selection"
 
 export type EditorState = {
     grammar: HierarchicalParsedGrammarDefinition
-    selectionsMap: SelectionsMap
-}
+} & SelectionState
 
-export * from "./indices"
-export * from "./selection"
+export * from "./pattern"
 export * from "./replace"
 export * from "./insert"
 export * from "./remove"
 export * from "./noun"
 export * from "./noun"
 export * from "./default-step"
+export * from "./selection"

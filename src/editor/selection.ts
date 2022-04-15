@@ -1,86 +1,107 @@
-import { Value } from "../interpreter"
-import { ParsedSteps } from "../parser"
+import produce from "immer"
+import { HierarchicalParsedSteps } from "../util"
 
-export type InterpretedInfo = {
-    values?: Array<Value<any, any>>
+export type IndicesMap = { [Path in string]?: Array<string> }
+export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Array<string> }>
+
+export type SelectionState = {
+    indicesMap: IndicesMap
+    selectionsList: SelectionsList
 }
 
-export function translateSelectionsForStep(
-    allIndices: Array<Array<number>>,
-    selectedIndices: Array<Array<number>>,
-    newSteps: ParsedSteps,
-    oldSteps: ParsedSteps
-): ParsedSteps {
-    if (selectedIndices.length === allIndices.length) {
-        return newSteps
-    }
+/**
+ * adds/removes an index to allIndices
+ */
+export function editIndex(
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
+    steps: HierarchicalParsedSteps,
+    index: string,
+    add: boolean
+): SelectionState {
+    const selectionsIndex = selectionsList.findIndex((selections) => selections.steps === steps)
+    const path = steps.path.join(",")
+    return produce({ indicesMap, selectionsList }, ({ indicesMap: indicesDraft, selectionsList: selectionsDraft }) => {
+        let selections = selectionsDraft[selectionsIndex]
+        let all = indicesDraft[path]
 
-    return {
-        type: "if",
-        children: [toCondition(selectedIndices, allIndices), newSteps, oldSteps],
-    }
+        if (!add) {
+            if (all == null) {
+                return
+            }
+            const indexIndex = all.findIndex((indexInAll) => index === indexInAll)
+            all.splice(indexIndex, 1)
+            if (selections != null) {
+                const indexIndex = selections.indices.findIndex((selectedIndex) => index === selectedIndex)
+                selections.indices.splice(indexIndex, 1)
+                if (selections.indices.length === 0) {
+                    selectionsDraft.splice(selectionsIndex, 1)
+                }
+            }
+            return
+        }
+
+        if (all == null) {
+            all = []
+            indicesDraft[path] = all
+        }
+
+        if (selections != null && all.length === selections.indices.length) {
+            selections.indices.push(index)
+        }
+
+        all.push(index)
+    })
 }
 
-function toCondition(selectedIndices: Array<Array<number>>, allIndices: Array<Array<number>>): ParsedSteps {
-    //TODO: detect more advanced patterns and use different condition
+export function editSelection(
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
+    steps: HierarchicalParsedSteps,
+    index: string | undefined,
+    type: "replace" | "toggle" | "add" | "remove"
+): SelectionsList {
+    const selectionsIndex =
+        type === "replace" ? -1 : selectionsList.findIndex((selections) => selections.steps === steps)
+    const path = steps.path.join(",")
+    const all = indicesMap[path] ?? []
 
-    if (selectedIndices.length > allIndices.length * 0.5) {
-        const allJoinedIndices: Array<string> = allIndices.map((index) => index.join(","))
-        return toAndUnequalCondition(selectedIndices, allJoinedIndices) ?? { type: "raw", value: false }
-    }
+    return produce(type === "replace" ? [] : selectionsList, (selectionsDraft) => {
+        if (selectionsIndex === -1) {
+            if (type === "remove") {
+                return
+            }
+            //can only happen for replace, add, toggle
+            selectionsDraft.push({
+                steps,
+                indices: index == null ? all : [index],
+            })
+            return
+        }
 
-    return toOrEqualCondition(selectedIndices)
-}
+        const selections = selectionsDraft[selectionsIndex]
 
-function toAndUnequalCondition(
-    selectedIndices: Array<Array<number>>,
-    allIndices: Array<string>
-): ParsedSteps | undefined {
-    if (selectedIndices.length === 0) {
-        return undefined
-    }
-    const restCondition = toAndUnequalCondition(selectedIndices.slice(1), allIndices)
-    const key = selectedIndices.join(",")
-    const firstCondition: ParsedSteps | undefined = allIndices.includes(key)
-        ? undefined
-        : {
-              type: "unequal",
-              children: [
-                  { type: "operation", children: [], identifier: "id" },
-                  { type: "raw", value: selectedIndices[0].join(",") },
-              ],
-          }
+        if (index == null) {
+            if (type === "toggle" || type === "remove") {
+                selectionsDraft.splice(selectionsIndex, 1)
+            } else {
+                //add
+                selections.indices = all
+            }
+            return
+        }
 
-    if (restCondition == null) {
-        return firstCondition
-    }
+        const indexIndex = selections.indices.findIndex((selectedIndex) => selectedIndex === index)
 
-    if (firstCondition == null) {
-        return restCondition
-    }
+        const shouldBeSelected = (type === "toggle" && indexIndex == -1) || type === "add" //else it is "remove" => false
 
-    return {
-        type: "and",
-        children: [firstCondition, restCondition],
-    }
-}
-
-function toOrEqualCondition(index: Array<Array<number>>): ParsedSteps {
-    if (index.length === 0) {
-        return { type: "raw", value: false }
-    }
-    const firstCondition: ParsedSteps = {
-        type: "equal",
-        children: [
-            { type: "operation", children: [], identifier: "id" },
-            { type: "raw", value: index[0].join(",") },
-        ],
-    }
-    if (index.length === 1) {
-        return firstCondition
-    }
-    return {
-        type: "or",
-        children: [firstCondition, toOrEqualCondition(index.slice(1))],
-    }
+        if (shouldBeSelected) {
+            selections.indices.push(index)
+        } else {
+            selections.indices.splice(indexIndex, 1)
+            if (selections.indices.length === 0) {
+                selectionsDraft.splice(selectionsIndex, 1)
+            }
+        }
+    })
 }

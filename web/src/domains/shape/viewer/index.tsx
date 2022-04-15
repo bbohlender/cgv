@@ -8,7 +8,7 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
     HierarchicalPath,
-    SelectionsMap,
+    SelectionsList,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, toObject3D } from "cgv/domains/shape"
 import { HTMLProps, useEffect, useState, startTransition, useMemo } from "react"
@@ -90,13 +90,13 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
         //TODO: disable delete step and replace when beforeIndex != afterIndex
         let subscription: Subscription | undefined
         const state = store.getState()
-        let selectionsMap: SelectionsMap = state.type === "gui" ? state.selectionsMap : {}
+        let selectionsList: SelectionsList = state.type === "gui" ? state.selectionsList : []
         const updateSelectedBoxes = () =>
-            startTransition(() => setSelectedBoxes(getSelectedBoxes(selectionsMap, boxMap)))
+            startTransition(() => setSelectedBoxes(getSelectedBoxes(selectionsList, boxMap)))
         const unsubscribeSelections = store.subscribe(
-            (state) => (state.type === "gui" ? state.selectionsMap : {}),
+            (state) => (state.type === "gui" ? state.selectionsList : []),
             (s) => {
-                selectionsMap = s
+                selectionsList = s
                 updateSelectedBoxes()
             }
         )
@@ -117,7 +117,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                             interprete<Primitive, Annotation, HierarchicalInfo>(grammar, operations, {
                                 //TODO: we need a possibility to know when a value is removed
                                 annotateAfterStep: (value, steps) => {
-                                    store.getState().editIndex(steps, value.index, true)
+                                    store.getState().editIndex(steps, value.index.join(","), true)
                                     return getAnnotationAfterStep(value, steps)
                                 },
                                 annotateBeforeStep: (value, steps) => {
@@ -139,12 +139,12 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                     }
                                     child.traverse((o) => {
                                         o.userData.annotation = value.annotation
-                                        o.userData.index = value.index
+                                        o.userData.index = value.index.join(",")
                                     })
                                     return child
                                 },
                                 (object) => {
-                                    boxMap.get(object.userData.annotation)?.delete(object.userData.index?.join(","))
+                                    boxMap.get(object.userData.annotation)?.delete(object.userData.index)
                                 }
                             )
                         )
@@ -215,7 +215,6 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                     return
                                 }
                                 const object = e.intersections[0].object
-                                console.log(object)
                                 const annotation = object.userData.annotation
                                 if (annotation == null) {
                                     return
@@ -289,19 +288,15 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function getSelectedBoxes(selectionsMap: SelectionsMap, boxMap: BoxMap): Array<Box3> {
-    return Object.values(selectionsMap)
+function getSelectedBoxes(selectionsList: SelectionsList, boxMap: BoxMap): Array<Box3> {
+    return Object.values(selectionsList)
         .map((selections) => {
-            if (selections == null || selections.selected == null) {
-                return []
-            }
             const boxMapEntry = boxMap.get(selections.steps)
             if (boxMapEntry == null) {
                 return []
             }
             const boxes = Array.from(boxMapEntry)
-            const selectionKeys = selections.selected.map((indexy) => indexy.join(","))
-            return boxes.filter(([key]) => selectionKeys.includes(key))
+            return boxes.filter(([index]) => selections.indices.includes(index))
         })
         .reduce((v1, v2) => v1.concat(v2), [])
         .map(([, box]) => box)

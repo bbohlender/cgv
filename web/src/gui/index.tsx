@@ -2,9 +2,8 @@ import {
     AbstractParsedOperation,
     HierarchicalInfo,
     HierarchicalParsedSteps,
+    SelectionsList,
     serializeStepString,
-    SelectionsMap,
-    hasSelected,
 } from "cgv"
 import { HTMLProps } from "react"
 import { UseBaseStore, useBaseStore } from "../global"
@@ -22,7 +21,7 @@ export type OperationGUIMap = {
     [name in string]?: (props: { value: AbstractParsedOperation<HierarchicalInfo> }) => JSX.Element | null
 }
 
-export function getSelectionTitle(selections: Array<SelectionsMap[string] & { selected: Array<Array<number>> }>) {
+export function getSelectionTitle(selections: Array<SelectionsList[number] & { selected: Array<Array<number>> }>) {
     if (selections.length === 1) {
         const steps = selections[0].steps
         return steps.type === "operation" ? steps.identifier : steps.type
@@ -40,14 +39,10 @@ function requestReplace(store: UseBaseStore) {
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const selectionsMap = store((state) =>
-        state.type === "gui" && state.requested == null ? state.selectionsMap : undefined
+    const selectionsList = store((state) =>
+        state.type === "gui" && state.requested == null ? state.selectionsList : undefined
     )
-    if (selectionsMap == null) {
-        return null
-    }
-    const selected = Object.values(selectionsMap).filter(hasSelected)
-    if(selected.length === 0) {
+    if (selectionsList == null || selectionsList.length === 0) {
         return null
     }
     return (
@@ -89,37 +84,46 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         <DeleteIcon />
                     </button>
                 </div>
-                {selected.map((selection) => (
-                    <div className="d-flex flex-column">
-                        <label className="mb-3 mx-3">
-                            {selection.steps.type === "operation" ? selection.steps.identifier : selection.steps.type}
-                        </label>
-                        <MultiSelect<Array<number>>
-                            selectAll={() => store.getState().select(selection.steps, undefined, "add")}
-                            unselectAll={() => store.getState().select(selection.steps, undefined, "remove")}
-                            className="mb-3 mx-3"
-                            label={selection.selected == null ? "all" : `${selection.selected.length} selected`}
-                            onChange={(index, selected) => {
-                                store.getState().select(selection.steps, index, selected ? "add" : "remove")
-                            }}
-                            values={getValues(selection)}
-                        />
-                        <GUISteps value={selection.steps} />
-                    </div>
+                {selectionsList.map((selections) => (
+                    <GUISelection selections={selections} />
                 ))}
             </div>
         </div>
     )
 }
 
+function GUISelection({ selections }: { selections: SelectionsList[number] }) {
+    const store = useBaseStore()
+    const path = selections.steps.path.join(",")
+    const all = store((state) => (state.type === "gui" ? state.indicesMap[path] : undefined))
+    if (all == null) {
+        return null
+    }
+    return (
+        <div className="d-flex flex-column">
+            <label className="mb-3 mx-3">
+                {selections.steps.type === "operation" ? selections.steps.identifier : selections.steps.type}
+            </label>
+            <MultiSelect<string>
+                selectAll={() => store.getState().select(selections.steps, undefined, "add")}
+                unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
+                className="mb-3 mx-3"
+                label={`${selections.indices.length} selected`}
+                onChange={(index, selected) => {
+                    store.getState().select(selections.steps, index, selected ? "add" : "remove")
+                }}
+                values={getValues(selections, all)}
+            />
+            <GUISteps value={selections.steps} />
+        </div>
+    )
+}
+
 function getValues(
-    selection: SelectionsMap[string] & { selected: Array<Array<number>> }
-): Array<[label: string, selected: boolean, value: Array<number>]> {
-    const selectedJoinedIndices = selection.selected.map((index) => index.join(","))
-    return selection.all.map((index) => {
-        const key = index.join(",")
-        return [key, selectedJoinedIndices.includes(key), index]
-    })
+    selection: SelectionsList[number],
+    all: Array<string>
+): Array<[label: string, selected: boolean, value: string]> {
+    return all.map((index) => [index, selection.indices.includes(index), index])
 }
 
 function GUISteps({ value }: { value: HierarchicalParsedSteps | string }): JSX.Element | null {

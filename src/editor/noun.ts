@@ -32,7 +32,11 @@ import {
     }
 }*/
 
-export function renameNoun(name: string, newName: string, grammar: HierarchicalParsedGrammarDefinition): EditorState {
+export function renameNoun(
+    name: string,
+    newName: string,
+    grammar: HierarchicalParsedGrammarDefinition
+): Omit<EditorState, "indicesMap"> {
     return {
         grammar: produce(grammar, (draft) => {
             if (newName in draft) {
@@ -48,7 +52,7 @@ export function renameNoun(name: string, newName: string, grammar: HierarchicalP
                 findSymbolsWithIdentifier(value, name, (step) => (step.identifier = newName))
             }
         }),
-        selectionsMap: {},
+        selectionsList: [],
     }
 }
 

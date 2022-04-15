@@ -14,8 +14,7 @@ import {
     removeValue,
     editSelection,
     editIndex,
-    SelectionsMap,
-    unselectAll,
+    EditorState,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -30,11 +29,10 @@ export type CombineEmpty<T, K> = T & {
 
 export type GuiState = {
     type: "gui"
-    selectionsMap: SelectionsMap
     hovered: Array<HierarchicalParsedSteps | string>
     grammar: HierarchicalParsedGrammarDefinition
     requested: { type: string; fulfill: (value: any) => void } | undefined
-}
+} & EditorState
 
 export type TuiState =
     | CombineEmpty<TuiCorrectState, TuiIncorrectState>
@@ -63,7 +61,8 @@ export function createBaseState(operations: Operations<any, any>) {
 function createBaseStateInitial(): BaseState {
     return {
         type: "gui",
-        selectionsMap: {},
+        indicesMap: {},
+        selectionsList: [],
         hovered: [],
         grammar: toHierarchical({
             Start: { type: "this" },
@@ -99,7 +98,8 @@ function createBaseStateFunctions(
                 set({
                     type: "gui",
                     grammar: toHierarchical(state.grammar),
-                    selectionsMap: {},
+                    indicesMap: {},
+                    selectionsList: [],
                     hovered: [],
                     requested: undefined,
                 })
@@ -131,30 +131,30 @@ function createBaseStateFunctions(
             }
             set({ ...state, hovered: state.hovered.filter((hoveredStep) => hoveredStep != step) })
         },
-        editIndex: (steps: HierarchicalParsedSteps, index: Array<number>, add: boolean) => {
+        editIndex: (steps: HierarchicalParsedSteps, index: string, add: boolean) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set({ selectionsMap: editIndex(state.selectionsMap, steps, index, add) })
+            set(editIndex(state.indicesMap, state.selectionsList, steps, index, add))
         },
         select: (
             steps: HierarchicalParsedSteps,
-            index: Array<number> | undefined,
+            index: string | undefined,
             type: "replace" | "add" | "remove" | "toggle"
         ) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set({ selectionsMap: editSelection(state.selectionsMap, steps, index, type) })
+            set({ selectionsList: editSelection(state.indicesMap, state.selectionsList, steps, index, type) })
         },
         unselectAll: () => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set({ selectionsMap: unselectAll(state.selectionsMap) })
+            set({ selectionsList: [] })
         },
         escape: () => {
             const state = get()
@@ -165,7 +165,7 @@ function createBaseStateFunctions(
                 set({ requested: undefined })
                 return
             }
-            set({ selectionsMap: unselectAll(state.selectionsMap) })
+            set({ selectionsList: [] })
         },
         request: (type: string, fulfill: (value: any) => void) => {
             const state = get()
@@ -207,21 +207,21 @@ function createBaseStateFunctions(
                 return
             }
 
-            set(insert(type, state.selectionsMap, stepGenerator, state.grammar))
+            set(insert(state.indicesMap, state.selectionsList, type, stepGenerator, state.grammar))
         },
         removeStep: () => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(removeStep(state.selectionsMap, operations, state.grammar))
+            set(removeStep(state.indicesMap, state.selectionsList, operations, state.grammar))
         },
         removeValue: () => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(removeValue(state.selectionsMap, state.grammar))
+            set(removeValue(state.indicesMap, state.selectionsList, state.grammar))
         },
         rename: (name: string) => {
             /*const state = get()
@@ -245,7 +245,7 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
-            set(replace(state.selectionsMap, replaceWith as any, state.grammar))
+            set(replace(state.indicesMap, state.selectionsList, replaceWith as any, state.grammar))
         },
     }
 }

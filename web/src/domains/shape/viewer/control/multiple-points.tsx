@@ -7,7 +7,7 @@ export function MultiplePointsControl({ value }: { value: AbstractParsedOperatio
             {value.children.map(
                 (child, i) =>
                     child.type === "operation" && (
-                        <PointControl<"operation"> getSubstep={(draft) => draft.children[i]} value={child} />
+                        <PointControl<"operation"> getSubstep={(draft) => draft.children[i]} selections={child} />
                     )
             )}
         </>

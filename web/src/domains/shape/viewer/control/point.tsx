@@ -1,4 +1,4 @@
-import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps } from "cgv"
+import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps, SelectionsList } from "cgv"
 import { Draft } from "immer"
 import { useBaseStore } from "../../../../global"
 import { TransformControl } from "./transform-control"

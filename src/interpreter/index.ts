@@ -353,7 +353,7 @@ function interpreteIf<T, A, I>(
     return (input) =>
         input.pipe(
             operatorsToArray(noop(), conditionOperatorFunction),
-            groupBy(({ raw: [, switchValue] }) => switchValue),
+            groupBy(({ raw: [, conditionValue] }) => conditionValue),
             mergeMap((value) =>
                 value.pipe(
                     map((value) => ({
@@ -599,9 +599,14 @@ function operatorsToArray<T, A>(
                 )
             )
         ).pipe(
-            toArray(), //TODO: toArray only for the first index (maybe groupBy ?)
-            filter((value) => value.length === operatorFunctions.length + 1),
-            outputsToValue()
+            groupBy((value) => value.index.slice(1).join(",")),
+            mergeMap((value) =>
+                value.pipe(
+                    toArray(),
+                    filter((value) => value.length === operatorFunctions.length + 1),
+                    outputsToValue()
+                )
+            )
         )
     }
 }

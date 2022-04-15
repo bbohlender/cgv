@@ -11,48 +11,54 @@ import {
     translateSelectionsForStep,
 } from ".."
 import { HierarchicalParsedSteps } from "../util"
-import { SelectionsMap } from "./indices"
+import { IndicesMap, SelectionsList } from "./selection"
 
 export function insert(
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
     position: "before" | "after" | "parallel",
-    selectionsMap: SelectionsMap,
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
     //TODO: generic solution (together with replace) for simplification (e.g. flatten)
-    return produce(
-        { grammar, selectionsMap: {} as SelectionsMap },
-        ({ grammar: draft, selectionsMap: newSelections }) => {
+    const partial = produce(
+        { grammar, selectionsList: [] as SelectionsList },
+        ({ grammar: draft, selectionsList: newSelections }) => {
             const type = position === "parallel" ? "parallel" : "sequential"
-            for (const [id, selections] of Object.entries(selectionsMap)) {
-                if (selections == null || selections.selected == null) {
+            for (const { indices, steps } of selectionsList) {
+                const path = steps.path.join(",")
+                const all = indicesMap[path]
+
+                if (all == null) {
                     continue
                 }
-                const arrayPath = id.split(",").map((val, i) => (i === 0 ? val : parseInt(val))) as HierarchicalPath
 
-                const translatedPath = translatePath<HierarchicalInfo>(draft, arrayPath)
+                const translatedPath = translatePath<HierarchicalInfo>(draft, steps.path)
                 if (translatedPath == null) {
                     continue
                 }
 
-                const newSteps = stepGenerator(arrayPath)
+                const newSteps = stepGenerator(steps.path)
                 const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
-                const steps = translateSelectionsForStep(selections.all, selections.selected, newSteps, oldSteps)
+                const translatedSteps = translateSelectionsForStep(all, indices, newSteps, oldSteps)
 
-                const current = getAtPath(translatedPath, arrayPath.length - 1)
-                setAtPath(arrayPath, translatedPath, arrayPath.length - 1, {
+                const current = getAtPath(translatedPath, steps.path.length - 1)
+                setAtPath(steps.path, translatedPath, steps.path.length - 1, {
                     type,
-                    children: position === "before" ? [steps, current] : [current, steps],
+                    children: position === "before" ? [translatedSteps, current] : [current, translatedSteps],
                 })
 
                 const resultSteps = newSteps as HierarchicalParsedSteps
 
-                newSelections[resultSteps.path.join(",")] = {
-                    all: [],
+                newSelections.push({
                     steps: resultSteps,
-                    selected: [],
-                }
+                    indices: [],
+                })
             }
         }
     )
+    return {
+        ...partial,
+        indicesMap: {},
+    }
 }

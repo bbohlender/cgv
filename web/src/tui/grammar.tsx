@@ -100,7 +100,7 @@ function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): 
     if (state.type != "gui") {
         return undefined
     }
-    if (state.selectionsMap[steps.path.join(",")]?.selected != null) {
+    if (state.selectionsList.findIndex((selections) => selections.steps == steps) != -1) {
         return "selected"
     }
     if (state.hovered.length > 0 && state.hovered[state.hovered.length - 1] === steps) {

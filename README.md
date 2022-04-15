@@ -291,23 +291,28 @@ Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 
 # TODO after 14.04:
 
-- performance:
-    - steps map (no more translation from path => steps, just look it up)
-    - no steps in selections (go back to indices- & selectionMap)
-    - bundle editIndex calls
-    - improve viewer
-- show outlines for intermediate results
-- getOutline on primitive (store primitive)
-- disable remove & replace when beforeIndex not found && selectedIndices.length != allIndices.length
-- disable add (after/before/parallel) when afterIndex not found && selectedIndices.length != allIndices.length
-- remove/replace/add based on before/after index
-- fix interpretion tests
-- parent selection through multiselect
-- add grammars and show grammars (+ make sure that grammars can be clicked through in the gui + small (back) button to go to parent)
-- roof
-----
-- more complex selection pattern recognition
-- simplification after edit
-- set-name (instead of add symbol) as button on gui
-- search nouns in create-step-dialog (also from other grammars) instead of symbol => select noun
-- summarize and concretize!
+-   performance:
+    -   (bundle editIndex calls)
+    -   improve viewer
+-   show outlines for intermediate results
+-   getOutline on primitive (store primitive)
+
+-   disable remove & replace when beforeIndex not found && selectedIndices.length != allIndices.length
+-   disable add (after/before/parallel) when afterIndex not found && selectedIndices.length != allIndices.length
+-   remove/replace/add based on before/after index
+
+-   fix interpretion tests
+-   parent selection through multiselect
+-   add descriptions and show descriptions (+ make sure that descriptions can be clicked through in the gui + small (back) button to go to parent)
+
+-   roof
+-   expand
+-   sample
+
+---
+
+-   more complex selection pattern recognition
+-   simplification after edit
+-   set-name (instead of add symbol) as button on gui
+-   search nouns in create-step-dialog (also from other grammars) instead of symbol => select noun
+-   summarize and concretize!
