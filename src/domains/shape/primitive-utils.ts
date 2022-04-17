@@ -1,4 +1,4 @@
-import { BufferGeometry, Material, Matrix4, Vector3 } from "three"
+import { BufferGeometry, Material, Matrix4, Shape, Vector2, Vector3 } from "three"
 import { CSG } from "three-csg-ts"
 import { makeTranslationMatrix, GeometryPrimitive, ObjectType, PointPrimitive, Primitive } from "."
 
@@ -105,4 +105,78 @@ export function CSGInverse(primitive: Primitive, materialGenerator: (type: Objec
         CSG.fromGeometry(g).inverse().toGeometry(matrixHelper.identity()),
         materialGenerator
     )
+}
+
+export function createGraph(lines: Array<[Vector3, Vector3]>, threshold: number) {
+    const thresholdSquared = threshold * threshold
+    const points: Array<Vector3> = []
+    const connectionsList: Array<Array<number>> = []
+    for (const [p1, p2] of lines) {
+        const i1 = getIndexInPoints(points, p1, threshold)
+        const i2 = getIndexInPoints(points, p2, threshold)
+        let connections = connectionsList[i1]
+        if (connections == null) {
+            connections = []
+            connectionsList[i1] = connections
+        }
+        connections.push(i2)
+    }
+}
+
+function getIndexInPoints(points: Array<Vector3>, point: Vector3, thresholdSquared: number) {
+    let index = points.findIndex((p) => vectorHelper.copy(p).sub(point).lengthSq() < thresholdSquared)
+    if (index !== -1) {
+        index = points.length
+        points.push(point)
+    }
+    return index
+}
+
+type Graph = {
+    points: Array<Vector3>
+    connectionsList: Array<Array<number>>
+}
+
+export function expandGraph(
+    graph: Graph,
+    distance: Array<number> | number,
+    normal: Vector3,
+    options: {
+        inside: "expand" | "nothing" | "fill"
+        outside: "expand" | "nothing"
+    }
+): Shape {
+    const finishedPoints = new Set<number>()
+    for(let i = 0; i < graph.points.length; i++) {
+        const target = graph.points[i]
+        const first = graph.points[graph.connectionsList[i][0]]
+        const sortedConnections = graph.connectionsList[i].map(index => {
+            const point = graph.points[index]
+            return { index, degree: degreeBetween(target, first, point, normal) }
+        }).sort((a, b) => a.degree - b.degree)
+        for(const { degree, index } of sortedConnections) {
+            if(finishedPoints.has(index)) {
+                continue
+            }
+            const degreeToPrevious = ;
+            const degreeToNext = ;
+            const towardPoint = graph.points[index]
+            //TODO: hexagon between target and towardPoint
+        }
+        finishedPoints.add(i)
+    }
+}
+
+const v1 = new Vector3()
+const v2 = new Vector3()
+const v3 = new Vector3()
+
+function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: Vector3) {
+    v1.copy(p1).sub(targetPoint)
+    v2.copy(p2).sub(targetPoint)
+    const cw = v3.copy(v1).cross(normal).dot(v2) >= 0
+    v1.projectOnPlane(normal)
+    v2.projectOnPlane(normal)
+    const angle = v1.angleTo(v2)
+    return cw ? angle : Math.PI * 2 - angle
 }

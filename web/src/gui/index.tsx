@@ -96,24 +96,24 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
     const store = useBaseStore()
     const path = selections.steps.path.join(",")
     const all = store((state) => (state.type === "gui" ? state.indicesMap[path] : undefined))
-    if (all == null) {
-        return null
-    }
+
     return (
         <div className="d-flex flex-column">
             <label className="mb-3 mx-3">
                 {selections.steps.type === "operation" ? selections.steps.identifier : selections.steps.type}
             </label>
-            <MultiSelect<string>
-                selectAll={() => store.getState().select(selections.steps, undefined, "add")}
-                unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
-                className="mb-3 mx-3"
-                label={`${selections.indices.length} selected`}
-                onChange={(index, selected) => {
-                    store.getState().select(selections.steps, index, selected ? "add" : "remove")
-                }}
-                values={getValues(selections, all)}
-            />
+            {all != null && (
+                <MultiSelect<string>
+                    selectAll={() => store.getState().select(selections.steps, undefined, "add")}
+                    unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
+                    className="mb-3 mx-3"
+                    label={`${selections.indices.length} selected`}
+                    onChange={(index, selected) => {
+                        store.getState().select(selections.steps, index, selected ? "add" : "remove")
+                    }}
+                    values={getValues(selections, all)}
+                />
+            )}
             <GUISteps value={selections.steps} />
         </div>
     )

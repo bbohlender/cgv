@@ -1,5 +1,5 @@
 import { Sphere, useContextBridge } from "@react-three/drei"
-import { Canvas } from "@react-three/fiber"
+import { Canvas, useStore } from "@react-three/fiber"
 import {
     interprete,
     ParsedSteps,
@@ -73,18 +73,50 @@ function pathStartsWith(p1: HierarchicalPath, p2: HierarchicalPath): boolean {
 const boundingBoxGeometry = new EdgesGeometry(new BoxBufferGeometry())
 const boundingBoxMaterial = new LineBasicMaterial({ color: "#f00" })
 
-type BoxMap = Map<ParsedSteps, Map<string, Box3>>
+type PrimitiveMap = Map<ParsedSteps, Map<string, Primitive>>
 
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
-    const [selectedBoxes, setSelectedBoxes] = useState<Array<Box3>>([])
     const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
     const [showBackground, setShowBackground] = useState(false)
-    const store = useBaseStore()
 
-    const boxMap: BoxMap = useMemo(() => new Map(), [])
+    const primitiveMap: PrimitiveMap = useMemo(() => new Map(), [])
 
+    const Bridge = useContextBridge(domainContext)
+
+    return (
+        <div {...rest} className={`${className} overflow-hidden position-relative`}>
+            <Canvas
+                style={{
+                    touchAction: "none",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                }}
+                dpr={global.window == null ? 1 : window.devicePixelRatio}>
+                <Bridge>
+                    <ViewerCamera />
+                    <Control />
+                    <ViewControls />
+                    <ambientLight intensity={0.5} />
+                    <directionalLight position={[10, 10, 10]} intensity={0.5} />
+                    {object != null && <Result object={object} />}
+                    <Panoramas />
+                    {showBackground && <Background />}
+                </Bridge>
+            </Canvas>
+            <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
+                <BackgroundToggle className="me-2" setValue={setShowBackground} value={showBackground} />
+                <BackButton className="me-2" />
+                {error != null && <ErrorMessage message={error} align="left" />}
+            </div>
+            {children}
+        </div>
+    )
+}
+
+function Interpretion() {
+    const store = useStore()
     useEffect(() => {
         //TODO: optimize / rewrite
         //TODO: disable delete step and replace when beforeIndex != afterIndex
@@ -115,9 +147,12 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                         .pipe(
                             toValue(),
                             interprete<Primitive, Annotation, HierarchicalInfo>(grammar, operations, {
+                                delay: 0,
                                 //TODO: we need a possibility to know when a value is removed
                                 annotateAfterStep: (value, steps) => {
-                                    store.getState().editIndex(steps, value.index.join(","), true)
+                                    startTransition(() =>
+                                        store.getState().editIndex(steps, value.index.join(","), true)
+                                    )
                                     return getAnnotationAfterStep(value, steps)
                                 },
                                 annotateBeforeStep: (value, steps) => {
@@ -137,9 +172,10 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                         boxMapEntry.set(value.index.join(","), new Box3().setFromObject(child)) //TODO: this could be better
                                         updateSelectedBoxes()
                                     }
+                                    const index = value.index.join(",")
                                     child.traverse((o) => {
                                         o.userData.annotation = value.annotation
-                                        o.userData.index = value.index.join(",")
+                                        o.userData.index = index
                                     })
                                     return child
                                 },
@@ -169,89 +205,74 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
             subscription?.unsubscribe()
         }
     }, [store])
+}
 
-    const Bridge = useContextBridge(domainContext)
-
+function Result({ object }: { object: Object3D }) {
+    const store = useBaseStore()
     return (
-        <div {...rest} className={`${className} overflow-hidden position-relative`}>
-            <Canvas
-                style={{
-                    touchAction: "none",
-                    userSelect: "none",
-                    WebkitUserSelect: "none",
-                }}
-                dpr={global.window == null ? 1 : window.devicePixelRatio}>
-                <Bridge>
-                    <ViewerCamera />
-                    <Control />
-                    <ViewControls />
-                    <ambientLight intensity={0.5} />
-                    <directionalLight position={[10, 10, 10]} intensity={0.5} />
-                    {selectedBoxes.map((box, i) => (
-                        <lineSegments
-                            key={i}
-                            geometry={boundingBoxGeometry}
-                            material={boundingBoxMaterial}
-                            position={box.getCenter(new Vector3())}
-                            scale={box.getSize(new Vector3()).add(new Vector3(0.1, 0.1, 0.1))}
-                        />
-                    ))}
-                    {object != null && (
-                        <group
-                            onPointerLeave={(e) => {
-                                //e.intersections[0].object
-                                //store.getState().onEndHover(e.object.userData[e.object.userData.length - 1])
-                            }}
-                            onPointerEnter={(e) => {
-                                //e.intersections[0].object
-                                //store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
-                            }}
-                            onClick={(e) => {
-                                const state = store.getState()
-                                if (state.type != "gui") {
-                                    return
-                                }
-                                if (state.requested != null) {
-                                    return
-                                }
-                                const object = e.intersections[0].object
-                                const annotation = object.userData.annotation
-                                if (annotation == null) {
-                                    return
-                                }
-                                store
-                                    .getState()
-                                    .select(
-                                        annotation,
-                                        object.userData.index,
-                                        e.nativeEvent.shiftKey ? "toggle" : "replace"
-                                    )
-                            }}>
-                            <primitive object={object} />
-                        </group>
-                    )}
-                    {panoramas.map(({ position }, index) => (
-                        <Sphere
-                            key={index}
-                            position={position}
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                useViewerState.getState().changePanoramaView(index)
-                            }}
-                            args={[5]}>
-                            <meshBasicMaterial color={0x0000ff} />
-                        </Sphere>
-                    ))}
-                    {showBackground && <Background />}
-                </Bridge>
-            </Canvas>
-            <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
-                <BackgroundToggle className="me-2" setValue={setShowBackground} value={showBackground} />
-                <BackButton className="me-2" />
-                {error != null && <ErrorMessage message={error} align="left" />}
-            </div>
-            {children}
-        </div>
+        <group
+            onPointerLeave={(e) => {
+                //e.intersections[0].object
+                //store.getState().onEndHover(e.object.userData[e.object.userData.length - 1])
+            }}
+            onPointerEnter={(e) => {
+                //e.intersections[0].object
+                //store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
+            }}
+            onClick={(e) => {
+                const state = store.getState()
+                if (state.type != "gui") {
+                    return
+                }
+                if (state.requested != null) {
+                    return
+                }
+                const object = e.intersections[0].object
+                const annotation = object.userData.annotation
+                if (annotation == null) {
+                    return
+                }
+                store
+                    .getState()
+                    .select(annotation, object.userData.index, e.nativeEvent.shiftKey ? "toggle" : "replace")
+            }}>
+            <primitive object={object} />
+        </group>
+    )
+}
+
+function Panoramas() {
+    return (
+        <>
+            {panoramas.map(({ position }, index) => (
+                <Sphere
+                    key={index}
+                    position={position}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        useViewerState.getState().changePanoramaView(index)
+                    }}
+                    args={[5]}>
+                    <meshBasicMaterial color={0x0000ff} />
+                </Sphere>
+            ))}
+        </>
+    )
+}
+
+function Outlines({}: {}) {
+    return (
+        <>
+            {selectedBoxes.map((box, i) => (
+                <lineSegments
+                    key={i}
+                    geometry={boundingBoxGeometry}
+                    material={boundingBoxMaterial}
+                    position={box.getCenter(new Vector3())}
+                    scale={box.getSize(new Vector3()).add(new Vector3(0.1, 0.1, 0.1))}
+                />
+            ))}
+        </>
     )
 }
 

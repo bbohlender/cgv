@@ -1,10 +1,14 @@
 import {
     Box2,
     Box3,
+    BoxBufferGeometry,
     BufferGeometry,
     Color,
+    EdgesGeometry,
+    Event,
     Line,
     LineBasicMaterial,
+    LineSegments,
     Material,
     Matrix4,
     Mesh,
@@ -15,6 +19,7 @@ import {
     PointsMaterial,
     Shape,
     ShapeBufferGeometry,
+    ShapeUtils,
     Vector2,
     Vector3,
 } from "three"
@@ -56,12 +61,20 @@ export abstract class Primitive {
 
     private geometryCache: BufferGeometry | null | undefined = null
     private objectCache: Object3D | null = null
+    private outlineCache: Object3D | null = null
 
     getGeometry(): BufferGeometry | undefined {
         if (this.geometryCache === null) {
             this.geometryCache = this.computeGeometry()
         }
         return this.geometryCache
+    }
+
+    getOutline(): Object3D {
+        if (this.outlineCache === null) {
+            this.outlineCache = this.computeOutline()
+        }
+        return this.outlineCache
     }
 
     getObject(): Object3D {
@@ -91,14 +104,25 @@ export abstract class Primitive {
         return this.changeMatrix(this.matrix.clone().premultiply(matrix))
     }
 
+    abstract getSurfaceArea(): number
+    abstract sampleSurface(amount: number): Array<Vector3>
     abstract extrude(by: number): Primitive
+    abstract expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive
     abstract components(type: "points" | "lines" | "faces"): Array<Primitive>
     protected abstract computeObject3D(): Object3D
     abstract getGeometrySize(target: Vector3): void
     protected abstract computeGeometry(): BufferGeometry | undefined
+    protected abstract computeOutline(): Object3D
 }
 
 export class PointPrimitive extends Primitive {
+    getSurfaceArea(): number {
+        return 0
+    }
+    sampleSurface(amount: number): Vector3[] {
+        return new Array(amount).fill(null).map(() => new Vector3().setFromMatrixPosition(this.matrix))
+    }
+
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new PointPrimitive(this.matrix, generator)
     }
@@ -137,12 +161,20 @@ export class PointPrimitive extends Primitive {
         )
     }
 
+    protected computeOutline(): Object3D<Event> {
+        return this.getObject()
+    }
+
     clone(): Primitive {
         return new PointPrimitive(this.matrix, this.materialGenerator)
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
         return undefined
+    }
+
+    expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
+        throw new Error("Method not implemented.")
     }
 }
 
@@ -152,6 +184,16 @@ const YAXIS = new Vector3(0, 1, 0)
  * line in x direction
  */
 export class LinePrimitive extends Primitive {
+    getSurfaceArea(): number {
+        return 0
+    }
+    sampleSurface(amount: number): Vector3[] {
+        return new Array(amount).fill(null).map(() => {
+            helperMatrix.multiplyMatrices(this.matrix, helperMatrix.makeTranslation(this.length, 0, 0))
+            return new Vector3().setFromMatrixPosition(helperMatrix)
+        })
+    }
+
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new LinePrimitive(this.matrix, this.length, generator)
     }
@@ -219,8 +261,16 @@ export class LinePrimitive extends Primitive {
         )
     }
 
+    protected computeOutline(): Object3D<Event> {
+        return this.getObject()
+    }
+
     protected computeGeometry(): BufferGeometry | undefined {
         return undefined
+    }
+
+    expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
+        throw new Error("Method not implemented.")
     }
 }
 
@@ -233,6 +283,15 @@ const invertMatrix = new Matrix4()
  * face in x, z axis
  */
 export class FacePrimitive extends Primitive {
+    getSurfaceArea(): number {
+        const contourArea = ShapeUtils.area(this.shape.getPoints(5))
+        return this.shape.holes.reduce((prev, hole) => prev - ShapeUtils.area(hole.getPoints(5)), contourArea)
+    }
+
+    sampleSurface(amount: number): Vector3[] {
+        
+    }
+
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new FacePrimitive(this.matrix, this.shape, generator)
     }
@@ -295,7 +354,7 @@ export class FacePrimitive extends Primitive {
     extrude(by: number): Primitive {
         invertMatrix.copy(this.matrix).invert()
         const top = this.multiplyMatrix(invertMatrix.multiply(makeTranslationMatrix(0, by, 0)))
-        const points = this.shape.extractPoints(5).shape
+        const points = this.shape.getPoints(5)
         return new CombinedPrimitive(this.matrix, [
             ...points.map((p1, i) => {
                 const p2 = points[(i + 1) % points.length]
@@ -345,6 +404,26 @@ export class FacePrimitive extends Primitive {
     computeObject3D(): Object3D {
         return setupObject3D(new Mesh(this.getGeometry(), this.materialGenerator(ObjectType.Mesh)), this.matrix)
     }
+
+    protected computeOutline(): Object3D<Event> {
+        const outerPath = pathToObject(this.shape.extractPoints(5).shape)
+        const innerPaths = this.shape.holes.map((path) => pathToObject(path.getPoints(5)))
+        const result = new Object3D()
+        result.add(outerPath, ...innerPaths)
+        return result
+    }
+
+    expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
+        throw new Error(`not implemented`)
+    }
+}
+
+function pathToObject(path: Array<Vector2>): Object3D {
+    if (path.length === 0) {
+        return new Object3D()
+    }
+    path.push(path[0])
+    return new Line(new BufferGeometry().setFromPoints(path))
 }
 
 const box3Helper = new Box3()
@@ -382,6 +461,19 @@ export class GeometryPrimitive extends Primitive {
 
     computeGeometry(): BufferGeometry | undefined {
         return this.geometry
+    }
+    protected computeOutline(): Object3D<Event> {
+        const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
+        this.geometry.computeBoundingBox()
+        this.geometry.boundingBox!.getCenter(helperVector)
+        outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
+        this.geometry.boundingBox?.getSize(helperVector)
+        outlineGeometry.scale(helperVector.x, helperVector.y, helperVector.z)
+        return setupObject3D(new LineSegments(outlineGeometry), this.matrix)
+    }
+
+    expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
+        throw new Error("Method not implemented.")
     }
 }
 
@@ -439,6 +531,12 @@ export class CombinedPrimitive extends Primitive {
         const result = mergeBufferGeometries(disposableBuffers)!
         disposableBuffers.forEach((buffer) => buffer.dispose())
         return result
+    }
+
+    protected computeOutline(): Object3D {
+        const object = setupObject3D(new Object3D(), this.matrix)
+        this.primitives.forEach((primitive) => object.add(primitive.getOutline()))
+        return object
     }
 }
 
