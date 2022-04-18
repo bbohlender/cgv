@@ -22,7 +22,7 @@ export function editIndex(
     const selectionsIndex = selectionsList.findIndex((selections) => selections.steps === steps)
     const path = steps.path.join(",")
     return produce({ indicesMap, selectionsList }, ({ indicesMap: indicesDraft, selectionsList: selectionsDraft }) => {
-        let selections = selectionsDraft[selectionsIndex]
+        const selections = selectionsDraft[selectionsIndex]
         let all = indicesDraft[path]
 
         if (!add) {

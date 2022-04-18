@@ -153,7 +153,7 @@ export function interprete<T, A, I>(
         maxSymbolDepth: options.maxSymbolDepth ?? 100,
     }
     for (const [name, steps] of entries) {
-        compiledGrammar[name] = interpreteStep(steps, context, noop())
+        compiledGrammar[name] = interpreteStep(steps, context)
     }
     return compiledGrammar[startSymbolName]
 }
@@ -163,7 +163,7 @@ const filterInvalid = filter<Value<any, any>>(({ invalid }) => !invalid.value)
 function interpreteStep<T, A, I>(
     step: AbstractParsedSteps<I>,
     context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
+    next?: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
     try {
         const { delay: time, annotateAfterStep, annotateBeforeStep } = context
@@ -176,10 +176,12 @@ function interpreteStep<T, A, I>(
                 }))
             )
         }
-        if (time != null) {
+        if (next != null && time != null) {
             nextOperations.push(delay(time))
         }
-        nextOperations.push(next)
+        if (next != null) {
+            nextOperations.push(next)
+        }
         const execution = translateStep(step, context, (input) => (input as any).pipe(...nextOperations))
         if (annotateBeforeStep != null) {
             return (input) =>
@@ -259,7 +261,7 @@ function interpreteOperation<T, A, I>(
     if (operation == null) {
         throw new Error(`unknown operation "${step.identifier}"`)
     }
-    const parameterOperatorFunctions = parameters.map((parameter) => interpreteStep(parameter, context, noop()))
+    const parameterOperatorFunctions = parameters.map((parameter) => interpreteStep(parameter, context))
     if (operation.includeThis) {
         parameterOperatorFunctions.unshift(noop())
     }
@@ -299,7 +301,7 @@ function interpreteUnaryOperator<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    const valueOperatorFunction = interpreteStep(step.children[0], context, noop())
+    const valueOperatorFunction = interpreteStep(step.children[0], context)
     return (input) =>
         input.pipe(
             valueOperatorFunction,
@@ -329,7 +331,7 @@ function interpreteBinaryOperator<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    const valuesOperatorFunction = step.children.map((child) => interpreteStep(child, context, noop()))
+    const valuesOperatorFunction = step.children.map((child) => interpreteStep(child, context))
     return (input) =>
         input.pipe(
             operatorsToArray(...valuesOperatorFunction),
@@ -346,7 +348,7 @@ function interpreteIf<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    const conditionOperatorFunction = interpreteStep(step.children[0], context, noop())
+    const conditionOperatorFunction = interpreteStep(step.children[0], context)
     const [ifOperatorFunction, elseOperatorFunction] = step.children
         .slice(1)
         .map((child) => interpreteStep(child, context, next))
@@ -371,7 +373,7 @@ function interpreteSwitch<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    const valueOperatorFunction = interpreteStep(step.children[0], context, noop())
+    const valueOperatorFunction = interpreteStep(step.children[0], context)
     const casesOperatorFunctions = step.children.slice(1).map((child) => interpreteStep(child, context, next))
     return (input) =>
         input.pipe(
@@ -456,7 +458,7 @@ function interpreteSetVariable<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    const valueOperatorFunction = interpreteStep(step.children[0], context, noop())
+    const valueOperatorFunction = interpreteStep(step.children[0], context)
     return (input) => {
         const shared = input.pipe(
             shareReplay({

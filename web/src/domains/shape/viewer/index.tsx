@@ -10,10 +10,10 @@ import {
     SelectionsList,
     shallowEqual,
 } from "cgv"
-import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, toObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, startTransition, useState } from "react"
+import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
+import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef } from "react"
 import { of, Subscription } from "rxjs"
-import { Box3, BoxBufferGeometry, Color, EdgesGeometry, LineBasicMaterial, Matrix4, Vector3 } from "three"
+import { Box3, BoxBufferGeometry, Color, EdgesGeometry, Group, LineBasicMaterial, Matrix4, Vector3 } from "three"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, useBaseStore, useBaseStoreState } from "../../../global"
 import { panoramas } from "../global"
@@ -69,13 +69,9 @@ function pathStartsWith(p1: HierarchicalPath, p2: HierarchicalPath): boolean {
     return true
 }
 
-const boundingBoxGeometry = new EdgesGeometry(new BoxBufferGeometry())
-const boundingBoxMaterial = new LineBasicMaterial({ color: "#f00" })
-
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
-    useInterpretation()
     const Bridge = useContextBridge(domainContext)
 
     return (
@@ -117,7 +113,7 @@ function ShowError() {
     return <ErrorMessage message={error} align="left" />
 }
 
-function useInterpretation() {
+function useInterpretation(ref: RefObject<ReactNode & Group>) {
     const store = useBaseStore()
     useEffect(() => {
         //TODO: optimize / rewrite
@@ -127,6 +123,10 @@ function useInterpretation() {
         const unsubscribeGrammar = store.subscribe(
             (state) => (state.type === "gui" ? state.grammar : undefined),
             (grammar) => {
+                if (ref.current == null) {
+                    return
+                }
+                ref.current.remove(...ref.current.children)
                 useViewerState.getState().clearPrimitives()
                 subscription?.unsubscribe()
                 subscription = undefined
@@ -134,8 +134,8 @@ function useInterpretation() {
                     return
                 }
                 try {
-                    subscription = of(point)
-                        .pipe(
+                    subscription = applyToObject3D(
+                        of(point).pipe(
                             toValue(),
                             interprete<Primitive, Annotation, HierarchicalInfo>(grammar, operations, {
                                 delay: 0,
@@ -152,29 +152,31 @@ function useInterpretation() {
                                 annotateBeforeStep: (value, steps) => {
                                     return getAnnotationBeforeStep(value, steps)
                                 },
-                            }),
-                            toObject3D(
-                                (value) => {
-                                    const child = value.raw.getObject()
-                                    const index = value.index.join(",")
-                                    child.traverse((o) => {
-                                        o.userData.annotation = value.annotation
-                                        o.userData.index = index
-                                    })
-                                    return child
-                                },
-                                (object) => {
-                                    //TODO: unused
-                                }
-                            )
-                        )
+                            })
+                        ),
+                        ref.current,
+                        (value) => {
+                            const child = value.raw.getObject()
+                            const index = value.index.join(",")
+                            child.traverse((o) => {
+                                o.userData.annotation = value.annotation
+                                o.userData.index = index
+                            })
+                            return child
+                        },
+                        (error) => {
+                            console.error(error)
+                            useViewerState.getState().setError(error)
+                        }
+                    )
+                    /*
                         .subscribe({
                             next: (object) => useViewerState.getState().setResult(object),
                             error: (error) => {
                                 console.error(error)
                                 useViewerState.getState().setError(error.message)
                             },
-                        })
+                        })*/
                 } catch (error: any) {
                     useViewerState.getState().setError(error.message)
                 }
@@ -191,13 +193,12 @@ function useInterpretation() {
 }
 
 function Result() {
+    const groupRef = useRef<ReactNode & Group>(null)
+    useInterpretation(groupRef)
     const store = useBaseStore()
-    const object = useViewerState((state) => state.result)
-    if (object == null) {
-        return null
-    }
     return (
         <group
+            ref={groupRef}
             onPointerLeave={(e) => {
                 //e.intersections[0].object
                 //store.getState().onEndHover(e.object.userData[e.object.userData.length - 1])
@@ -222,9 +223,8 @@ function Result() {
                 store
                     .getState()
                     .select(annotation, object.userData.index, e.nativeEvent.shiftKey ? "toggle" : "replace")
-            }}>
-            <primitive object={object} />
-        </group>
+            }}
+        />
     )
 }
 

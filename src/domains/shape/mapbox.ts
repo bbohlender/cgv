@@ -51,7 +51,6 @@ const buildingParameters: Parameters = {
     layer: of("building"),
 }
 
-
 function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
     return layers["building"].reduce<Array<[Primitive, Parameters]>>(

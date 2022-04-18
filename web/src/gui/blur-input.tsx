@@ -10,7 +10,6 @@ export function BlurInput({ value, onBlur, ...rest }: HTMLProps<HTMLInputElement
             onChange={(e) => setRaw(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
             onBlur={(e) => {
-                console.log(e.target.value, value)
                 if (onBlur != null && e.target.value != value) {
                     onBlur(e)
                 }

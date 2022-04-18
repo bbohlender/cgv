@@ -33,7 +33,7 @@ export function sampleTriangle(triangle: Triangle, targetPosition: Vector3): Vec
 const _triangle = new Triangle()
 
 export function sampleGeometry(geometry: BufferGeometry, amount: number): Array<Vector3> {
-    if(geometry.index != null) {
+    if (geometry.index != null) {
         geometry = geometry.toNonIndexed()
     }
     const positionAttribute = geometry.getAttribute("position")

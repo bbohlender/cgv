@@ -89,7 +89,7 @@ function applyChangeToList<T, A, List>(
     return result
 }
 
-function valuesToChanges<T, A>(): OperatorFunction<Value<T, A>, MatrixChange<Value<T, A>>> {
+export function valuesToChanges<T, A>(): OperatorFunction<Value<T, A>, MatrixChange<Value<T, A>>> {
     return (value) =>
         value.pipe(
             mergeMap((value) =>
