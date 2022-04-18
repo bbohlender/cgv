@@ -1,28 +1,27 @@
 import { Sphere, useContextBridge } from "@react-three/drei"
-import { Canvas, useStore } from "@react-three/fiber"
+import { Canvas } from "@react-three/fiber"
 import {
     interprete,
-    ParsedSteps,
     toValue,
     Value,
     HierarchicalParsedSteps,
     HierarchicalInfo,
     HierarchicalPath,
     SelectionsList,
+    shallowEqual,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, toObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, useState, startTransition, useMemo } from "react"
+import { HTMLProps, useEffect, startTransition, useState } from "react"
 import { of, Subscription } from "rxjs"
-import { Box3, BoxBufferGeometry, Color, EdgesGeometry, LineBasicMaterial, Matrix4, Object3D, Vector3 } from "three"
+import { Box3, BoxBufferGeometry, Color, EdgesGeometry, LineBasicMaterial, Matrix4, Vector3 } from "three"
 import { ErrorMessage } from "../../../error-message"
-import { domainContext, useBaseStore } from "../../../global"
+import { domainContext, useBaseStore, useBaseStoreState } from "../../../global"
 import { panoramas } from "../global"
 import { Background } from "./background"
 import { ViewerCamera } from "./camera"
-import { useViewerState } from "./state"
+import { PrimitiveMap, useViewerState } from "./state"
 import { ViewControls } from "./view-controls"
 import { Control } from "./control"
-import { Dispatch, SetStateAction } from "react"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
 
@@ -73,16 +72,10 @@ function pathStartsWith(p1: HierarchicalPath, p2: HierarchicalPath): boolean {
 const boundingBoxGeometry = new EdgesGeometry(new BoxBufferGeometry())
 const boundingBoxMaterial = new LineBasicMaterial({ color: "#f00" })
 
-type PrimitiveMap = Map<ParsedSteps, Map<string, Primitive>>
-
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
-    const [[object, error], setState] = useState<[Object3D | undefined, string | undefined]>([undefined, undefined])
-    const [showBackground, setShowBackground] = useState(false)
-
-    const primitiveMap: PrimitiveMap = useMemo(() => new Map(), [])
-
+    useInterpretation()
     const Bridge = useContextBridge(domainContext)
 
     return (
@@ -100,43 +93,41 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <ViewControls />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
-                    {object != null && <Result object={object} />}
+                    <Result />
+                    <SelectedPrimitives />
                     <Panoramas />
-                    {showBackground && <Background />}
+                    <Background />
                 </Bridge>
             </Canvas>
             <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
-                <BackgroundToggle className="me-2" setValue={setShowBackground} value={showBackground} />
+                <BackgroundToggle className="me-2" />
                 <BackButton className="me-2" />
-                {error != null && <ErrorMessage message={error} align="left" />}
+                <ShowError />
             </div>
             {children}
         </div>
     )
 }
 
-function Interpretion() {
-    const store = useStore()
+function ShowError() {
+    const error = useViewerState((state) => state.error)
+    if (error == null) {
+        return null
+    }
+    return <ErrorMessage message={error} align="left" />
+}
+
+function useInterpretation() {
+    const store = useBaseStore()
     useEffect(() => {
         //TODO: optimize / rewrite
         //TODO: disable delete step and replace when beforeIndex != afterIndex
         let subscription: Subscription | undefined
-        const state = store.getState()
-        let selectionsList: SelectionsList = state.type === "gui" ? state.selectionsList : []
-        const updateSelectedBoxes = () =>
-            startTransition(() => setSelectedBoxes(getSelectedBoxes(selectionsList, boxMap)))
-        const unsubscribeSelections = store.subscribe(
-            (state) => (state.type === "gui" ? state.selectionsList : []),
-            (s) => {
-                selectionsList = s
-                updateSelectedBoxes()
-            }
-        )
+
         const unsubscribeGrammar = store.subscribe(
             (state) => (state.type === "gui" ? state.grammar : undefined),
             (grammar) => {
-                boxMap.clear()
-                updateSelectedBoxes()
+                useViewerState.getState().clearPrimitives()
                 subscription?.unsubscribe()
                 subscription = undefined
                 if (grammar == null) {
@@ -150,9 +141,12 @@ function Interpretion() {
                                 delay: 0,
                                 //TODO: we need a possibility to know when a value is removed
                                 annotateAfterStep: (value, steps) => {
-                                    startTransition(() =>
+                                    startTransition(() => {
                                         store.getState().editIndex(steps, value.index.join(","), true)
-                                    )
+                                        if (value.raw instanceof Primitive) {
+                                            useViewerState.getState().addPrimitive(value.index.join(","), value.raw)
+                                        }
+                                    })
                                     return getAnnotationAfterStep(value, steps)
                                 },
                                 annotateBeforeStep: (value, steps) => {
@@ -162,16 +156,6 @@ function Interpretion() {
                             toObject3D(
                                 (value) => {
                                     const child = value.raw.getObject()
-                                    if (value.annotation != null) {
-                                        //TODO: this needs to be done when annotating
-                                        let boxMapEntry = boxMap.get(value.annotation)
-                                        if (boxMapEntry == null) {
-                                            boxMapEntry = new Map()
-                                            boxMap.set(value.annotation, boxMapEntry)
-                                        }
-                                        boxMapEntry.set(value.index.join(","), new Box3().setFromObject(child)) //TODO: this could be better
-                                        updateSelectedBoxes()
-                                    }
                                     const index = value.index.join(",")
                                     child.traverse((o) => {
                                         o.userData.annotation = value.annotation
@@ -180,19 +164,19 @@ function Interpretion() {
                                     return child
                                 },
                                 (object) => {
-                                    boxMap.get(object.userData.annotation)?.delete(object.userData.index)
+                                    //TODO: unused
                                 }
                             )
                         )
                         .subscribe({
-                            next: (object) => setState([object, undefined]),
+                            next: (object) => useViewerState.getState().setResult(object),
                             error: (error) => {
                                 console.error(error)
-                                setState([undefined, error.message])
+                                useViewerState.getState().setError(error.message)
                             },
                         })
                 } catch (error: any) {
-                    setState([undefined, error.message])
+                    useViewerState.getState().setError(error.message)
                 }
             },
             {
@@ -201,14 +185,17 @@ function Interpretion() {
         )
         return () => {
             unsubscribeGrammar()
-            unsubscribeSelections()
             subscription?.unsubscribe()
         }
     }, [store])
 }
 
-function Result({ object }: { object: Object3D }) {
+function Result() {
     const store = useBaseStore()
+    const object = useViewerState((state) => state.result)
+    if (object == null) {
+        return null
+    }
     return (
         <group
             onPointerLeave={(e) => {
@@ -260,34 +247,57 @@ function Panoramas() {
     )
 }
 
-function Outlines({}: {}) {
+function SelectedPrimitives() {
+    const store = useBaseStore()
+    const [selectedPrimitives, setSelected] = useState<Array<Primitive>>([])
+    useEffect(() => {
+        let selectionsList: SelectionsList | undefined
+        let primitiveMap: PrimitiveMap | undefined
+        const updateSelectedPrimitives = () => {
+            if (selectionsList == null || primitiveMap == null) {
+                return
+            }
+            const current = getSelectedPrimitives(selectionsList, primitiveMap)
+            startTransition(() => setSelected((prev) => (shallowEqual(prev, current) ? prev : current)))
+        }
+        const unsubscribeList = store.subscribe(
+            (state) => (state.type === "gui" ? state.selectionsList : undefined),
+            (list) => {
+                selectionsList = list
+                updateSelectedPrimitives()
+            },
+            { fireImmediately: true }
+        )
+        const unsubscribeMap = useViewerState.subscribe(
+            (state) => state.primitiveMap,
+            (map) => {
+                primitiveMap = map
+                updateSelectedPrimitives()
+            },
+            { fireImmediately: true }
+        )
+        return () => {
+            unsubscribeList()
+            unsubscribeMap()
+        }
+    }, [store])
     return (
         <>
-            {selectedBoxes.map((box, i) => (
-                <lineSegments
-                    key={i}
-                    geometry={boundingBoxGeometry}
-                    material={boundingBoxMaterial}
-                    position={box.getCenter(new Vector3())}
-                    scale={box.getSize(new Vector3()).add(new Vector3(0.1, 0.1, 0.1))}
-                />
+            {selectedPrimitives.map((primitive) => (
+                <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
             ))}
         </>
     )
 }
 
-function BackgroundToggle({
-    setValue,
-    value,
-    className,
-    ...rest
-}: Omit<HTMLProps<HTMLDivElement>, "value"> & { value: boolean; setValue: Dispatch<SetStateAction<boolean>> }) {
+function BackgroundToggle({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const showBackground = useViewerState((state) => state.showBackground)
     return (
         <div
             {...rest}
-            onClick={() => setValue((v) => !v)}
+            onClick={() => useViewerState.getState().toggleBackground()}
             className={`${className} d-flex align-items-center justify-content-center btn ${
-                value ? "btn-primary" : "btn-secondary"
+                showBackground ? "btn-primary" : "btn-secondary"
             } btn-sm `}>
             <ImageIcon />
         </div>
@@ -309,16 +319,18 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function getSelectedBoxes(selectionsList: SelectionsList, boxMap: BoxMap): Array<Box3> {
-    return Object.values(selectionsList)
-        .map((selections) => {
-            const boxMapEntry = boxMap.get(selections.steps)
-            if (boxMapEntry == null) {
-                return []
-            }
-            const boxes = Array.from(boxMapEntry)
-            return boxes.filter(([index]) => selections.indices.includes(index))
-        })
-        .reduce((v1, v2) => v1.concat(v2), [])
-        .map(([, box]) => box)
+function getSelectedPrimitives(
+    selectionsList: SelectionsList | undefined,
+    primitiveMap: PrimitiveMap | undefined
+): Array<Primitive> {
+    if (selectionsList == null || primitiveMap == null) {
+        return []
+    }
+    const map = primitiveMap
+    return selectionsList
+        .reduce<Array<Primitive>>(
+            (prev, selections) => prev.concat(selections.indices.map((selection) => map[selection])),
+            []
+        )
+        .filter((value) => value != null)
 }

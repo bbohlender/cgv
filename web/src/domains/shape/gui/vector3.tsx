@@ -7,7 +7,7 @@ export function GUIVector3<Type extends ParsedSteps["type"]>({
     value,
     getSubstep,
     className,
-    defaultValue
+    defaultValue,
 }: {
     defaultValue: number
     className: string

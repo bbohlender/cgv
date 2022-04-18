@@ -120,42 +120,32 @@ max -> event("a => {
 `Building a Cube`
 
 ```
-a -> face(
-	point(0,0,100),
-	point(0,0,0),
-	point(100,0,00),
-	point(100,0,100)
-)
-
-extrude(100)
+a -> face(point(0, 0, 100), point(0, 0, 0), point(100, 0, 0), point(100, 0, 100)) -> extrude(100)
 ```
 
 `Streets`
 
 ```
-a -> point(0,0,0) right
-(this | toPoints() select(1,2) (right | left)
-(this | toPoints() select(1,2) left
-(this | toPoints() select(1,2) right
-(this | toPoints() select(1,2) left))))
+a -> point(0, 0, 0) -> right -> (this | toPoints() -> select(1, 2) -> (right | left) -> (this | toPoints() -> select(1, 2) -> left -> (this | toPoints() -> select(1, 2) -> right -> (this | toPoints() -> select(1, 2) -> left))))
 
-left -> rotate(0, 45, 0) extrude(300)
+left -> rotate(0, 45, 0) -> extrude(30)
 
-right -> rotate(0, -45, 0) extrude(300)
+right -> rotate(0, -45, 0) -> extrude(30)
 
-forward -> extrude(300)
+forward -> extrude(30)
 ```
 
 `Recursion`
 
 ```
-a -> translate(0, 10, 0) if (random(0,1) > 0.5) then a else this
+a -> mapbox() -> t
+t -> translate(0, 10, 0) -> { 50%: t 50%: this }
 ```
 
-`Forest` (currently not working - reimplementation of sample and load)
+`Forest`
 
 ```
-Forest -> sample2d(10) replace("/tree.gltf")
+Start -> face(point(358.16, 0, -152.34), point(288.3, 0, -30.32), point(269.68, 0, -117.46)) -> sample(10) -> load("/cgv/tree.gltf") -> scale(100, 100, 100)
 ```
 
 `City 1` (currently not working - reimplementation of expand and sample)

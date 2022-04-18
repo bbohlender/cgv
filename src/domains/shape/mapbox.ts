@@ -51,9 +51,9 @@ const buildingParameters: Parameters = {
     layer: of("building"),
 }
 
-const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
 function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
+    const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
     return layers["building"].reduce<Array<[Primitive, Parameters]>>(
         (prev, feature) =>
             prev.concat(
@@ -71,6 +71,7 @@ function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
 }
 
 function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
+    const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
     return layers["road"]
         .filter((feature) => feature.properties.class === "street")
         .reduce<Array<[Primitive, Parameters]>>(

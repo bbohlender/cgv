@@ -8,9 +8,9 @@ import { useViewerState } from "./state"
 
 const geometry = new SphereBufferGeometry(500, 60, 40)
 
-function PanoramaView({}) {
-    const panoramaIndex = useViewerState(({ viewType, panoramaIndex }) =>
-        viewType === "3d" ? panoramaIndex : undefined
+function PanoramaView() {
+    const panoramaIndex = useViewerState(({ showBackground, viewType, panoramaIndex }) =>
+        showBackground && viewType === "3d" ? panoramaIndex : undefined
     )
     if (panoramaIndex == null) {
         return null
@@ -42,8 +42,8 @@ function Dome({ url, rotationOffset }: { url: string; rotationOffset: number }) 
     )
 }
 
-function TopDownView({}) {
-    const isTopDown = useViewerState(({ viewType }) => viewType === "2d")
+function TopDownView() {
+    const isTopDown = useViewerState(({ showBackground, viewType }) => showBackground && viewType === "2d")
     if (!isTopDown) {
         return null
     }

@@ -27,11 +27,7 @@ export function insert(
             const type = position === "parallel" ? "parallel" : "sequential"
             for (const { indices, steps } of selectionsList) {
                 const path = steps.path.join(",")
-                const all = indicesMap[path]
-
-                if (all == null) {
-                    continue
-                }
+                const all = indicesMap[path] ?? []
 
                 const translatedPath = translatePath<HierarchicalInfo>(draft, steps.path)
                 if (translatedPath == null) {

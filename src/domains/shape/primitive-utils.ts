@@ -1,6 +1,7 @@
-import { BufferGeometry, Material, Matrix4, Shape, Vector2, Vector3 } from "three"
+import { Box3, BufferGeometry, Material, Matrix4, Mesh, Object3D, Vector3 } from "three"
 import { CSG } from "three-csg-ts"
-import { makeTranslationMatrix, GeometryPrimitive, ObjectType, PointPrimitive, Primitive } from "."
+import { makeTranslationMatrix, ObjectPrimitive, ObjectType, PointPrimitive, Primitive } from "."
+import { GeometryPrimitive } from "./primitive"
 
 const vectorHelper = new Vector3()
 const moveVector = new Vector3()
@@ -40,33 +41,12 @@ export function Split(
     return generatedPrimitives
 }
 
-const sizeHelper = new Vector3()
-
-export function Replace(
-    primitive: Primitive,
-    geometry: BufferGeometry,
-    materialGenerator: (type: ObjectType) => Material
-): Primitive {
-    geometry.computeBoundingBox()
-    geometry.boundingBox!.getSize(vectorHelper)
-    primitive.getGeometrySize(sizeHelper)
-    return new GeometryPrimitive(
-        primitive.matrix.clone(),
-        geometry.scale(sizeHelper.x / vectorHelper.x, sizeHelper.y / vectorHelper.y, sizeHelper.z / vectorHelper.z),
-        materialGenerator
-    )
-}
-
 export function CenterPoint(primtive: Primitive, materialGenerator: (type: ObjectType) => Material): Primitive {
     const result = new PointPrimitive(primtive.matrix, materialGenerator)
     primtive.getGeometrySize(vectorHelper)
     vectorHelper.divideScalar(2)
     result.multiplyMatrix(makeTranslationMatrix(vectorHelper.x, vectorHelper.y, vectorHelper.z))
     return result
-}
-
-export function Transform(primitive: Primitive, matrix: Matrix4): Primitive {
-    return primitive.multiplyMatrix(matrix)
 }
 
 export function CSGCombine(
@@ -132,11 +112,28 @@ function getIndexInPoints(points: Array<Vector3>, point: Vector3, thresholdSquar
     return index
 }
 
+/*export function computeLocalBoundingBox(object: Object3D): Box3 | undefined {
+    const box = new Box3()
+    if (object instanceof Mesh) {
+        (object.geometry as BufferGeometry).computeBoundingBox()
+        box.copy((object.geometry as BufferGeometry).boundingBox!)
+    }
+    for (const child of object.children) {
+        const childBoundingBox = computeLocalBoundingBox(child)
+        if (childBoundingBox != null) {
+            box.union(childBoundingBox)
+        }
+    }
+    box.applyMatrix4(object.matrix)
+    return box
+}*/
+
 type Graph = {
     points: Array<Vector3>
     connectionsList: Array<Array<number>>
 }
 
+/*
 export function expandGraph(
     graph: Graph,
     distance: Array<number> | number,
@@ -179,4 +176,4 @@ function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: V
     v2.projectOnPlane(normal)
     const angle = v1.angleTo(v2)
     return cw ? angle : Math.PI * 2 - angle
-}
+}*/

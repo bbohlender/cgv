@@ -1,9 +1,11 @@
-import { Euler, Vector2Tuple, Vector3Tuple } from "three"
+import { Euler, Object3D, Vector2Tuple, Vector3Tuple } from "three"
 import { GetState, SetState } from "zustand"
 import { CombineEmpty } from "../../../base-state"
 import create from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { panoramas } from "../global"
+import { Primitive } from "cgv/domains/shape"
+import produce from "immer"
 
 export const FOV = 60
 
@@ -20,9 +22,21 @@ export type PanoramaViewerState = {
     rotation: Vector3Tuple
 }
 
-export type ViewerState =
+export type ResultViewerState = {
+    result: Object3D | undefined
+    error: string | undefined
+    primitiveMap: PrimitiveMap
+}
+
+export type PrimitiveMap = { [Key in string]: Primitive }
+
+export type ViewerState = (
     | CombineEmpty<TopDownViewerState, PanoramaViewerState>
     | CombineEmpty<PanoramaViewerState, TopDownViewerState>
+) &
+    ResultViewerState & {
+        showBackground: boolean
+    }
 
 export function eulerToTuple(q: Euler): Vector3Tuple {
     return [q.x, q.y, q.z]
@@ -38,6 +52,10 @@ export function createViewerStateInitial(): ViewerState {
     return {
         viewType: "2d",
         position: topPosition,
+        error: undefined,
+        primitiveMap: {},
+        result: undefined,
+        showBackground: false,
     }
 }
 
@@ -92,6 +110,32 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
                 panoramaIndex,
                 rotation,
             })
+        },
+        setResult: (result: Object3D) => {
+            set({ result, error: undefined })
+        },
+        setError: (error: string) => {
+            set({ error })
+        },
+        addPrimitive: (index: string, primitive: Primitive) => {
+            set({
+                primitiveMap: produce(get().primitiveMap, (draft) => {
+                    draft[index] = primitive
+                }),
+            })
+        },
+        removePrimitive: (index: string) => {
+            set({
+                primitiveMap: produce(get().primitiveMap, (draft) => {
+                    delete draft[index]
+                }),
+            })
+        },
+        clearPrimitives: () => {
+            set({ primitiveMap: {} })
+        },
+        toggleBackground: () => {
+            set({ showBackground: !get().showBackground })
         },
     }
 }

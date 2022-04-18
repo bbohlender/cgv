@@ -39,3 +39,25 @@ export function makeRotationMatrix(x: number, y: number, z: number, matrix = mat
 export function makeScaleMatrix(x: number, y: number, z: number, matrix = matrixHelper): Matrix4 {
     return matrix.makeScale(x, y, z)
 }
+
+export function randomIndexBySize(sizes: Array<number>, sum: number): number {
+    let acc = 0
+    const random = Math.random() * sum
+    for (let i = 0; i < sizes.length; i++) {
+        acc += sizes[i]
+        if (random <= acc) {
+            return i
+        }
+    }
+    return sizes.length - 1
+}
+
+export function distributeOverSizes(sizes: Array<number>, amount: number): Array<number | undefined> {
+    const sumSize = sizes.reduce((prev, size) => prev + size, 0)
+    const amounts: Array<number | undefined> = []
+    for (let i = 0; i < amount; i++) {
+        const index = randomIndexBySize(sizes, sumSize)
+        amounts[index] = (amounts[index] ?? 0) + 1
+    }
+    return amounts
+}

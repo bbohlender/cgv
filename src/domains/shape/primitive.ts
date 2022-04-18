@@ -25,6 +25,8 @@ import {
 } from "three"
 import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
 import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "."
+import { distributeOverSizes, makeScaleMatrix } from "./math"
+import { sampleGeometry } from "./sample"
 
 export type MaterialGenerator = (type: ObjectType) => Material
 
@@ -47,6 +49,7 @@ const helperVector = new Vector3()
 function setupObject3D(object: Object3D, matrix: Matrix4): Object3D {
     object.matrixAutoUpdate = false
     object.matrix = matrix
+    object.updateMatrixWorld(true)
     return object
 }
 
@@ -104,10 +107,9 @@ export abstract class Primitive {
         return this.changeMatrix(this.matrix.clone().premultiply(matrix))
     }
 
-    abstract getSurfaceArea(): number
-    abstract sampleSurface(amount: number): Array<Vector3>
+    abstract getSize(dimension: number): number
     abstract extrude(by: number): Primitive
-    abstract expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive
+    abstract samplePoints(amount: number): Array<Primitive>
     abstract components(type: "points" | "lines" | "faces"): Array<Primitive>
     protected abstract computeObject3D(): Object3D
     abstract getGeometrySize(target: Vector3): void
@@ -116,13 +118,6 @@ export abstract class Primitive {
 }
 
 export class PointPrimitive extends Primitive {
-    getSurfaceArea(): number {
-        return 0
-    }
-    sampleSurface(amount: number): Vector3[] {
-        return new Array(amount).fill(null).map(() => new Vector3().setFromMatrixPosition(this.matrix))
-    }
-
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new PointPrimitive(this.matrix, generator)
     }
@@ -176,6 +171,17 @@ export class PointPrimitive extends Primitive {
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
         throw new Error("Method not implemented.")
     }
+
+    getSize(dimension: number): number {
+        if (dimension === 0) {
+            return 1
+        }
+        return 0
+    }
+
+    samplePoints(amount: number): Primitive[] {
+        return new Array(amount).fill(null).map(() => this.clone())
+    }
 }
 
 const YAXIS = new Vector3(0, 1, 0)
@@ -184,16 +190,6 @@ const YAXIS = new Vector3(0, 1, 0)
  * line in x direction
  */
 export class LinePrimitive extends Primitive {
-    getSurfaceArea(): number {
-        return 0
-    }
-    sampleSurface(amount: number): Vector3[] {
-        return new Array(amount).fill(null).map(() => {
-            helperMatrix.multiplyMatrices(this.matrix, helperMatrix.makeTranslation(this.length, 0, 0))
-            return new Vector3().setFromMatrixPosition(helperMatrix)
-        })
-    }
-
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new LinePrimitive(this.matrix, this.length, generator)
     }
@@ -269,8 +265,22 @@ export class LinePrimitive extends Primitive {
         return undefined
     }
 
-    expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
-        throw new Error("Method not implemented.")
+    getSize(dimension: number): number {
+        if (dimension === 1) {
+            return this.length
+        }
+        return 0
+    }
+    samplePoints(amount: number): Primitive[] {
+        return new Array(amount)
+            .fill(null)
+            .map(
+                () =>
+                    new PointPrimitive(
+                        this.matrix.clone().multiply(helperMatrix.makeTranslation(Math.random() * this.length, 0, 0)),
+                        this.materialGenerator
+                    )
+            )
     }
 }
 
@@ -283,15 +293,6 @@ const invertMatrix = new Matrix4()
  * face in x, z axis
  */
 export class FacePrimitive extends Primitive {
-    getSurfaceArea(): number {
-        const contourArea = ShapeUtils.area(this.shape.getPoints(5))
-        return this.shape.holes.reduce((prev, hole) => prev - ShapeUtils.area(hole.getPoints(5)), contourArea)
-    }
-
-    sampleSurface(amount: number): Vector3[] {
-        
-    }
-
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new FacePrimitive(this.matrix, this.shape, generator)
     }
@@ -330,14 +331,8 @@ export class FacePrimitive extends Primitive {
 
     protected computeGeometry(): BufferGeometry | undefined {
         const geometry = new ShapeBufferGeometry(this.shape)
-        let temp: number
-        for (let i = 0; i < geometry.index!.count; i += 3) {
-            // swap the first and third values
-            temp = geometry.index!.getX(i)
-            geometry.index!.setX(i, geometry.index!.getX(i + 2))
-            geometry.index!.setX(i + 2, temp)
-        }
-        geometry.rotateX(Math.PI / 2)
+        invertWinding(geometry)
+        swapYZ(geometry)
         return geometry
     }
 
@@ -406,27 +401,135 @@ export class FacePrimitive extends Primitive {
     }
 
     protected computeOutline(): Object3D<Event> {
-        const outerPath = pathToObject(this.shape.extractPoints(5).shape)
-        const innerPaths = this.shape.holes.map((path) => pathToObject(path.getPoints(5)))
-        const result = new Object3D()
+        const outerPath = this.pathToOutline(this.shape.extractPoints(5).shape)
+        const innerPaths = this.shape.holes.map((path) => this.pathToOutline(path.getPoints(5)))
+        const result = setupObject3D(new Object3D(), this.matrix)
         result.add(outerPath, ...innerPaths)
         return result
+    }
+
+    private pathToOutline(path: Array<Vector2>): Object3D {
+        if (path.length === 0) {
+            return new Object3D()
+        }
+        path.push(path[0])
+        const geometry = new BufferGeometry().setFromPoints(path)
+        swapYZ(geometry)
+        return new Line(geometry)
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
         throw new Error(`not implemented`)
     }
+
+    getSize(dimension: number): number {
+        if (dimension === 2) {
+            const contourArea = ShapeUtils.area(this.shape.getPoints(5))
+            return this.shape.holes.reduce((prev, hole) => prev - ShapeUtils.area(hole.getPoints(5)), contourArea)
+        }
+        return 0
+    }
+
+    samplePoints(amount: number): Primitive[] {
+        const geometry = this.getGeometry()
+        if (geometry == null) {
+            return []
+        }
+        return sampleGeometry(geometry, amount).map(
+            (position) =>
+                new PointPrimitive(
+                    this.matrix.clone().multiply(makeTranslationMatrix(position.x, position.y, position.z)),
+                    this.materialGenerator
+                )
+        )
+    }
 }
 
-function pathToObject(path: Array<Vector2>): Object3D {
-    if (path.length === 0) {
-        return new Object3D()
+function swapYZ(geometry: BufferGeometry): void {
+    let temp: number
+    const positionAttribute = geometry.getAttribute("position")
+    for (let i = 0; i < positionAttribute.count; i++) {
+        // swap the first and third values
+        temp = positionAttribute.getY(i)
+        positionAttribute.setY(i, positionAttribute.getZ(i))
+        positionAttribute.setZ(i, temp)
     }
-    path.push(path[0])
-    return new Line(new BufferGeometry().setFromPoints(path))
+}
+
+function invertWinding(geometry: BufferGeometry): void {
+    let temp: number
+    for (let i = 0; i < geometry.index!.count; i += 3) {
+        // swap the first and third values
+        temp = geometry.index!.getX(i)
+        geometry.index!.setX(i, geometry.index!.getX(i + 2))
+        geometry.index!.setX(i + 2, temp)
+    }
 }
 
 const box3Helper = new Box3()
+
+const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
+
+export class ObjectPrimitive extends Primitive {
+    private boundingBox = new Box3()
+
+    get materialGenerator(): MaterialGenerator {
+        throw new Error("Method not implemented.")
+    }
+
+    changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
+        return this
+    }
+
+    protected changeMatrix(matrix: Matrix4): Primitive {
+        return new ObjectPrimitive(matrix, this.object)
+    }
+    constructor(public readonly matrix: Matrix4, private readonly object: Object3D) {
+        super()
+        this.computeObject3D()
+    }
+
+    extrude(by: number): Primitive {
+        throw new Error("Method not implemented.")
+    }
+    components(type: "points" | "lines" | "faces"): Primitive[] {
+        throw new Error("Method not implemented.")
+    }
+    computeObject3D(): Object3D {
+        const wrapper = new Object3D()
+        wrapper.add(this.object)
+        return setupObject3D(wrapper, this.matrix)
+    }
+
+    getGeometrySize(target: Vector3): void {
+        this.boundingBox.setFromObject(this.object)
+        this.boundingBox.getSize(target)
+    }
+
+    computeGeometry(): BufferGeometry | undefined {
+        return undefined
+    }
+    protected computeOutline(): Object3D<Event> {
+        this.boundingBox.setFromObject(this.object)
+        this.boundingBox.getCenter(helperVector)
+        const matrix = new Matrix4().makeTranslation(helperVector.x, helperVector.y, helperVector.z)
+        this.boundingBox.getSize(helperVector)
+        matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
+        return setupObject3D(new LineSegments(outlineGeometry), matrix)
+    }
+
+    expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
+        throw new Error("Method not implemented.")
+    }
+
+    getSize(dimension: number): number {
+        throw new Error("Method not implemented.")
+    }
+
+    samplePoints(amount: number): Primitive[] {
+        throw new Error("Method not implemented.")
+    }
+}
 
 export class GeometryPrimitive extends Primitive {
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
@@ -465,15 +568,32 @@ export class GeometryPrimitive extends Primitive {
     protected computeOutline(): Object3D<Event> {
         const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
         this.geometry.computeBoundingBox()
-        this.geometry.boundingBox!.getCenter(helperVector)
-        outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
         this.geometry.boundingBox?.getSize(helperVector)
         outlineGeometry.scale(helperVector.x, helperVector.y, helperVector.z)
+        this.geometry.boundingBox!.getCenter(helperVector)
+        console.log(helperVector.x, helperVector.y, helperVector.z)
+        outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
         return setupObject3D(new LineSegments(outlineGeometry), this.matrix)
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
         throw new Error("Method not implemented.")
+    }
+    getSize(dimension: number): number {
+        throw new Error("Method not implemented.")
+    }
+    samplePoints(amount: number): Primitive[] {
+        const geometry = this.getGeometry()
+        if (geometry == null) {
+            return []
+        }
+        return sampleGeometry(geometry, amount).map(
+            (position) =>
+                new PointPrimitive(
+                    this.matrix.clone().multiply(makeTranslationMatrix(position.x, position.y, position.z)),
+                    this.materialGenerator
+                )
+        )
     }
 }
 
@@ -537,6 +657,23 @@ export class CombinedPrimitive extends Primitive {
         const object = setupObject3D(new Object3D(), this.matrix)
         this.primitives.forEach((primitive) => object.add(primitive.getOutline()))
         return object
+    }
+    getSize(dimension: number): number {
+        return this.primitives.reduce((prev, primitive) => primitive.getSize(dimension) + prev, 0)
+    }
+
+    samplePoints(amount: number): Primitive[] {
+        const sizes = this.primitives.map((primitive) => primitive.getSize(2))
+        const amounts = distributeOverSizes(sizes, amount)
+        const result: Array<Primitive> = []
+        for (let index = 0; index < amounts.length; index++) {
+            const amountAtIndex = amounts[index]
+            if (amountAtIndex == null) {
+                continue
+            }
+            result.push(...this.primitives[index].samplePoints(amountAtIndex))
+        }
+        return result
     }
 }
 

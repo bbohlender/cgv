@@ -21,11 +21,7 @@ export function replace(
         ({ grammar: draft, selectionsList: newSelections }) => {
             for (const { indices, steps } of selectionsList) {
                 const path = steps.path.join(",")
-                const all = indicesMap[path]
-
-                if (all == null) {
-                    continue
-                }
+                const all = indicesMap[path] ?? []
 
                 const translatedPath = translatePath(draft, steps.path)
                 if (translatedPath == null) {
