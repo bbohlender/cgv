@@ -1,4 +1,4 @@
-import { Sphere, useContextBridge } from "@react-three/drei"
+import { Sphere, Stats, useContextBridge } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
 import {
     interprete,
@@ -10,10 +10,11 @@ import {
     SelectionsList,
     shallowEqual,
     ParsedSteps,
+    debounceBufferTime,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
 import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef } from "react"
-import { of, Subscription } from "rxjs"
+import { of, Subject, Subscription } from "rxjs"
 import { Box3, BoxBufferGeometry, Color, EdgesGeometry, Group, LineBasicMaterial, Matrix4, Vector3 } from "three"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, useBaseStore, useBaseStoreState } from "../../../global"
@@ -26,6 +27,7 @@ import { Control } from "./control"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
 import { ShiftIcon } from "../../../icons/shift"
+import { SpeedSelection } from "../../../gui/speed-selection"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -101,6 +103,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 <ShiftButton className="me-2" />
                 <BackgroundToggle className="me-2" />
                 <BackButton className="me-2" />
+                <SpeedSelection className="me-2" />
                 <ShowError />
             </div>
             {children}
@@ -123,6 +126,10 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
         //TODO: disable delete step and replace when beforeIndex != afterIndex
         let subscription: Subscription | undefined
 
+        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; index: string }>()
+
+        let unsubscribeAfterStep: Subscription | undefined
+
         const unsubscribeGrammar = store.subscribe(
             (state) => (state.type === "gui" ? state.grammar : undefined),
             (grammar) => {
@@ -131,25 +138,35 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
                 }
                 ref.current.remove(...ref.current.children)
                 useViewerState.getState().clearPrimitives()
+
                 subscription?.unsubscribe()
                 subscription = undefined
+
+                unsubscribeAfterStep?.unsubscribe()
+                unsubscribeAfterStep = undefined
+
                 if (grammar == null) {
                     return
                 }
+                unsubscribeAfterStep = afterStepSubject
+                    .pipe(debounceBufferTime(300))
+                    .subscribe((entries) => store.getState().editIndices(entries, true))
                 try {
                     subscription = applyToObject3D(
                         of(point).pipe(
                             toValue(),
                             interprete<Primitive, Annotation, HierarchicalInfo>(grammar, operations, {
-                                delay: 0,
+                                delay: store.getState().interpretationDelay,
                                 //TODO: we need a possibility to know when a value is removed
                                 annotateAfterStep: (value, steps) => {
-                                    startTransition(() => {
-                                        store.getState().editIndex(steps, value.index.join(","), true)
-                                        if (value.raw instanceof Primitive) {
-                                            useViewerState.getState().addPrimitive(value.index.join(","), value.raw)
-                                        }
+                                    const index = value.index.join(",")
+                                    afterStepSubject.next({
+                                        steps,
+                                        index,
                                     })
+                                    if (value.raw instanceof Primitive) {
+                                        useViewerState.getState().addPrimitive(index, value.raw)
+                                    }
                                     return getAnnotationAfterStep(value, steps)
                                 },
                                 annotateBeforeStep: (value, steps) => {
@@ -191,6 +208,7 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
         return () => {
             unsubscribeGrammar()
             subscription?.unsubscribe()
+            unsubscribeAfterStep?.unsubscribe()
         }
     }, [store])
 }
@@ -284,8 +302,7 @@ function SelectedPrimitives() {
             { fireImmediately: true }
         )
         const unsubscribeHovered = store.subscribe(
-            (state) =>
-                state.type === "gui" ? state.hovered : undefined,
+            (state) => (state.type === "gui" ? state.hovered : undefined),
             (h) => {
                 hovered = h?.indices
                 updatePrimitives()
@@ -309,7 +326,10 @@ function SelectedPrimitives() {
     return (
         <>
             {primitives.map((primitive) => (
-                <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
+                <>
+                    <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
+                    <axesHelper args={[10]} matrix={primitive.matrix} matrixAutoUpdate={false} />
+                </>
             ))}
         </>
     )

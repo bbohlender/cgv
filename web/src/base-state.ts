@@ -13,7 +13,7 @@ import {
     removeStep,
     removeValue,
     editSelection,
-    editIndex,
+    editIndices,
     EditorState,
 } from "cgv"
 import produce, { Draft } from "immer"
@@ -21,7 +21,9 @@ import create, { GetState, SetState } from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { UseBaseStore } from "./global"
 
-export type BaseState = CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>
+export type BaseState = (CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>) & {
+    interpretationDelay: number
+}
 
 export type CombineEmpty<T, K> = T & {
     [Key in Exclude<keyof K, keyof T>]?: undefined
@@ -67,6 +69,7 @@ function createBaseStateInitial(): BaseState {
         grammar: toHierarchical({
             Start: { type: "this" },
         }),
+        interpretationDelay: 0,
         requested: undefined,
         shift: false,
     }
@@ -139,12 +142,18 @@ function createBaseStateFunctions(
                 hovered: undefined,
             })
         },
-        editIndex: (steps: HierarchicalParsedSteps, index: string, add: boolean) => {
+        editIndices: (
+            indices: Array<{
+                steps: HierarchicalParsedSteps
+                index: string
+            }>,
+            add: boolean
+        ) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(editIndex(state.indicesMap, state.selectionsList, state.hovered, steps, index, add))
+            set(editIndices(state.indicesMap, state.selectionsList, state.hovered, indices, add))
         },
         select: (steps: HierarchicalParsedSteps, index?: string, type?: "replace" | "add" | "remove" | "toggle") => {
             const state = get()
@@ -258,6 +267,9 @@ function createBaseStateFunctions(
                 return
             }
             set({ shift })
+        },
+        setInterpretationDelay: (interpretationDelay: number) => {
+            set({ interpretationDelay })
         },
     }
 }

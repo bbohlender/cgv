@@ -21,8 +21,9 @@ export function ErrorMessage({
                         maxWidth: "20rem",
                         maxHeight: "8rem",
                         whiteSpace: "pre-line",
+                        bottom: 24,
                     }}
-                    className="rounded mb-2 p-2 bg-danger text-light">
+                    className="rounded position-absolute mb-2 p-2 bg-danger text-light">
                     {message}
                 </div>
             )}

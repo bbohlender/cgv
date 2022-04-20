@@ -10,65 +10,6 @@ export type SelectionState = {
     hovered: SelectionsList[number] | undefined
 }
 
-/**
- * adds/removes an index to allIndices
- */
-export function editIndex(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
-    hovered: SelectionState["hovered"],
-    steps: HierarchicalParsedSteps,
-    index: string,
-    add: boolean
-): SelectionState {
-    const selectionsIndex = selectionsList.findIndex((selections) => selections.steps === steps)
-    const hoveredEdited = hovered?.steps === steps
-    const path = steps.path.join(",")
-    return produce<SelectionState>({ hovered, indicesMap, selectionsList }, (draft) => {
-        const { indicesMap: indicesDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
-        const selections = selectionsDraft[selectionsIndex]
-        let all = indicesDraft[path]
-
-        if (!add) {
-            if (all == null) {
-                return
-            }
-            const indexIndex = all.findIndex((indexInAll) => index === indexInAll)
-            all.splice(indexIndex, 1)
-            if (selections != null) {
-                const indexIndex = selections.indices.findIndex((selectedIndex) => index === selectedIndex)
-                selections.indices.splice(indexIndex, 1)
-                if (selections.indices.length === 0) {
-                    selectionsDraft.splice(selectionsIndex, 1)
-                }
-            }
-            if (hoveredEdited && hoveredDraft != null) {
-                const indexIndex = hoveredDraft.indices.findIndex((selectedIndex) => index === selectedIndex)
-                hoveredDraft.indices.splice(indexIndex, 1)
-                if (hoveredDraft.indices.length === 0) {
-                    draft.hovered = undefined
-                }
-            }
-            return
-        }
-
-        if (all == null) {
-            all = []
-            indicesDraft[path] = all
-        }
-
-        if (selections != null && all.length === selections.indices.length) {
-            selections.indices.push(index)
-        }
-
-        if (hoveredDraft != null && all.length === hoveredDraft.indices.length) {
-            hoveredDraft.indices.push(index)
-        }
-
-        all.push(index)
-    })
-}
-
 export function editSelection(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
@@ -117,6 +58,66 @@ export function editSelection(
             if (selections.indices.length === 0) {
                 selectionsDraft.splice(selectionsIndex, 1)
             }
+        }
+    })
+}
+
+export function editIndices(
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
+    hovered: SelectionState["hovered"],
+    indices: Array<{
+        steps: HierarchicalParsedSteps
+        index: string
+    }>,
+    add: boolean
+) {
+    return produce<SelectionState>({ hovered, indicesMap, selectionsList }, (draft) => {
+        for (const { index, steps } of indices) {
+            const { indicesMap: indicesDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
+
+            const selectionsIndex = selectionsList.findIndex((selections) => selections.steps === steps)
+            const selections = selectionsDraft[selectionsIndex]
+            const path = steps.path.join(",")
+            let all = indicesDraft[path]
+
+            if (!add) {
+                if (all == null) {
+                    return
+                }
+
+                const indexIndex = all.findIndex((indexInAll) => index === indexInAll)
+                all.splice(indexIndex, 1)
+                if (selections != null) {
+                    const indexIndex = selections.indices.findIndex((selectedIndex) => index === selectedIndex)
+                    selections.indices.splice(indexIndex, 1)
+                    if (selections.indices.length === 0) {
+                        selectionsDraft.splice(selectionsIndex, 1)
+                    }
+                }
+                if (hovered?.steps === steps && hoveredDraft != null) {
+                    const indexIndex = hoveredDraft.indices.findIndex((selectedIndex) => index === selectedIndex)
+                    hoveredDraft.indices.splice(indexIndex, 1)
+                    if (hoveredDraft.indices.length === 0) {
+                        draft.hovered = undefined
+                    }
+                }
+            }
+
+            if (all == null) {
+                all = []
+                indicesDraft[path] = all
+            }
+
+            if (selections != null && all.length === selections.indices.length) {
+                selections.indices.push(index)
+            }
+
+            if (hoveredDraft != null && all.length === hoveredDraft.indices.length) {
+                hoveredDraft.indices.push(index)
+            }
+
+            all.push(index)
         }
     })
 }

@@ -30,58 +30,58 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function Steps({ value }: { value: HierarchicalParsedSteps }): JSX.Element | null {
-    return <>{serializeStepString(value)}</>
-}
-
 function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.Element | null {
-    const ref = useRef<HTMLSpanElement>(null)
     const store = useBaseStore()
-    const mutations = useMemo(() => {
+    const events = useMemo(() => {
         if (value == null) {
             return undefined
         }
         const { onEndHover, onStartHover, select } = store.getState()
         return {
-            onEndHover: onEndHover.bind(null, value, undefined),
-            onStartHover: onStartHover.bind(null, value, undefined),
-            select: select.bind(null, value, undefined, undefined),
+            onMouseLeave: onEndHover.bind(null, value, undefined),
+            onMouseEnter: onStartHover.bind(null, value, undefined),
+            onClick: select.bind(null, value, undefined, undefined),
         }
     }, [store, value])
     const { operationGuiMap } = useBaseGlobal()
-    const Substep = useMemo(() => {
-        if (
-            value == null ||
-            typeof value == "string" ||
-            value.type != "operation" ||
-            operationGuiMap[value.identifier] == null
-        ) {
-            return InteractableSteps
-        }
-        return Steps
-    }, [value, operationGuiMap])
     const cssClassName = store(value == null ? () => "" : computeCssClassName.bind(null, value))
-    if (value == null || mutations == null) {
+    if (value == null || events == null) {
         return null
     }
-    const children = useMemo(
-        () =>
-            serializeSteps(
-                value,
-                (text) => (
-                    <span
-                        onClick={mutations.select}
-                        onMouseLeave={mutations.onEndHover}
-                        onMouseEnter={mutations.onStartHover}>
-                        {text}
-                    </span>
-                ),
-                (child, i) => <Substep key={i} value={child} />,
-                (...values) => <>{values}</>
-            ),
-        [value]
+    if (value.type == "operation" && operationGuiMap[value.identifier] != null) {
+        return (
+            <span {...events} className={cssClassName}>
+                <FlatSteps value={value} />
+            </span>
+        )
+    }
+    return (
+        <span className={cssClassName}>
+            <NestedSteps value={value} events={events} />
+        </span>
     )
-    return <span className={cssClassName}>{children}</span>
+}
+function FlatSteps({ value }: { value: HierarchicalParsedSteps }): JSX.Element {
+    return <>{serializeStepString(value)}</>
+}
+
+function NestedSteps({
+    value,
+    events,
+}: {
+    value: HierarchicalParsedSteps
+    events: {
+        onMouseLeave: () => void
+        onMouseEnter: () => void
+        onClick: () => void
+    }
+}): JSX.Element {
+    return serializeSteps(
+        value,
+        (text) => <span {...events}>{text}</span>,
+        (child, i) => <InteractableSteps key={i} value={child} />,
+        (...values) => <>{values}</>
+    )
 }
 
 function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): string | undefined {
