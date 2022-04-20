@@ -43,13 +43,9 @@ function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.E
         }
         const { onEndHover, onStartHover, select } = store.getState()
         return {
-            onEndHover: onEndHover.bind(null, value),
-            onStartHover: onStartHover.bind(null, value),
-            select: (e: MouseEvent) => {
-                if (e.target === ref.current) {
-                    select(value, undefined, e.shiftKey ? "toggle" : "replace")
-                }
-            },
+            onEndHover: onEndHover.bind(null, value, undefined),
+            onStartHover: onStartHover.bind(null, value, undefined),
+            select: select.bind(null, value, undefined, undefined),
         }
     }, [store, value])
     const { operationGuiMap } = useBaseGlobal()
@@ -68,32 +64,24 @@ function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.E
     if (value == null || mutations == null) {
         return null
     }
-    return (
-        <>
-            <span
-                ref={ref}
-                onClick={mutations.select}
-                onMouseLeave={mutations.onEndHover}
-                onMouseEnter={mutations.onStartHover}
-                className={cssClassName}>
-                {serializeSteps<JSX.Element>(
-                    value,
-                    (_, i) => (
-                        <Substep key={i} value={value.children![i]} />
-                    ),
-                    (...values) => (
-                        <>{values}</>
-                    )
-                )}
-            </span>
-            {typeof value === "string" && (
-                <>
-                    <br />
-                    <br />
-                </>
-            )}
-        </>
+    const children = useMemo(
+        () =>
+            serializeSteps(
+                value,
+                (text) => (
+                    <span
+                        onClick={mutations.select}
+                        onMouseLeave={mutations.onEndHover}
+                        onMouseEnter={mutations.onStartHover}>
+                        {text}
+                    </span>
+                ),
+                (child, i) => <Substep key={i} value={child} />,
+                (...values) => <>{values}</>
+            ),
+        [value]
     )
+    return <span className={cssClassName}>{children}</span>
 }
 
 function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): string | undefined {
@@ -103,7 +91,7 @@ function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): 
     if (state.selectionsList.findIndex((selections) => selections.steps == steps) != -1) {
         return "selected"
     }
-    if (state.hovered.length > 0 && state.hovered[state.hovered.length - 1] === steps) {
+    if (state.hovered != null && state.hovered.steps === steps) {
         return "hovered"
     }
     return undefined

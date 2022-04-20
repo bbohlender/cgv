@@ -56,5 +56,6 @@ export function insert(
     return {
         ...partial,
         indicesMap: {},
+        hovered: undefined
     }
 }

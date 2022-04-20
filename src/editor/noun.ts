@@ -53,6 +53,7 @@ export function renameNoun(
             }
         }),
         selectionsList: [],
+        hovered: undefined
     }
 }
 

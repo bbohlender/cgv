@@ -29,9 +29,9 @@ export type CombineEmpty<T, K> = T & {
 
 export type GuiState = {
     type: "gui"
-    hovered: Array<HierarchicalParsedSteps | string>
     grammar: HierarchicalParsedGrammarDefinition
     requested: { type: string; fulfill: (value: any) => void } | undefined
+    shift: boolean
 } & EditorState
 
 export type TuiState =
@@ -63,11 +63,12 @@ function createBaseStateInitial(): BaseState {
         type: "gui",
         indicesMap: {},
         selectionsList: [],
-        hovered: [],
+        hovered: undefined,
         grammar: toHierarchical({
             Start: { type: "this" },
         }),
         requested: undefined,
+        shift: false,
     }
 }
 
@@ -100,8 +101,9 @@ function createBaseStateFunctions(
                     grammar: toHierarchical(state.grammar),
                     indicesMap: {},
                     selectionsList: [],
-                    hovered: [],
+                    hovered: undefined,
                     requested: undefined,
+                    shift: false,
                 })
                 return
             }
@@ -115,38 +117,41 @@ function createBaseStateFunctions(
                 return
             }
         },
-        onStartHover: (step: HierarchicalParsedSteps | string) => {
+        onStartHover: (steps: HierarchicalParsedSteps, index?: string) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            if (!state.hovered.includes(step)) {
-                set({ hovered: [...state.hovered, step] })
-            }
+            set({
+                hovered: {
+                    steps,
+                    indices: index == null ? state.indicesMap[steps.path.join(",")] ?? [] : [index],
+                },
+            })
         },
-        onEndHover: (step: HierarchicalParsedSteps | string) => {
+        onEndHover: (steps: HierarchicalParsedSteps | string, index?: string) => {
             const state = get()
-            if (state.type != "gui") {
+            if (state.type != "gui" || state.hovered?.steps != steps) {
                 return
             }
-            set({ ...state, hovered: state.hovered.filter((hoveredStep) => hoveredStep != step) })
+            set({
+                ...state,
+                hovered: undefined,
+            })
         },
         editIndex: (steps: HierarchicalParsedSteps, index: string, add: boolean) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(editIndex(state.indicesMap, state.selectionsList, steps, index, add))
+            set(editIndex(state.indicesMap, state.selectionsList, state.hovered, steps, index, add))
         },
-        select: (
-            steps: HierarchicalParsedSteps,
-            index: string | undefined,
-            type: "replace" | "add" | "remove" | "toggle"
-        ) => {
+        select: (steps: HierarchicalParsedSteps, index?: string, type?: "replace" | "add" | "remove" | "toggle") => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
+            type = type ?? state.shift ? "add" : "replace"
             set({ selectionsList: editSelection(state.indicesMap, state.selectionsList, steps, index, type) })
         },
         unselectAll: () => {
@@ -246,6 +251,13 @@ function createBaseStateFunctions(
                 return
             }
             set(replace(state.indicesMap, state.selectionsList, replaceWith as any, state.grammar))
+        },
+        setShift: (shift: boolean) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set({ shift })
         },
     }
 }

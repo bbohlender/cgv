@@ -96,7 +96,7 @@ export function removeValue(
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
     const { grammar: result } = insert(indicesMap, selectionsList, "after", () => ({ type: "null" }), grammar)
-    return { grammar: result, selectionsList: [], indicesMap: {} }
+    return { grammar: result, selectionsList: [], indicesMap: {}, hovered: undefined }
 }
 
 export function removeStep(
@@ -111,5 +111,5 @@ export function removeStep(
         (_, path, translatedPath) => getNeutralStep(path, translatedPath, operations),
         grammar
     )
-    return { grammar: result, selectionsList: [], indicesMap: {} }
+    return { grammar: result, selectionsList: [], indicesMap: {}, hovered: undefined }
 }

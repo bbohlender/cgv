@@ -157,7 +157,7 @@ function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
                     <div
                         className="flex-grow-1 p-3 pointer"
-                        onClick={(e) => store.getState().select(child, undefined, e.shiftKey ? "toggle" : "replace")}>
+                        onClick={(e) => store.getState().select(child)}>
                         {serializeStepString(child)}
                     </div>
                 </div>

@@ -48,5 +48,6 @@ export function replace(
     return {
         ...partial,
         indicesMap: {},
+        hovered: undefined
     }
 }

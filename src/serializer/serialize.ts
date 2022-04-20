@@ -1,4 +1,5 @@
 import {
+    AbstractParsedSteps,
     ParsedBinaryOperator,
     ParsedGetVariable,
     ParsedIf,
@@ -21,29 +22,30 @@ import { requiresBracket } from "../util"
 /**
  * @returns a array of strings that represents the text that fits between the children (text[0], children[0], text[1], children[1], text[2]) - the result start with a text and ends with a text and thus the length of text is equal to the amount of children plus 1
  */
-export function serializeSteps<T>(
-    steps: ParsedSteps,
-    serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+export function serializeSteps<T, K>(
+    steps: AbstractParsedSteps<K>,
+    serializeText: (text: string) => T,
+    serializeChild: (child: AbstractParsedSteps<K>, index: number) => T,
+    join: (...values: Array<T>) => T
 ): T {
     const wrappedSerializeChild = (child: ParsedSteps, index: number) =>
-        serializeChildWithBrackets(steps, serializeChild, join, child, index)
+        serializeChildWithBrackets(steps, serializeText, serializeChild, join, child, index)
     switch (steps.type) {
         case "operation":
-            return serializeOperation(steps, wrappedSerializeChild, join)
+            return serializeOperation(steps, serializeText, wrappedSerializeChild, join)
         case "parallel":
-            return serializeParallel(steps, wrappedSerializeChild, join)
+            return serializeParallel(steps, serializeText, wrappedSerializeChild, join)
         case "raw":
-            return serializeRaw(steps, wrappedSerializeChild, join)
+            return serializeRaw(steps, serializeText, wrappedSerializeChild, join)
         case "sequential":
-            return serializeSequentialAbstract(steps, wrappedSerializeChild, join)
+            return serializeSequentialAbstract(steps, serializeText, wrappedSerializeChild, join)
         case "symbol":
-            return serializeSymbolAbstract(steps, wrappedSerializeChild, join)
+            return serializeSymbolAbstract(steps, serializeText, wrappedSerializeChild, join)
         case "this":
-            return serializeThisAbstract(steps, wrappedSerializeChild, join)
+            return serializeThisAbstract(steps, serializeText, wrappedSerializeChild, join)
         case "invert":
         case "not":
-            return serializeUnaryOperator(steps, wrappedSerializeChild, join)
+            return serializeUnaryOperator(steps, serializeText, wrappedSerializeChild, join)
         case "add":
         case "and":
         case "divide":
@@ -57,56 +59,58 @@ export function serializeSteps<T>(
         case "smallerEqual":
         case "subtract":
         case "unequal":
-            return serializeBinaryOperator(steps, wrappedSerializeChild, join)
+            return serializeBinaryOperator(steps, serializeText, wrappedSerializeChild, join)
         case "if":
-            return serializeIf(steps, wrappedSerializeChild, join)
+            return serializeIf(steps, serializeText, wrappedSerializeChild, join)
         case "switch":
-            return serializeSwitch(steps, wrappedSerializeChild, join)
+            return serializeSwitch(steps, serializeText, wrappedSerializeChild, join)
         case "getVariable":
-            return serializeGetVariable(steps, wrappedSerializeChild, join)
+            return serializeGetVariable(steps, serializeText, wrappedSerializeChild, join)
         case "setVariable":
-            return serializeSetVariable(steps, wrappedSerializeChild, join)
+            return serializeSetVariable(steps, serializeText, wrappedSerializeChild, join)
         case "return":
-            return serializeReturn(steps, wrappedSerializeChild, join)
+            return serializeReturn(steps, serializeText, wrappedSerializeChild, join)
         case "random":
-            return serializeRandom(steps, wrappedSerializeChild, join)
+            return serializeRandom(steps, serializeText, wrappedSerializeChild, join)
         case "null":
-            return serializeNull(steps, wrappedSerializeChild, join)
+            return serializeNull(steps, serializeText, wrappedSerializeChild, join)
     }
 }
 
 function serializeChildWithBrackets<T>(
     parent: ParsedSteps,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T,
+    join: (...values: Array<T>) => T,
     child: ParsedSteps,
     index: number
 ): T {
     const serializedChild = serializeChild(child, index)
     if (requiresBracket(parent, child)) {
-        return join("(", serializedChild, ")")
+        return join(serializeText("("), serializedChild, serializeText(")"))
     }
     return serializedChild
 }
 
 function serializeRandom<T>(
     step: ParsedRandom,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
     if (step.children.length != step.probabilities.length) {
         throw new Error(`random step must have the same amount of childrens as the amount of probabilities`)
     }
     return join(
-        "{ ",
+        serializeText("{ "),
         ...insertBetweenAll(
             step.children.map((child, i) => [
-                `${toFixedMax(step.probabilities[i] * 100, 2)}%: `,
+                serializeText(`${toFixedMax(step.probabilities[i] * 100, 2)}%: `),
                 serializeChild(child, i),
             ]),
-            " "
-        ).reduce<Array<T | string>>((v1, v2) => v1.concat(v2), []),
-        " }"
+            serializeText(" ")
+        ).reduce<Array<T>>((v1, v2) => v1.concat(v2), []),
+        serializeText(" }")
     )
 }
 
@@ -117,14 +121,15 @@ function toFixedMax(value: number, max: number): string {
 
 function serializeUnaryOperator<T>(
     unaryOperatorStep: ParsedUnaryOperator,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
     switch (unaryOperatorStep.type) {
         case "invert":
-            return join(`-`, serializeChild(unaryOperatorStep.children[0], 0))
+            return join(serializeText(`-`), serializeChild(unaryOperatorStep.children[0], 0))
         case "not":
-            return join(`!`, serializeChild(unaryOperatorStep.children[0], 0))
+            return join(serializeText(`!`), serializeChild(unaryOperatorStep.children[0], 0))
     }
 }
 
@@ -146,111 +151,120 @@ const binarOperatorMap: { [Key in ParsedBinaryOperator["type"]]: string } = {
 
 function serializeBinaryOperator<T>(
     binaryOperatorStep: ParsedBinaryOperator,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
     return join(
         serializeChild(binaryOperatorStep.children[0], 0),
-        ` ${binarOperatorMap[binaryOperatorStep.type]} `,
+        serializeText(` ${binarOperatorMap[binaryOperatorStep.type]} `),
         serializeChild(binaryOperatorStep.children[1], 1)
     )
 }
 
 function serializeReturn<T>(
     returnStep: ParsedReturn,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join("return")
+    return serializeText("return")
 }
 
 function serializeNull<T>(
     nullStep: ParsedNull,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join("null")
+    return serializeText("null")
 }
 
 function serializeGetVariable<T>(
     getVariableStep: ParsedGetVariable,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join(`this.${getVariableStep.identifier}`)
+    return serializeText(`this.${getVariableStep.identifier}`)
 }
 
 function serializeSetVariable<T>(
     setVariableStep: ParsedSetVariable,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join(`this.${setVariableStep.identifier} = `, serializeChild(setVariableStep.children[0], 0))
+    return join(serializeText(`this.${setVariableStep.identifier} = `), serializeChild(setVariableStep.children[0], 0))
 }
 
 function serializeOperation<T>(
     operationStep: ParsedOperation,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
     return join(
-        operationStep.identifier,
-        "(",
-        ...insertBetweenAll(operationStep.children.map(serializeChild), ", "),
-        ")"
+        serializeText(`${operationStep.identifier}(`),
+        ...insertBetweenAll(operationStep.children.map(serializeChild), serializeText(", ")),
+        serializeText(")")
     )
 }
 
 function serializeIf<T>(
     step: ParsedIf,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
     return join(
-        `if `,
+        serializeText(`if `),
         serializeChild(step.children[0], 0),
-        ` then { `,
+        serializeText(` then { `),
         serializeChild(step.children[1], 1),
-        ` } else { `,
+        serializeText(` } else { `),
         serializeChild(step.children[2], 2),
-        ` }`
+        serializeText(` }`)
     )
 }
 
 function serializeSwitch<T>(
     step: ParsedSwitch,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
     return join(
-        "switch ",
+        serializeText("switch "),
         serializeChild(step.children[0], 0),
-        " { ",
+        serializeText(" { "),
         ...insertBetweenAll(
             step.cases.map((caseValue, i) => [
-                `case ${serializeConstant(caseValue)}: `,
+                serializeText(`case ${serializeConstant(caseValue)}: `),
                 serializeChild(step.children[i + 1], i + 1),
             ]),
-            " "
-        ).reduce<Array<T | string>>((v1, v2) => v1.concat(v2), []),
-        " }"
+            serializeText(" ")
+        ).reduce<Array<T>>((v1, v2) => v1.concat(v2), []),
+        serializeText(" }")
     )
 }
 
 function serializeParallel<T>(
     parallelStep: ParsedParallel,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join(...insertBetweenAll(parallelStep.children.map(serializeChild), " | "))
+    return join(...insertBetweenAll(parallelStep.children.map(serializeChild), serializeText(" | ")))
 }
 
 function serializeRaw<T>(
     rawStep: ParsedRaw,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join(serializeConstant(rawStep.value))
+    return serializeText(serializeConstant(rawStep.value))
 }
 
 function serializeConstant(constant: string | number | boolean): string {
@@ -268,26 +282,29 @@ function serializeConstant(constant: string | number | boolean): string {
 
 function serializeSequentialAbstract<T>(
     sequentialStep: ParsedSequantial,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join(...insertBetweenAll(sequentialStep.children.map(serializeChild), " -> "))
+    return join(...insertBetweenAll(sequentialStep.children.map(serializeChild), serializeText(" -> ")))
 }
 
 function serializeSymbolAbstract<T>(
     symbolStep: ParsedSymbol,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join(symbolStep.identifier)
+    return serializeText(symbolStep.identifier)
 }
 
 function serializeThisAbstract<T>(
     thisStep: ParsedThis,
+    serializeText: (text: string) => T,
     serializeChild: (child: ParsedSteps, index: number) => T,
-    join: (...values: Array<T | string>) => T
+    join: (...values: Array<T>) => T
 ): T {
-    return join("this")
+    return serializeText("this")
 }
 
 function insertBetweenAll<T, K>(array: Array<T>, insert: K): Array<K | T> {

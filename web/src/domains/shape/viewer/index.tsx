@@ -9,6 +9,7 @@ import {
     HierarchicalPath,
     SelectionsList,
     shallowEqual,
+    ParsedSteps,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
 import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef } from "react"
@@ -24,6 +25,7 @@ import { ViewControls } from "./view-controls"
 import { Control } from "./control"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
+import { ShiftIcon } from "../../../icons/shift"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -96,6 +98,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 </Bridge>
             </Canvas>
             <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
+                <ShiftButton className="me-2" />
                 <BackgroundToggle className="me-2" />
                 <BackButton className="me-2" />
                 <ShowError />
@@ -200,12 +203,24 @@ function Result() {
         <group
             ref={groupRef}
             onPointerLeave={(e) => {
-                //e.intersections[0].object
-                //store.getState().onEndHover(e.object.userData[e.object.userData.length - 1])
+                const steps = e.object.userData.annotation
+                const index = e.object.userData.index
+                if (steps == null || index == null) {
+                    return
+                }
+                store.getState().onEndHover(steps, index)
             }}
             onPointerEnter={(e) => {
-                //e.intersections[0].object
-                //store.getState().onStartHover(e.object.userData[e.object.userData.length - 1])
+                if (e.intersections.length === 0) {
+                    return
+                }
+                const object = e.intersections[0].object
+                const steps = object.userData.annotation
+                const index = object.userData.index
+                if (steps == null || index == null) {
+                    return
+                }
+                store.getState().onStartHover(steps, index)
             }}
             onClick={(e) => {
                 const state = store.getState()
@@ -216,13 +231,12 @@ function Result() {
                     return
                 }
                 const object = e.intersections[0].object
-                const annotation = object.userData.annotation
-                if (annotation == null) {
+                const steps = object.userData.annotation
+                const index = object.userData.index
+                if (steps == null || index == null) {
                     return
                 }
-                store
-                    .getState()
-                    .select(annotation, object.userData.index, e.nativeEvent.shiftKey ? "toggle" : "replace")
+                store.getState().select(steps, index)
             }}
         />
     )
@@ -249,22 +263,32 @@ function Panoramas() {
 
 function SelectedPrimitives() {
     const store = useBaseStore()
-    const [selectedPrimitives, setSelected] = useState<Array<Primitive>>([])
+    const [primitives, setPrimitives] = useState<Array<Primitive>>([])
     useEffect(() => {
-        let selectionsList: SelectionsList | undefined
+        let selections: Array<string> | undefined
+        let hovered: Array<string> | undefined = undefined
         let primitiveMap: PrimitiveMap | undefined
-        const updateSelectedPrimitives = () => {
-            if (selectionsList == null || primitiveMap == null) {
+        const updatePrimitives = () => {
+            if (selections == null || primitiveMap == null) {
                 return
             }
-            const current = getSelectedPrimitives(selectionsList, primitiveMap)
-            startTransition(() => setSelected((prev) => (shallowEqual(prev, current) ? prev : current)))
+            const current = getHighlightedPrimitives(hovered, selections, primitiveMap)
+            startTransition(() => setPrimitives((prev) => (shallowEqual(prev, current) ? prev : current)))
         }
-        const unsubscribeList = store.subscribe(
+        const unsubscribeSelectionsList = store.subscribe(
             (state) => (state.type === "gui" ? state.selectionsList : undefined),
             (list) => {
-                selectionsList = list
-                updateSelectedPrimitives()
+                selections = list?.reduce<Array<string>>((prev, selections) => prev.concat(selections.indices), [])
+                updatePrimitives()
+            },
+            { fireImmediately: true }
+        )
+        const unsubscribeHovered = store.subscribe(
+            (state) =>
+                state.type === "gui" ? state.hovered : undefined,
+            (h) => {
+                hovered = h?.indices
+                updatePrimitives()
             },
             { fireImmediately: true }
         )
@@ -272,18 +296,19 @@ function SelectedPrimitives() {
             (state) => state.primitiveMap,
             (map) => {
                 primitiveMap = map
-                updateSelectedPrimitives()
+                updatePrimitives()
             },
             { fireImmediately: true }
         )
         return () => {
-            unsubscribeList()
+            unsubscribeSelectionsList()
             unsubscribeMap()
+            unsubscribeHovered()
         }
     }, [store])
     return (
         <>
-            {selectedPrimitives.map((primitive) => (
+            {primitives.map((primitive) => (
                 <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
             ))}
         </>
@@ -304,6 +329,22 @@ function BackgroundToggle({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
+function ShiftButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const store = useBaseStore()
+    const shift = store((s) => (s.type === "gui" ? s.shift : false))
+    return (
+        <div
+            {...rest}
+            onPointerDown={() => store.getState().setShift(true)}
+            onPointerUp={() => store.getState().setShift(false)}
+            className={`${className} d-flex align-items-center justify-content-center btn ${
+                shift ? "btn-primary" : "btn-secondary"
+            } btn-sm `}>
+            <ShiftIcon />
+        </div>
+    )
+}
+
 function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const viewType = useViewerState(({ viewType }) => viewType)
     if (viewType != "3d") {
@@ -319,18 +360,15 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function getSelectedPrimitives(
-    selectionsList: SelectionsList | undefined,
+function getHighlightedPrimitives(
+    hovered: Array<string> | undefined,
+    selections: Array<string> | undefined,
     primitiveMap: PrimitiveMap | undefined
 ): Array<Primitive> {
-    if (selectionsList == null || primitiveMap == null) {
+    if (selections == null || primitiveMap == null) {
         return []
     }
+    const highlightIndicies = hovered == null ? selections : Array.from(new Set(selections.concat(hovered)))
     const map = primitiveMap
-    return selectionsList
-        .reduce<Array<Primitive>>(
-            (prev, selections) => prev.concat(selections.indices.map((selection) => map[selection])),
-            []
-        )
-        .filter((value) => value != null)
+    return highlightIndicies.map((index) => map[index]).filter((value) => value != null)
 }

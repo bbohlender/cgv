@@ -7,6 +7,7 @@ export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Ar
 export type SelectionState = {
     indicesMap: IndicesMap
     selectionsList: SelectionsList
+    hovered: SelectionsList[number] | undefined
 }
 
 /**
@@ -15,13 +16,16 @@ export type SelectionState = {
 export function editIndex(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
+    hovered: SelectionState["hovered"],
     steps: HierarchicalParsedSteps,
     index: string,
     add: boolean
 ): SelectionState {
     const selectionsIndex = selectionsList.findIndex((selections) => selections.steps === steps)
+    const hoveredEdited = hovered?.steps === steps
     const path = steps.path.join(",")
-    return produce({ indicesMap, selectionsList }, ({ indicesMap: indicesDraft, selectionsList: selectionsDraft }) => {
+    return produce<SelectionState>({ hovered, indicesMap, selectionsList }, (draft) => {
+        const { indicesMap: indicesDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
         const selections = selectionsDraft[selectionsIndex]
         let all = indicesDraft[path]
 
@@ -38,6 +42,13 @@ export function editIndex(
                     selectionsDraft.splice(selectionsIndex, 1)
                 }
             }
+            if (hoveredEdited && hoveredDraft != null) {
+                const indexIndex = hoveredDraft.indices.findIndex((selectedIndex) => index === selectedIndex)
+                hoveredDraft.indices.splice(indexIndex, 1)
+                if (hoveredDraft.indices.length === 0) {
+                    draft.hovered = undefined
+                }
+            }
             return
         }
 
@@ -48,6 +59,10 @@ export function editIndex(
 
         if (selections != null && all.length === selections.indices.length) {
             selections.indices.push(index)
+        }
+
+        if (hoveredDraft != null && all.length === hoveredDraft.indices.length) {
+            hoveredDraft.indices.push(index)
         }
 
         all.push(index)

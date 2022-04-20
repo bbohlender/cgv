@@ -12,7 +12,14 @@ export function Editor() {
     const rootRef = useRef<HTMLDivElement>(null)
     const [showTextEditor, setShowTextEditor] = useState(false)
     useEffect(() => {
-        const listener = (e: KeyboardEvent) => {
+        const keyUpListener = (e: KeyboardEvent) => {
+            switch (e.key) {
+                case "Shift":
+                    store.getState().setShift(false)
+                    break
+            }
+        }
+        const keyDownListener = (e: KeyboardEvent) => {
             switch (e.key) {
                 case "Escape":
                     store.getState().escape()
@@ -22,10 +29,17 @@ export function Editor() {
                         store.getState().removeStep()
                     }
                     break
+                case "Shift":
+                    store.getState().setShift(true)
+                    break
             }
         }
-        window.addEventListener("keydown", listener)
-        return () => window.removeEventListener("keydown", listener)
+        window.addEventListener("keydown", keyDownListener)
+        window.addEventListener("keyup", keyUpListener)
+        return () => {
+            window.removeEventListener("keydown", keyDownListener)
+            window.removeEventListener("keyup", keyUpListener)
+        }
     }, [store])
 
     const { Viewer } = useBaseGlobal()

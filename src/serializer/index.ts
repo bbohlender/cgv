@@ -8,7 +8,12 @@ export function serializeString(grammarDefinition: ParsedGrammarDefinition): str
 }
 
 export function serializeStepString(steps: ParsedSteps): string {
-    return serializeSteps(steps, serializeStepString, (...values) => values.join(""))
+    return serializeSteps(
+        steps,
+        (text) => text,
+        serializeStepString,
+        (...values) => values.join("")
+    )
 }
 
 export * from "./serialize"

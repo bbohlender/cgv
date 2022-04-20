@@ -571,7 +571,6 @@ export class GeometryPrimitive extends Primitive {
         this.geometry.boundingBox?.getSize(helperVector)
         outlineGeometry.scale(helperVector.x, helperVector.y, helperVector.z)
         this.geometry.boundingBox!.getCenter(helperVector)
-        console.log(helperVector.x, helperVector.y, helperVector.z)
         outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
         return setupObject3D(new LineSegments(outlineGeometry), this.matrix)
     }
