@@ -11,12 +11,13 @@ import {
     Axis,
     Split,
 } from "."
-import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
+import { Box3, Color, Matrix4, Shape, Vector2, Vector3 } from "three"
 import * as THREE from "three"
 import { defaultOperations } from ".."
 import { ObjectPrimitive } from "./primitive"
 import { GLTFLoader } from "three-stdlib/loaders/GLTFLoader"
 import { DRACOLoader } from "three-stdlib/loaders/DRACOLoader"
+import { computeGableRoof } from "./roof"
 
 function computeMapbox(/*[lat, lon]: ReadonlyArray<any>*/): Observable<Array<Primitive>> {
     return from(loadMap()).pipe(
@@ -75,9 +76,11 @@ function computeSample(instance: Primitive, amount: number): Observable<Array<Pr
 }
 
 const size = new Vector3()
+const box3Helper = new Box3()
 
 function computeSize(instance: Primitive, axis: "x" | "y" | "z"): Observable<Array<any>> {
-    instance.getGeometrySize(size)
+    instance.getBoundingBox(box3Helper)
+    box3Helper.getSize(size)
     return of([size[axis as keyof Vector3]])
 }
 
@@ -259,6 +262,11 @@ export const operations: Operations<any, any> = {
     face: {
         execute: simpleExecution<any, unknown>(computeFace),
         includeThis: false,
+        defaultParameters: [],
+    },
+    gableRoof: {
+        execute: simpleExecution<any, unknown>(computeGableRoof),
+        includeThis: true,
         defaultParameters: [],
     },
 }

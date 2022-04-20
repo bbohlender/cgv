@@ -112,7 +112,7 @@ export abstract class Primitive {
     abstract samplePoints(amount: number): Array<Primitive>
     abstract components(type: "points" | "lines" | "faces"): Array<Primitive>
     protected abstract computeObject3D(): Object3D
-    abstract getGeometrySize(target: Vector3): void
+    abstract getBoundingBox(target: Box3): void
     protected abstract computeGeometry(): BufferGeometry | undefined
     protected abstract computeOutline(): Object3D
 }
@@ -134,8 +134,9 @@ export class PointPrimitive extends Primitive {
         super()
     }
 
-    getGeometrySize(target: Vector3): void {
-        target.set(0, 0, 0)
+    getBoundingBox(target: Box3): void {
+        target.min.set(0, 0, 0)
+        target.max.set(0, 0, 0)
     }
 
     extrude(by: number): Primitive {
@@ -219,8 +220,9 @@ export class LinePrimitive extends Primitive {
         return new LinePrimitive(matrix, length, materialGenerator)
     }
 
-    getGeometrySize(target: Vector3): void {
-        target.set(0, this.length, 0)
+    getBoundingBox(target: Box3): void {
+        target.min.set(0, 0, 0)
+        target.max.set(this.length, 0, 0)
     }
 
     clone(): Primitive {
@@ -324,9 +326,10 @@ export class FacePrimitive extends Primitive {
         return new FacePrimitive(matrix, shape, materialGenerator)
     }
 
-    getGeometrySize(target: Vector3): void {
-        boxHelper.setFromPoints(this.shape.getPoints()).getSize(vec2Helper)
-        target.set(vec2Helper.x, 0, vec2Helper.y)
+    getBoundingBox(target: Box3): void {
+        boxHelper.setFromPoints(this.shape.getPoints())
+        target.min.set(boxHelper.min.x, 0, boxHelper.min.y)
+        target.max.set(boxHelper.max.x, 0, boxHelper.max.y)
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
@@ -471,8 +474,6 @@ const box3Helper = new Box3()
 const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
 
 export class ObjectPrimitive extends Primitive {
-    private boundingBox = new Box3()
-
     get materialGenerator(): MaterialGenerator {
         throw new Error("Method not implemented.")
     }
@@ -501,19 +502,28 @@ export class ObjectPrimitive extends Primitive {
         return setupObject3D(wrapper, this.matrix)
     }
 
-    getGeometrySize(target: Vector3): void {
-        this.boundingBox.setFromObject(this.object)
-        this.boundingBox.getSize(target)
-    }
-
     computeGeometry(): BufferGeometry | undefined {
         return undefined
     }
+
+    getBoundingBox(target: Box3): void {
+        target.makeEmpty()
+        for (const child of this.object.children) {
+            if (!(child instanceof Mesh)) {
+                continue
+            }
+            ;(child.geometry as BufferGeometry).computeBoundingBox()
+            box3Helper.copy((child.geometry as BufferGeometry).boundingBox!)
+            box3Helper.applyMatrix4(child.matrix)
+            target.union(box3Helper)
+        }
+    }
+
     protected computeOutline(): Object3D<Event> {
-        this.boundingBox.setFromObject(this.object)
-        this.boundingBox.getCenter(helperVector)
+        box3Helper.setFromObject(this.object)
+        box3Helper.getCenter(helperVector)
         const matrix = new Matrix4().makeTranslation(helperVector.x, helperVector.y, helperVector.z)
-        this.boundingBox.getSize(helperVector)
+        box3Helper.getSize(helperVector)
         matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
         return setupObject3D(new LineSegments(outlineGeometry), matrix)
     }
@@ -545,6 +555,7 @@ export class GeometryPrimitive extends Primitive {
         public materialGenerator: (type: ObjectType) => Material
     ) {
         super()
+        geometry.computeBoundingBox()
     }
 
     extrude(by: number): Primitive {
@@ -557,9 +568,8 @@ export class GeometryPrimitive extends Primitive {
         return setupObject3D(new Mesh(this.getGeometry(), this.materialGenerator(ObjectType.Mesh)), this.matrix)
     }
 
-    getGeometrySize(target: Vector3): void {
-        this.geometry.computeBoundingBox()
-        this.geometry.boundingBox!.getSize(target)
+    getBoundingBox(target: Box3): void {
+        target.copy(this.geometry.boundingBox!)
     }
 
     computeGeometry(): BufferGeometry | undefined {
@@ -567,8 +577,7 @@ export class GeometryPrimitive extends Primitive {
     }
     protected computeOutline(): Object3D<Event> {
         const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
-        this.geometry.computeBoundingBox()
-        this.geometry.boundingBox?.getSize(helperVector)
+        this.geometry.boundingBox!.getSize(helperVector)
         outlineGeometry.scale(helperVector.x, helperVector.y, helperVector.z)
         this.geometry.boundingBox!.getCenter(helperVector)
         outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
@@ -605,7 +614,7 @@ export class CombinedPrimitive extends Primitive {
     }
 
     get materialGenerator(): MaterialGenerator {
-        throw new Error(`can't retrive material from combined primitive`)
+        return this.primitives[0].materialGenerator
     }
 
     protected changeMatrix(matrix: Matrix4): Primitive {
@@ -633,14 +642,13 @@ export class CombinedPrimitive extends Primitive {
         return object
     }
 
-    getGeometrySize(target: Vector3): void {
-        box3Helper.makeEmpty()
+    getBoundingBox(target: Box3): void {
+        target.makeEmpty()
         this.primitives.forEach((primitive) => {
-            primitive.getGeometrySize(helperVector)
-            helperVector.applyMatrix4(primitive.matrix)
-            box3Helper.expandByPoint(helperVector)
+            primitive.getBoundingBox(box3Helper)
+            box3Helper.applyMatrix4(primitive.matrix)
+            target.union(box3Helper)
         })
-        box3Helper.getSize(target)
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
@@ -696,10 +704,6 @@ function filterNull<T>(val: T | null | undefined): val is T {
     }
     toObject3D(): Object3D<Event> {
         return setupObject3D(new Object3D(), this.matrix)
-    }
-
-    getGeometrySize(target: Vector3): void {
-        target.copy(this.size)
     }
 
     computeGeometry(): BufferGeometry | undefined {

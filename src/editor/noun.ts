@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorState } from "."
+import { EditorState, IndicesMap, SelectionsList } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -32,6 +32,12 @@ import {
     }
 }*/
 
+/*export function createNoun(
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
+    grammar: HierarchicalParsedGrammarDefinition
+) {}*/
+
 export function renameNoun(
     name: string,
     newName: string,
@@ -53,7 +59,7 @@ export function renameNoun(
             }
         }),
         selectionsList: [],
-        hovered: undefined
+        hovered: undefined,
     }
 }
 

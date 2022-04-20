@@ -3,8 +3,6 @@ import { CSG } from "three-csg-ts"
 import { makeTranslationMatrix, ObjectPrimitive, ObjectType, PointPrimitive, Primitive } from "."
 import { GeometryPrimitive } from "./primitive"
 
-const vectorHelper = new Vector3()
-const moveVector = new Vector3()
 const matrixHelper = new Matrix4()
 
 export type Axis = "x" | "y" | "z"
@@ -16,37 +14,43 @@ function setValueOnAxis(vector: Vector3, axis: Axis, value: number): void {
     vector[axis] = value
 }
 
-const restSize = new Vector3()
+const vectorHelper = new Vector3()
+
+const boundingBox = new Box3()
+const primitiveMin = new Vector3()
+
+const box3Helper = new Box3()
 
 export function Split(
     primitive: Primitive,
     axis: Axis,
     generatePrimitive: (matrix: Matrix4, index: number, x: number, y: number, z: number) => Primitive
 ): Array<Primitive> {
-    primitive.getGeometrySize(restSize)
+    primitive.getBoundingBox(boundingBox)
+    primitiveMin.copy(boundingBox.min)
     let i = 0
     const generatedPrimitives: Array<Primitive> = []
-    moveVector.set(0, 0, 0)
-    while (getValueOnAxis(restSize, axis) > 0) {
+    while (getValueOnAxis(boundingBox.min, axis) < getValueOnAxis(boundingBox.max, axis)) {
         const matrix = primitive.matrix.clone()
-        matrix.multiply(makeTranslationMatrix(moveVector.x, moveVector.y, moveVector.z))
-        const generatedPrimitive = generatePrimitive(matrix, i, restSize.x, restSize.y, restSize.z)
-        generatedPrimitive.getGeometrySize(vectorHelper)
+        matrix.multiply(makeTranslationMatrix(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z))
+        const generatedPrimitive = generatePrimitive(
+            matrix,
+            i,
+            boundingBox.max.x - boundingBox.min.x,
+            boundingBox.max.y - boundingBox.min.y,
+            boundingBox.max.z - boundingBox.min.z
+        )
         generatedPrimitives.push(generatedPrimitive)
+        generatedPrimitive.getBoundingBox(box3Helper)
+        box3Helper.getSize(vectorHelper)
         i++
-        const primtiveSizeOnAxis = getValueOnAxis(vectorHelper, axis)
-        setValueOnAxis(restSize, axis, getValueOnAxis(restSize, axis) - primtiveSizeOnAxis)
-        setValueOnAxis(moveVector, axis, getValueOnAxis(moveVector, axis) + primtiveSizeOnAxis)
+        setValueOnAxis(
+            boundingBox.min,
+            axis,
+            getValueOnAxis(boundingBox.min, axis) + getValueOnAxis(vectorHelper, axis)
+        )
     }
     return generatedPrimitives
-}
-
-export function CenterPoint(primtive: Primitive, materialGenerator: (type: ObjectType) => Material): Primitive {
-    const result = new PointPrimitive(primtive.matrix, materialGenerator)
-    primtive.getGeometrySize(vectorHelper)
-    vectorHelper.divideScalar(2)
-    result.multiplyMatrix(makeTranslationMatrix(vectorHelper.x, vectorHelper.y, vectorHelper.z))
-    return result
 }
 
 export function CSGCombine(
