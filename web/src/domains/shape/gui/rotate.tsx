@@ -1,5 +1,5 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
-import { GUIVector3 } from "./vector3"
+import { GUIVector3 } from "./vector"
 
 export const GUIRotateStep = ({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) =>
     GUIVector3<"operation">({

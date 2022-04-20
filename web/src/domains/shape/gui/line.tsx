@@ -1,6 +1,6 @@
 import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps } from "cgv"
 import { Draft } from "immer"
-import { GUIVector3 } from "./vector3"
+import { GUIVector3 } from "./vector"
 
 export function GUILineStep({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     if (value.children[0].type !== "operation" || value.children[1].type !== "operation") {

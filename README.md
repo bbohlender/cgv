@@ -120,13 +120,13 @@ max -> event("a => {
 `Building a Cube`
 
 ```
-a -> face(point(0, 0, 100), point(0, 0, 0), point(100, 0, 0), point(100, 0, 100)) -> extrude(100)
+a -> face(point2(0, 100), point2(0, 0), point2(100, 0), point2(100, 100)) -> extrude(100)
 ```
 
 `Streets`
 
 ```
-a -> point(0, 0, 0) -> right -> (this | toPoints() -> select(1, 2) -> (right | left) -> (this | toPoints() -> select(1, 2) -> left -> (this | toPoints() -> select(1, 2) -> right -> (this | toPoints() -> select(1, 2) -> left))))
+a -> point2(0, 0) -> right -> (this | toPoints() -> select(1, 2) -> (right | left) -> (this | toPoints() -> select(1, 2) -> left -> (this | toPoints() -> select(1, 2) -> right -> (this | toPoints() -> select(1, 2) -> left))))
 
 left -> rotate(0, 45, 0) -> extrude(30)
 
@@ -145,7 +145,7 @@ t -> translate(0, 10, 0) -> { 50%: t 50%: this }
 `Forest`
 
 ```
-Start -> face(point(358.16, 0, -152.34), point(288.3, 0, -30.32), point(269.68, 0, -117.46)) -> sample(10) -> load("/cgv/tree.gltf") -> scale(100, 100, 100)
+Start -> face(point2(358.16, -152.34), point2(288.3, -30.32), point2(269.68, -117.46)) -> sample(10) -> load("/cgv/tree.gltf") -> scale(100, 100, 100)
 ```
 
 `City 1` (currently not working - reimplementation of expand and sample)
@@ -162,10 +162,10 @@ Building -> expand(200)
 
 ```
 Start -> face(
-	point(10,0,90),
-	point(-30,0,0),
-	point(80,0,10),
-	point(60,0,60)
+	point2(10,90),
+	point2(-30,0),
+	point2(80,10),
+	point2(60,60)
 ) -> Lot
 
 Lot -> color("#333343") -> extrude(60) -> toFaces() -> (select(0, 4) -> Wall | select(4, 5) -> Roof)

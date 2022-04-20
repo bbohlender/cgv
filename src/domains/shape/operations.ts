@@ -41,9 +41,14 @@ function computeLoad(instance: Primitive, url: string) {
     return from(gltfLoader.loadAsync(url)).pipe(map((gltf) => [new ObjectPrimitive(instance.matrix, gltf.scene)]))
 }
 
-function computePoint(x: number, y: number, z: number): Observable<Array<Primitive>> {
+function computePoint3(x: number, y: number, z: number): Observable<Array<Primitive>> {
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
     return of([new PointPrimitive(makeTranslationMatrix(x, y, z, new Matrix4()), redMaterialGenerator)])
+}
+
+function computePoint2(x: number, z: number): Observable<Array<Primitive>> {
+    const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
+    return of([new PointPrimitive(makeTranslationMatrix(x, 0, z, new Matrix4()), redMaterialGenerator)])
 }
 
 const helperVector = new Vector3()
@@ -226,8 +231,8 @@ export const operations: Operations<any, any> = {
         includeThis: true,
         defaultParameters: [],
     },
-    point: {
-        execute: simpleExecution<any, unknown>(computePoint),
+    point3: {
+        execute: simpleExecution<any, unknown>(computePoint3),
         includeThis: false,
         defaultParameters: [
             () => ({ type: "raw", value: 0 }),
@@ -235,13 +240,18 @@ export const operations: Operations<any, any> = {
             () => ({ type: "raw", value: 0 }),
         ],
     },
+    point2: {
+        execute: simpleExecution<any, unknown>(computePoint2),
+        includeThis: false,
+        defaultParameters: [() => ({ type: "raw", value: 0 }), () => ({ type: "raw", value: 0 })],
+    },
     line: {
         execute: simpleExecution<any, unknown>(computeLine),
         includeThis: false,
         defaultParameters: [
             () => ({
                 type: "operation",
-                identifier: "point",
+                identifier: "point3",
                 children: [
                     { type: "raw", value: 0 },
                     { type: "raw", value: 0 },
@@ -250,7 +260,7 @@ export const operations: Operations<any, any> = {
             }),
             () => ({
                 type: "operation",
-                identifier: "point",
+                identifier: "point3",
                 children: [
                     { type: "raw", value: 100 },
                     { type: "raw", value: 0 },

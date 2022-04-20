@@ -4,7 +4,7 @@ import { GUIExtrudeStep } from "./extrude"
 import { GUIFaceSteps } from "./face"
 import { GUILineStep } from "./line"
 import { GUIMultiSplitSteps } from "./multi-split"
-import { GUIPointStep } from "./point"
+import { GUIPoint2Step, GUIPoint3Step } from "./point"
 import { GUIRotateStep } from "./rotate"
 import { GUIScaleStep } from "./scale"
 import { GUISizeStep } from "./size"
@@ -15,7 +15,8 @@ const emptyStep = () => null
 
 export const operationGuiMap: OperationGUIMap = {
     color: GUIColorStep,
-    point: GUIPointStep,
+    point3: GUIPoint3Step,
+    point2: GUIPoint2Step,
     line: GUILineStep,
     face: GUIFaceSteps,
     extrude: GUIExtrudeStep,

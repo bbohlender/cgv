@@ -1,7 +1,7 @@
 import { HierarchicalParsedSteps, SelectionsList } from "cgv"
 import { useBaseStore } from "../../../../global"
-import { MultiplePointsControl } from "./multiple-points"
-import { PointControl } from "./point"
+import { MultiplePoint2Control, MultiplePoint3Control } from "./multiple-points"
+import { Point2Control, Point3Control } from "./point"
 
 export function Control() {
     const store = useBaseStore()
@@ -25,11 +25,14 @@ function OperationControl({ value }: { value: HierarchicalParsedSteps }) {
         return null
     }
     switch (value.identifier) {
-        case "point":
-            return <PointControl value={value} />
+        case "point3":
+            return <Point3Control value={value} />
+        case "point2":
+            return <Point2Control value={value} />
         case "face":
+            return <MultiplePoint2Control value={value} />
         case "line":
-            return <MultiplePointsControl value={value} />
+            return <MultiplePoint3Control value={value} />
         default:
             return null
     }

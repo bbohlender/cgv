@@ -1,13 +1,26 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
-import { PointControl } from "./point"
+import { Point2Control, Point3Control } from "./point"
 
-export function MultiplePointsControl({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
+export function MultiplePoint3Control({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     return (
         <>
             {value.children.map(
                 (child, i) =>
                     child.type === "operation" && (
-                        <PointControl<"operation"> getSubstep={(draft) => draft.children[i]} value={child} />
+                        <Point3Control<"operation"> getSubstep={(draft) => draft.children[i]} value={child} />
+                    )
+            )}
+        </>
+    )
+}
+
+export function MultiplePoint2Control({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
+    return (
+        <>
+            {value.children.map(
+                (child, i) =>
+                    child.type === "operation" && (
+                        <Point2Control<"operation"> getSubstep={(draft) => draft.children[i]} value={child} />
                     )
             )}
         </>

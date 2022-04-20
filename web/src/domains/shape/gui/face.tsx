@@ -1,7 +1,7 @@
 import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
 import { useBaseStore } from "../../../global"
 import { DeleteIcon } from "../../../icons/delete"
-import { GUIVector3 } from "./vector3"
+import { GUIVector2 } from "./vector"
 
 export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const store = useBaseStore()
@@ -10,7 +10,7 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
             {value.children.map((child, i) => (
                 <div key={i} className="d-flex flex-row align-items-center mb-3">
                     {child.type === "operation" && (
-                        <GUIVector3<"operation">
+                        <GUIVector2<"operation">
                             className="d-flex flex-row"
                             defaultValue={0}
                             getSubstep={(draft) => draft.children[i]}
@@ -34,9 +34,8 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                     store.getState().replace<"operation">((draft) => {
                         draft.children.push({
                             type: "operation",
-                            identifier: "point",
+                            identifier: "point2",
                             children: [
-                                { type: "raw", value: 0 },
                                 { type: "raw", value: 0 },
                                 { type: "raw", value: 0 },
                             ],

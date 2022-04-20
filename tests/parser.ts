@@ -11,10 +11,10 @@ describe("parse grammar", () => {
 
     it("should efficiently parse big grammar", () => {
         expect(() => parse(`Start -> face(
-            point(10,0,90),
-            point(-30,0,0),
-            point(80,0,10),
-            point(60,0,60)
+            point2(10,90),
+            point2(-30,0),
+            point2(80,10),
+            point2(60,60)
         ) -> Lot
         
         Lot -> color("#333343") -> extrude(60) -> toFaces() -> (select(0, 4) -> Wall | select(4, 5) -> Roof)
