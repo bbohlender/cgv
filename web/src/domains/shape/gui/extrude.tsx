@@ -16,7 +16,7 @@ export function GUIExtrudeStep({ value }: { value: AbstractParsedOperation<Hiera
                         type: "raw",
                         value: e.target.valueAsNumber,
                     }
-                })
+                }, value)
             }
         />
     )

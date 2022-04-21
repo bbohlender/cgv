@@ -20,7 +20,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                 } else {
                     draft.children[2] = { type: "raw", value: limit }
                 }
-            })
+            }, value)
         },
         [store, value]
     )
@@ -35,7 +35,8 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                         store
                             .getState()
                             .replace(() =>
-                                createDefaultStep({ type: "operation", identifier: "multiSplit" }, operations)
+                                createDefaultStep({ type: "operation", identifier: "multiSplit" }, operations),
+                                value
                             )
                     }
                 />
@@ -46,7 +47,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     onChange={(e) =>
                         store.getState().replace<"operation">((draft) => {
                             draft.children[0] = { type: "raw", value: e.currentTarget.value }
-                        })
+                        }, value)
                     }
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
@@ -59,7 +60,7 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     onBlur={(e) =>
                         store.getState().replace<"operation">((draft) => {
                             draft.children[1] = { type: "raw", value: e.target.valueAsNumber }
-                        })
+                        }, value)
                     }
                 />
             </StartLabel>

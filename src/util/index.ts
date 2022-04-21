@@ -1,3 +1,5 @@
+import { AbstractParsedSteps, ParsedSteps } from ".."
+
 export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> | undefined): boolean {
     if (array1 == null || array2 == null) {
         return false
@@ -14,6 +16,20 @@ export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> 
         }
     }
     return true
+}
+
+export function assureType<Type extends ParsedSteps["type"], T>(
+    type: Type,
+    steps: AbstractParsedSteps<T>
+): AbstractParsedSteps<T> & { type: Type } {
+    if (steps.type != type) {
+        throw new Error(`expected step "${steps}" to have type "${type}"`)
+    }
+    return steps as any
+}
+
+export function filterNull<T>(val: T | null | undefined): val is T {
+    return val != null
 }
 
 export * from "./precendence"

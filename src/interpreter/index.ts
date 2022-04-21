@@ -380,7 +380,7 @@ function interpreteSwitch<T, A, I>(
             operatorsToArray(noop(), valueOperatorFunction),
             groupBy(({ raw: [, switchValue] }) => switchValue),
             mergeMap((value) => {
-                const i = step.cases.findIndex((caseValue) => caseValue === value.key)
+                const i = step.cases.indexOf(value.key)
                 if (i === -1) {
                     return EMPTY
                 }

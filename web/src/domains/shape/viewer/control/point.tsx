@@ -7,13 +7,14 @@ export function Point3Control<Type extends ParsedSteps["type"]>({
     value,
     getSubstep,
 }: {
-    getSubstep?: (draft: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps>
-    value: AbstractParsedOperation<HierarchicalInfo>
+    getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
+    value: ParsedSteps & { type: Type }
 }) {
+    const substepValue = getSubstep(value)
     const store = useBaseStore()
-    const x = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const y = value.children[1].type === "raw" ? value.children[1].value : undefined
-    const z = value.children[2].type === "raw" ? value.children[2].value : undefined
+    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
+    const y = substepValue.children[1].type === "raw" ? substepValue.children[1].value : undefined
+    const z = substepValue.children[2].type === "raw" ? substepValue.children[2].value : undefined
     return (
         <Transform3Control
             position={[x, y, z]}
@@ -24,32 +25,34 @@ export function Point3Control<Type extends ParsedSteps["type"]>({
                         type: "raw",
                         value,
                     }))
-                })
+                }, value)
             }
         />
     )
 }
+
 export function Point2Control<Type extends ParsedSteps["type"]>({
     value,
     getSubstep,
 }: {
-    getSubstep?: (draft: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps>
-    value: AbstractParsedOperation<HierarchicalInfo>
+    getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
+    value: ParsedSteps & { type: Type }
 }) {
+    const substepValue = getSubstep(value)
     const store = useBaseStore()
-    const x = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const z = value.children[1].type === "raw" ? value.children[1].value : undefined
+    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
+    const z = substepValue.children[1].type === "raw" ? substepValue.children[1].value : undefined
     return (
         <Transform2Control
             position={[x, z]}
-            set={(...xyz) =>
+            set={(...xz) =>
                 store.getState().replace<Type>((draft) => {
                     const subDraft = getSubstep == null ? draft : getSubstep(draft)
-                    subDraft.children = xyz.map((value) => ({
+                    subDraft.children = xz.map((value) => ({
                         type: "raw",
                         value,
                     }))
-                })
+                }, value)
             }
         />
     )

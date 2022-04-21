@@ -25,6 +25,7 @@ import {
 } from "three"
 import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
 import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "."
+import { filterNull } from "../../util"
 import { distributeOverSizes, makeScaleMatrix } from "./math"
 import { sampleGeometry } from "./sample"
 
@@ -682,10 +683,6 @@ export class CombinedPrimitive extends Primitive {
         }
         return result
     }
-}
-
-function filterNull<T>(val: T | null | undefined): val is T {
-    return val != null
 }
 
 /*export class EmptyPrimitive extends Primitive {

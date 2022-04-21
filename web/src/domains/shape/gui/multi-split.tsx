@@ -20,7 +20,10 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                     onChange={() =>
                         store
                             .getState()
-                            .replace(() => createDefaultStep({ type: "operation", identifier: "split" }, operations))
+                            .replace(
+                                () => createDefaultStep({ type: "operation", identifier: "split" }, operations),
+                                value
+                            )
                     }
                 />
             </EndLabel>
@@ -30,7 +33,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                     onChange={(e) =>
                         store.getState().replace<"operation">((draft) => {
                             draft.children[0] = { type: "raw", value: e.currentTarget.value }
-                        })
+                        }, value)
                     }
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
@@ -44,14 +47,14 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                         onBlur={(e) =>
                             store.getState().replace<"operation">((draft) => {
                                 draft.children[i + 1] = { type: "raw", value: e.target.valueAsNumber }
-                            })
+                            }, value)
                         }
                     />
                     <div
                         onClick={() =>
                             store.getState().replace<"operation">((draft) => {
                                 draft.children.splice(i + 1, 1)
-                            })
+                            }, value)
                         }
                         className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
                         <DeleteIcon />
@@ -63,7 +66,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                 onClick={() =>
                     store.getState().replace<"operation">((draft) => {
                         draft.children.push({ type: "raw", value: 10 })
-                    })
+                    }, value)
                 }>
                 Add
             </div>

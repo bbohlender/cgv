@@ -26,9 +26,9 @@ function OperationControl({ value }: { value: HierarchicalParsedSteps }) {
     }
     switch (value.identifier) {
         case "point3":
-            return <Point3Control value={value} />
+            return <Point3Control getSubstep={(draft) => draft} value={value} />
         case "point2":
-            return <Point2Control value={value} />
+            return <Point2Control getSubstep={(draft) => draft} value={value} />
         case "face":
             return <MultiplePoint2Control value={value} />
         case "line":

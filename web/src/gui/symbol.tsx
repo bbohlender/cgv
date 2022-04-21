@@ -15,7 +15,7 @@ export function GUISymbolStep({ value }: { value: AbstractParsedSymbol<Hierarchi
                 onChange={(e) =>
                     store.getState().replace<"symbol">((draft) => {
                         draft.identifier = e.currentTarget.value
-                    })
+                    }, value)
                 }
                 className="flex-grow-1 w-auto form-select form-select-sm">
                 {nouns.map((noun) => (

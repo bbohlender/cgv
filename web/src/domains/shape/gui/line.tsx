@@ -1,5 +1,4 @@
-import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps } from "cgv"
-import { Draft } from "immer"
+import { AbstractParsedOperation, HierarchicalInfo, assureType } from "cgv"
 import { GUIVector3 } from "./vector"
 
 export function GUILineStep({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
@@ -11,14 +10,14 @@ export function GUILineStep({ value }: { value: AbstractParsedOperation<Hierarch
             <GUIVector3<"operation">
                 className="mb-3 d-flex flex-row mx-3"
                 defaultValue={0}
-                getSubstep={(draft) => draft.children[0]}
-                value={value.children[0]}
+                getSubstep={(draft) => assureType("operation", draft.children[0])}
+                value={value}
             />
             <GUIVector3<"operation">
                 className="mb-3 d-flex flex-row mx-3"
                 defaultValue={0}
-                getSubstep={(draft) => draft.children[0]}
-                value={value.children[1]}
+                getSubstep={(draft) => assureType("operation", draft.children[0])}
+                value={value}
             />
         </>
     )

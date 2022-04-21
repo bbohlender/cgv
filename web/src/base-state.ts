@@ -15,6 +15,9 @@ import {
     editSelection,
     editIndices,
     EditorState,
+    replaceSubset,
+    shallowEqual,
+    editSelectionRelated,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -125,10 +128,14 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
+            const indices = index == null ? state.indicesMap[steps.path.join(",")] ?? [] : [index]
+            if (state.hovered?.steps === steps && shallowEqual(state.hovered.indices, indices)) {
+                return
+            }
             set({
                 hovered: {
                     steps,
-                    indices: index == null ? state.indicesMap[steps.path.join(",")] ?? [] : [index],
+                    indices,
                 },
             })
         },
@@ -160,8 +167,76 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
-            type = type ?? state.shift ? "add" : "replace"
-            set({ selectionsList: editSelection(state.indicesMap, state.selectionsList, steps, index, type) })
+            type = type ?? (state.shift ? "add" : "replace")
+            set({
+                selectionsList: editSelection(
+                    state.indicesMap,
+                    state.selectionsList,
+                    [{ steps, indices: index == null ? undefined : [index] }],
+                    type
+                ),
+            })
+        },
+        selectResult: (steps: HierarchicalParsedSteps, index: string) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            const predecessorSelectionsList = state.selectionsList
+                .map((selections) => ({
+                    ...selections,
+                    indices: selections.indices.filter((selectedIndex) => index.startsWith(selectedIndex)),
+                }))
+                .filter((selections) => selections.indices.length > 0)
+            console.log(predecessorSelectionsList)
+            if (!state.shift && predecessorSelectionsList.length > 0) {
+                //no multi-select and already selected
+                set({
+                    selectionsList: editSelectionRelated(
+                        state.indicesMap,
+                        state.selectionsList,
+                        predecessorSelectionsList,
+                        state.grammar,
+                        "predecessor",
+                        "replace"
+                    ),
+                })
+                return
+            }
+            set({
+                selectionsList: editSelection(
+                    state.indicesMap,
+                    state.selectionsList,
+                    state.shift && predecessorSelectionsList.length > 0
+                        ? predecessorSelectionsList
+                        : [{ steps, indices: [index] }],
+                    state.shift ? (predecessorSelectionsList.length > 0 ? "remove" : "add") : "replace"
+                ),
+            })
+        },
+        selectRelated: (
+            relatedSteps: HierarchicalParsedSteps,
+            relatedIndices: Array<string>,
+            currentSteps: HierarchicalParsedSteps,
+            currentIndices: Array<string>
+        ) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set({
+                selectionsList: editSelection(
+                    state.indicesMap,
+                    editSelection(
+                        state.indicesMap,
+                        state.selectionsList,
+                        [{ steps: currentSteps, indices: currentIndices }],
+                        "remove"
+                    ),
+                    [{ steps: relatedSteps, indices: relatedIndices }],
+                    "add"
+                ),
+            })
         },
         unselectAll: () => {
             const state = get()
@@ -253,13 +328,24 @@ function createBaseStateFunctions(
             set(renameNoun(Array.isArray(selection.path) ? selection.path[0] : selection.path, name, state.grammar))*/
         },
         replace: <Type extends ParsedSteps["type"]>(
-            replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void
+            replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void,
+            steps?: ParsedSteps
         ) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(replace(state.indicesMap, state.selectionsList, replaceWith as any, state.grammar))
+            set(
+                steps == null
+                    ? replace(state.indicesMap, state.selectionsList, replaceWith as any, state.grammar)
+                    : replaceSubset(
+                          state.indicesMap,
+                          state.selectionsList,
+                          (selections) => selections.steps === steps,
+                          replaceWith as any,
+                          state.grammar
+                      )
+            )
         },
         setShift: (shift: boolean) => {
             const state = get()

@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorState, IndicesMap, SelectionsList } from "."
+import { EditorState } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -32,11 +32,24 @@ import {
     }
 }*/
 
-/*export function createNoun(
+/*export function insertNoun(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    grammar: HierarchicalParsedGrammarDefinition
-) {}*/
+    grammar: HierarchicalParsedGrammarDefinition,
+    name: string
+): EditorState {
+
+    const partial = produce(
+        { grammar, selectionsList: [] as SelectionsList },
+        ({ grammar: draft, selectionsList: newSelections }) => {
+        insertOnDraft()
+        draft[name] = 
+    })
+    return {
+        ...partial,
+        hovered: undefined,
+    }
+}*/
 
 export function renameNoun(
     name: string,
@@ -63,7 +76,7 @@ export function renameNoun(
     }
 }
 
-function findSymbolsWithIdentifier(
+export function findSymbolsWithIdentifier(
     root: HierarchicalParsedSteps,
     identifier: string,
     onFound: (step: AbstractParsedSymbol<HierarchicalInfo>) => void

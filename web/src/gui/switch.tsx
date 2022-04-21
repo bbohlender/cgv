@@ -24,7 +24,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                         onBlur={(e) =>
                             store.getState().replace<"switch">((draft) => {
                                 draft.cases[i] = stringToConstant(e.target.value)
-                            })
+                            }, value)
                         }
                     />
                     <div
@@ -37,7 +37,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                             store.getState().replace<"switch">((draft) => {
                                 draft.children.splice(i, 1)
                                 draft.cases.splice(i, 1)
-                            })
+                            }, value)
                         }}
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
@@ -49,7 +49,7 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                     store.getState().replace<"switch">((draft) => {
                         draft.children.push({ type: "this" })
                         draft.cases.push(0)
-                    })
+                    }, value)
                 }
                 className="btn btn-outline-success">
                 Add Case

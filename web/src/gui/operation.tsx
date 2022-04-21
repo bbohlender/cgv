@@ -31,7 +31,7 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
                             onClick={() =>
                                 store.getState().replace<"operation">((draft) => {
                                     draft.children.splice(i, 1)
-                                })
+                                }, value)
                             }
                             className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                             <DeleteIcon />
@@ -44,7 +44,7 @@ function GeneralGUIOperation({ value }: { value: AbstractParsedOperation<Hierarc
                 onClick={() =>
                     store.getState().replace<"operation">((draft) => {
                         draft.children.push({ type: "this" })
-                    })
+                    }, value)
                 }>
                 Add Parameter
             </div>

@@ -12,7 +12,7 @@ export function GUIRawStep({ value }: { value: AbstractParsedRaw<HierarchicalInf
             onBlur={(e) =>
                 store.getState().replace<"raw">((draft) => {
                     draft.value = stringToConstant(e.target.value)
-                })
+                }, value)
             }
         />
     )

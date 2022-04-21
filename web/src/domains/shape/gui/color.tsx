@@ -15,7 +15,7 @@ export function GUIColorStep({ value }: { value: AbstractParsedOperation<Hierarc
                         type: "raw",
                         value: e.target.value,
                     }
-                })
+                }, value)
             }
         />
     )

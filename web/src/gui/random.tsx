@@ -16,7 +16,7 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                         onBlur={(e) =>
                             store.getState().replace<"random">((draft) => {
                                 draft.probabilities[i] = toProbability(e.target.value)
-                            })
+                            }, value)
                         }
                     />
                     <div
@@ -29,7 +29,7 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                             store.getState().replace<"random">((draft) => {
                                 draft.children.splice(i, 1)
                                 draft.probabilities.splice(i, 1)
-                            })
+                            }, value)
                         }
                         className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                         <DeleteIcon />
@@ -41,7 +41,7 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                     store.getState().replace<"random">((draft) => {
                         draft.children.push({ type: "this" })
                         draft.probabilities.push(0)
-                    })
+                    }, value)
                 }
                 className="btn btn-outline-success">
                 Add

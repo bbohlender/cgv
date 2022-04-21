@@ -1,4 +1,4 @@
-import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
+import { AbstractParsedOperation, HierarchicalInfo, assureType } from "cgv"
 import { useBaseStore } from "../../../global"
 import { DeleteIcon } from "../../../icons/delete"
 import { GUIVector2 } from "./vector"
@@ -13,15 +13,15 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                         <GUIVector2<"operation">
                             className="d-flex flex-row"
                             defaultValue={0}
-                            getSubstep={(draft) => draft.children[i]}
-                            value={child}
+                            getSubstep={(draft) => assureType("operation", draft.children[i])}
+                            value={value}
                         />
                     )}
                     <div
                         onClick={() =>
                             store.getState().replace<"operation">((draft) => {
                                 draft.children.splice(i, 1)
-                            })
+                            }, value)
                         }
                         className="ms-2 d-flex align-items-center btn-sm btn btn-outline-danger">
                         <DeleteIcon />
@@ -40,7 +40,7 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                                 { type: "raw", value: 0 },
                             ],
                         })
-                    })
+                    }, value)
                 }>
                 Add Point
             </div>

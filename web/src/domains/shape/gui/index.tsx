@@ -1,3 +1,4 @@
+import { AbstractParsedSteps } from "cgv"
 import { OperationGUIMap } from "../../../gui"
 import { GUIColorStep } from "./color"
 import { GUIExtrudeStep } from "./extrude"

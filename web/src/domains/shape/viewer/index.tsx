@@ -220,15 +220,7 @@ function Result() {
     return (
         <group
             ref={groupRef}
-            onPointerLeave={(e) => {
-                const steps = e.object.userData.annotation
-                const index = e.object.userData.index
-                if (steps == null || index == null) {
-                    return
-                }
-                store.getState().onEndHover(steps, index)
-            }}
-            onPointerEnter={(e) => {
+            onPointerMove={(e) => {
                 if (e.intersections.length === 0) {
                     return
                 }
@@ -239,6 +231,15 @@ function Result() {
                     return
                 }
                 store.getState().onStartHover(steps, index)
+            }}
+            onPointerOut={(e) => {
+                const object = e.object
+                const steps = object.userData.annotation
+                const index = object.userData.index
+                if (steps == null || index == null) {
+                    return
+                }
+                store.getState().onEndHover(steps, index)
             }}
             onClick={(e) => {
                 const state = store.getState()
@@ -254,7 +255,7 @@ function Result() {
                 if (steps == null || index == null) {
                     return
                 }
-                store.getState().select(steps, index)
+                store.getState().selectResult(steps, index)
             }}
         />
     )

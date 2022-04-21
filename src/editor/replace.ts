@@ -5,6 +5,31 @@ import { translateSelectionsForStep } from "./pattern"
 import { getAtPath, HierarchicalInfo, HierarchicalParsedSteps, setAtPath, TranslatedPath, translatePath } from "../util"
 import { IndicesMap, SelectionsList } from "./selection"
 
+export function replaceSubset(
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
+    isInSubset: (selections: SelectionsList[number]) => boolean,
+    replaceWith: (
+        draft: Draft<ParsedSteps>,
+        path: HierarchicalPath,
+        translatedPath: TranslatedPath<HierarchicalInfo>
+    ) => Draft<ParsedSteps> | void,
+    grammar: HierarchicalParsedGrammarDefinition
+) {
+    const unchangedSelectionsList: SelectionsList = []
+    const subsetSelectionsList: SelectionsList = []
+    for (const selections of selectionsList) {
+        ;(isInSubset(selections) ? subsetSelectionsList : unchangedSelectionsList).push(selections)
+    }
+    const { selectionsList: changedSelectionsList, ...state } = replace(
+        indicesMap,
+        subsetSelectionsList,
+        replaceWith,
+        grammar
+    )
+    return { ...state, selectionsList: unchangedSelectionsList.concat(changedSelectionsList) }
+}
+
 export function replace(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
@@ -48,6 +73,6 @@ export function replace(
     return {
         ...partial,
         indicesMap: {},
-        hovered: undefined
+        hovered: undefined,
     }
 }

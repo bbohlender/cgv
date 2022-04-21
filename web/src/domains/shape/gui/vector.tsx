@@ -1,4 +1,4 @@
-import { AbstractParsedOperation, HierarchicalInfo, ParsedSteps } from "cgv"
+import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps } from "cgv"
 import { Draft } from "immer"
 import { useBaseStore } from "../../../global"
 import { BlurInput } from "../../../gui/blur-input"
@@ -11,12 +11,13 @@ export function GUIVector3<Type extends ParsedSteps["type"]>({
 }: {
     defaultValue: number
     className: string
-    getSubstep: (draft: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps>
-    value: AbstractParsedOperation<HierarchicalInfo>
+    getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
+    value: ParsedSteps & { type: Type }
 }) {
-    const x = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const y = value.children[1].type === "raw" ? value.children[1].value : undefined
-    const z = value.children[2].type === "raw" ? value.children[2].value : undefined
+    const substepValue = getSubstep(value)
+    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
+    const y = substepValue.children[1].type === "raw" ? substepValue.children[1].value : undefined
+    const z = substepValue.children[2].type === "raw" ? substepValue.children[2].value : undefined
     const store = useBaseStore()
 
     const update = (index: number, number: number) =>
@@ -29,7 +30,7 @@ export function GUIVector3<Type extends ParsedSteps["type"]>({
                 type: "raw",
                 value: number,
             }
-        })
+        }, value)
     return (
         <div className={className}>
             <BlurInput
@@ -62,11 +63,12 @@ export function GUIVector2<Type extends ParsedSteps["type"]>({
 }: {
     defaultValue: number
     className: string
-    getSubstep: (draft: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps>
-    value: AbstractParsedOperation<HierarchicalInfo>
+    getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
+    value: ParsedSteps & { type: Type }
 }) {
-    const x = value.children[0].type === "raw" ? value.children[0].value : undefined
-    const z = value.children[1].type === "raw" ? value.children[1].value : undefined
+    const substepValue = getSubstep(value)
+    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
+    const z = substepValue.children[1].type === "raw" ? substepValue.children[1].value : undefined
     const store = useBaseStore()
 
     const update = (index: number, number: number) =>
@@ -79,7 +81,7 @@ export function GUIVector2<Type extends ParsedSteps["type"]>({
                 type: "raw",
                 value: number,
             }
-        })
+        }, value)
     return (
         <div className={className}>
             <BlurInput

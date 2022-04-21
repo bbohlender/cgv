@@ -13,7 +13,7 @@ export function GUISizeStep({ value }: { value: AbstractParsedOperation<Hierarch
                         type: "raw",
                         value: e.currentTarget.value,
                     }
-                })
+                }, value)
             }
             value={selection ?? "x"}
             className="form-select mx-3 mb-3 w-auto form-select-sm"
