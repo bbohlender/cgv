@@ -516,7 +516,7 @@ function interpreteParallel<T, A, I>(
         return merge(
             ...step.children.map((childStep, i) =>
                 shared.pipe(
-                    map((value) => ({ ...value, index: [i, ...value.index] })),
+                    map((value) => ({ ...value, index: [...value.index, i] })),
                     interpreteStep(childStep, context, next)
                 )
             )
@@ -597,34 +597,30 @@ function operatorsToArray<T, A>(
             ...functions.map((func, i) =>
                 shared.pipe(
                     func,
-                    map((value) => ({ ...value, index: [i, ...value.index] }))
+                    map((value) => ({ ...value, index: [...value.index, i] }))
                 )
             )
         ).pipe(
-            groupBy((value) => value.index.slice(1).join(",")),
+            groupBy((value) => value.index.slice(0, -1).join(",")),
             mergeMap((value) =>
                 value.pipe(
                     toArray(),
                     filter((value) => value.length === operatorFunctions.length + 1),
-                    outputsToValue()
+                    map((results) => {
+                        const [input, ...outputs] = results
+                        return {
+                            variables: input.variables,
+                            index: input.index.slice(0, -1),
+                            invalid: combineInvalids(...results.map(({ invalid }) => invalid)),
+                            raw: outputs.map(({ raw }) => raw),
+                            symbolDepth: input.symbolDepth,
+                            annotation: input.annotation,
+                        }
+                    })
                 )
             )
         )
     }
-}
-
-function outputsToValue<T, A>(): OperatorFunction<ReadonlyArray<Value<T, A>>, Value<ReadonlyArray<T>, A>> {
-    return map((results) => {
-        const [input, ...outputs] = results
-        return {
-            variables: input.variables,
-            index: input.index.slice(1),
-            invalid: combineInvalids(...results.map(({ invalid }) => invalid)),
-            raw: outputs.map(({ raw }) => raw),
-            symbolDepth: input.symbolDepth,
-            annotation: input.annotation,
-        }
-    })
 }
 
 export function toArray<T, A>(): OperatorFunction<Value<T, A>, ReadonlyArray<Value<T, A>>> {

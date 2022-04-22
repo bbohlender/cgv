@@ -18,6 +18,7 @@ import {
     replaceSubset,
     shallowEqual,
     editSelectionRelated,
+    FullIndex,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -123,7 +124,7 @@ function createBaseStateFunctions(
                 return
             }
         },
-        onStartHover: (steps: HierarchicalParsedSteps, index?: string) => {
+        onStartHover: (steps: HierarchicalParsedSteps, index?: FullIndex) => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -139,7 +140,7 @@ function createBaseStateFunctions(
                 },
             })
         },
-        onEndHover: (steps: HierarchicalParsedSteps | string, index?: string) => {
+        onEndHover: (steps: HierarchicalParsedSteps | string, index?: FullIndex) => {
             const state = get()
             if (state.type != "gui" || state.hovered?.steps != steps) {
                 return
@@ -152,7 +153,7 @@ function createBaseStateFunctions(
         editIndices: (
             indices: Array<{
                 steps: HierarchicalParsedSteps
-                index: string
+                index: FullIndex
             }>,
             add: boolean
         ) => {
@@ -162,7 +163,7 @@ function createBaseStateFunctions(
             }
             set(editIndices(state.indicesMap, state.selectionsList, state.hovered, indices, add))
         },
-        select: (steps: HierarchicalParsedSteps, index?: string, type?: "replace" | "add" | "remove" | "toggle") => {
+        select: (steps: HierarchicalParsedSteps, index?: FullIndex, type?: "replace" | "add" | "remove" | "toggle") => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -177,7 +178,7 @@ function createBaseStateFunctions(
                 ),
             })
         },
-        selectResult: (steps: HierarchicalParsedSteps, index: string) => {
+        selectResult: (clickedSteps: HierarchicalParsedSteps, clickedIndex: FullIndex) => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -185,10 +186,14 @@ function createBaseStateFunctions(
             const predecessorSelectionsList = state.selectionsList
                 .map((selections) => ({
                     ...selections,
-                    indices: selections.indices.filter((selectedIndex) => index.startsWith(selectedIndex)),
+                    indices: selections.indices.filter(
+                        (selectedIndex) =>
+                            clickedIndex.before.startsWith(selectedIndex.before) &&
+                            clickedIndex.after.startsWith(selectedIndex.after)
+                    ),
                 }))
                 .filter((selections) => selections.indices.length > 0)
-            console.log(predecessorSelectionsList)
+
             if (!state.shift && predecessorSelectionsList.length > 0) {
                 //no multi-select and already selected
                 set({
@@ -196,6 +201,9 @@ function createBaseStateFunctions(
                         state.indicesMap,
                         state.selectionsList,
                         predecessorSelectionsList,
+                        (potentialIndex) =>
+                            clickedIndex.before.startsWith(potentialIndex.before) &&
+                            clickedIndex.after.startsWith(potentialIndex.after),
                         state.grammar,
                         "predecessor",
                         "replace"
@@ -203,22 +211,23 @@ function createBaseStateFunctions(
                 })
                 return
             }
+
             set({
                 selectionsList: editSelection(
                     state.indicesMap,
                     state.selectionsList,
                     state.shift && predecessorSelectionsList.length > 0
                         ? predecessorSelectionsList
-                        : [{ steps, indices: [index] }],
+                        : [{ steps: clickedSteps, indices: [clickedIndex] }],
                     state.shift ? (predecessorSelectionsList.length > 0 ? "remove" : "add") : "replace"
                 ),
             })
         },
         selectRelated: (
             relatedSteps: HierarchicalParsedSteps,
-            relatedIndices: Array<string>,
+            relatedIndices: Array<FullIndex>,
             currentSteps: HierarchicalParsedSteps,
-            currentIndices: Array<string>
+            currentIndices: Array<FullIndex>
         ) => {
             const state = get()
             if (state.type != "gui") {

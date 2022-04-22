@@ -19,7 +19,11 @@ export function replaceSubset(
     const unchangedSelectionsList: SelectionsList = []
     const subsetSelectionsList: SelectionsList = []
     for (const selections of selectionsList) {
-        ;(isInSubset(selections) ? subsetSelectionsList : unchangedSelectionsList).push(selections)
+        if (isInSubset(selections)) {
+            subsetSelectionsList.push({ ...selections, fill: true })
+        } else {
+            unchangedSelectionsList.push({ ...selections, fill: false })
+        }
     }
     const { selectionsList: changedSelectionsList, ...state } = replace(
         indicesMap,
@@ -57,7 +61,7 @@ export function replace(
 
                 const newSteps = replaceWith(currentSteps, steps.path, translatedPath) ?? currentSteps
                 const oldSteps = original(currentSteps)!
-                const translatedSteps = translateSelectionsForStep(all, indices, newSteps, oldSteps)
+                const translatedSteps = translateSelectionsForStep(all, indices, "before", newSteps, oldSteps)
 
                 setAtPath(steps.path, translatedPath, steps.path.length - 1, translatedSteps)
 
@@ -66,6 +70,7 @@ export function replace(
                 newSelections.push({
                     steps: resultSteps,
                     indices: [],
+                    fill: true,
                 })
             }
         }

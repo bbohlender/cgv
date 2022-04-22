@@ -11,6 +11,7 @@ import {
     shallowEqual,
     ParsedSteps,
     debounceBufferTime,
+    FullIndex,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
 import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef } from "react"
@@ -122,11 +123,10 @@ function ShowError() {
 function useInterpretation(ref: RefObject<ReactNode & Group>) {
     const store = useBaseStore()
     useEffect(() => {
-        //TODO: optimize / rewrite
-        //TODO: disable delete step and replace when beforeIndex != afterIndex
         let subscription: Subscription | undefined
 
-        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; index: string }>()
+        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; index: FullIndex }>()
+        const beforeIndicesMap = new Map<ParsedSteps, Array<string>>()
 
         let unsubscribeAfterStep: Subscription | undefined
 
@@ -145,6 +145,8 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
                 unsubscribeAfterStep?.unsubscribe()
                 unsubscribeAfterStep = undefined
 
+                beforeIndicesMap.clear()
+
                 if (grammar == null) {
                     return
                 }
@@ -159,17 +161,30 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
                                 delay: store.getState().interpretationDelay,
                                 //TODO: we need a possibility to know when a value is removed
                                 annotateAfterStep: (value, steps) => {
-                                    const index = value.index.join(",")
-                                    afterStepSubject.next({
-                                        steps,
-                                        index,
-                                    })
+                                    const afterIndex = value.index.join(",")
+
+                                    const beforeIndices = beforeIndicesMap.get(steps)
+                                    const beforeIndex = beforeIndices?.find((beforeIndex) =>
+                                        afterIndex.startsWith(beforeIndex)
+                                    )
+                                    if (beforeIndex != null) {
+                                        afterStepSubject.next({
+                                            steps,
+                                            index: { after: afterIndex, before: beforeIndex },
+                                        })
+                                    }
                                     if (value.raw instanceof Primitive) {
-                                        useViewerState.getState().addPrimitive(index, value.raw)
+                                        useViewerState.getState().addPrimitive(afterIndex, value.raw)
                                     }
                                     return getAnnotationAfterStep(value, steps)
                                 },
                                 annotateBeforeStep: (value, steps) => {
+                                    let beforeIndices = beforeIndicesMap.get(steps)
+                                    if (beforeIndices == null) {
+                                        beforeIndices = []
+                                        beforeIndicesMap.set(steps, beforeIndices)
+                                    }
+                                    beforeIndices.push(value.index.join(","))
                                     return getAnnotationBeforeStep(value, steps)
                                 },
                             })
@@ -177,11 +192,23 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
                         ref.current,
                         (value) => {
                             const child = value.raw.getObject()
-                            const index = value.index.join(",")
-                            child.traverse((o) => {
-                                o.userData.annotation = value.annotation
-                                o.userData.index = index
-                            })
+                            if (value.annotation != null) {
+                                const afterIndex = value.index.join(",")
+                                const beforeIndices = beforeIndicesMap.get(value.annotation)
+                                const beforeIndex = beforeIndices?.find((beforeIndex) =>
+                                    afterIndex.startsWith(beforeIndex)
+                                )
+                                if (beforeIndex != null) {
+                                    const index: FullIndex = {
+                                        after: afterIndex,
+                                        before: beforeIndex,
+                                    }
+                                    child.traverse((o) => {
+                                        o.userData.steps = value.annotation
+                                        o.userData.index = index
+                                    })
+                                }
+                            }
                             return child
                         },
                         (error) => {
@@ -221,11 +248,12 @@ function Result() {
         <group
             ref={groupRef}
             onPointerMove={(e) => {
+                e.stopPropagation()
                 if (e.intersections.length === 0) {
                     return
                 }
                 const object = e.intersections[0].object
-                const steps = object.userData.annotation
+                const steps = object.userData.steps
                 const index = object.userData.index
                 if (steps == null || index == null) {
                     return
@@ -233,8 +261,9 @@ function Result() {
                 store.getState().onStartHover(steps, index)
             }}
             onPointerOut={(e) => {
+                e.stopPropagation()
                 const object = e.object
-                const steps = object.userData.annotation
+                const steps = object.userData.steps
                 const index = object.userData.index
                 if (steps == null || index == null) {
                     return
@@ -242,6 +271,7 @@ function Result() {
                 store.getState().onEndHover(steps, index)
             }}
             onClick={(e) => {
+                e.stopPropagation()
                 const state = store.getState()
                 if (state.type != "gui") {
                     return
@@ -250,7 +280,7 @@ function Result() {
                     return
                 }
                 const object = e.intersections[0].object
-                const steps = object.userData.annotation
+                const steps = object.userData.steps
                 const index = object.userData.index
                 if (steps == null || index == null) {
                     return
@@ -284,8 +314,8 @@ function SelectedPrimitives() {
     const store = useBaseStore()
     const [primitives, setPrimitives] = useState<Array<Primitive>>([])
     useEffect(() => {
-        let selections: Array<string> | undefined
-        let hovered: Array<string> | undefined = undefined
+        let selections: Array<FullIndex> | undefined
+        let hovered: Array<FullIndex> | undefined = undefined
         let primitiveMap: PrimitiveMap | undefined
         const updatePrimitives = () => {
             if (selections == null || primitiveMap == null) {
@@ -297,7 +327,7 @@ function SelectedPrimitives() {
         const unsubscribeSelectionsList = store.subscribe(
             (state) => (state.type === "gui" ? state.selectionsList : undefined),
             (list) => {
-                selections = list?.reduce<Array<string>>((prev, selections) => prev.concat(selections.indices), [])
+                selections = list?.reduce<Array<FullIndex>>((prev, selections) => prev.concat(selections.indices), [])
                 updatePrimitives()
             },
             { fireImmediately: true }
@@ -382,8 +412,8 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
 }
 
 function getHighlightedPrimitives(
-    hovered: Array<string> | undefined,
-    selections: Array<string> | undefined,
+    hovered: Array<FullIndex> | undefined,
+    selections: Array<FullIndex> | undefined,
     primitiveMap: PrimitiveMap | undefined
 ): Array<Primitive> {
     if (selections == null || primitiveMap == null) {
@@ -391,5 +421,5 @@ function getHighlightedPrimitives(
     }
     const highlightIndicies = hovered == null ? selections : Array.from(new Set(selections.concat(hovered)))
     const map = primitiveMap
-    return highlightIndicies.map((index) => map[index]).filter((value) => value != null)
+    return highlightIndicies.map((index) => map[index.after]).filter((value) => value != null)
 }

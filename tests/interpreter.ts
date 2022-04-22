@@ -301,22 +301,16 @@ describe("interprete grammar", () => {
 
         expect(results.length).to.be.greaterThan(10)
 
-        expect(() => {
-            let resultsIndex = 0
-            for (let i = 0; i < expected.length; i++) {
-                if (shallowEqual(expected[i], results[resultsIndex])) {
-                    ++resultsIndex
-                }
+
+        let resultsIndex = 0
+        for (let i = 0; i < expected.length; i++) {
+            if (shallowEqual(expected[i], results[resultsIndex])) {
+                ++resultsIndex
             }
-            const unmatchedResult = results[resultsIndex]
-            if (unmatchedResult != null) {
-                throw new Error(
-                    `unexpected result ${JSON.stringify(unmatchedResult)} at result index ${resultsIndex} of ${
-                        results.length
-                    } results `
-                )
-            }
-        }).to.not.throw()
+        }
+        const unmatchedResult = results[resultsIndex]
+
+        expect(unmatchedResult).to.be.undefined
     }).timeout(10000)
 
     it("should interprete complex grammar with delays", async () => {

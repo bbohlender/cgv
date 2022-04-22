@@ -168,7 +168,7 @@ Start -> face(
 	point2(60,60)
 ) -> Lot
 
-Lot -> color("#333343") -> extrude(60) -> toFaces() -> (select(0, 4) -> Wall | select(4, 5) -> Roof)
+Lot -> color("#333343") -> extrude(60) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
 
 Wall -> split("z", 20) -> Floor
 

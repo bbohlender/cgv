@@ -36,7 +36,13 @@ export function insert(
 
                 const newSteps = stepGenerator(steps.path)
                 const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
-                const translatedSteps = translateSelectionsForStep(all, indices, newSteps, oldSteps)
+                const translatedSteps = translateSelectionsForStep(
+                    all,
+                    indices,
+                    position === "parallel" ? "before" : position,
+                    newSteps,
+                    oldSteps
+                )
 
                 const current = getAtPath(translatedPath, steps.path.length - 1)
                 setAtPath(steps.path, translatedPath, steps.path.length - 1, {
@@ -49,6 +55,7 @@ export function insert(
                 newSelections.push({
                     steps: resultSteps,
                     indices: [],
+                    fill: true
                 })
             }
         }
@@ -56,6 +63,6 @@ export function insert(
     return {
         ...partial,
         indicesMap: {},
-        hovered: undefined
+        hovered: undefined,
     }
 }

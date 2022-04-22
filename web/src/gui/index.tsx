@@ -1,5 +1,6 @@
 import {
     AbstractParsedOperation,
+    FullIndex,
     HierarchicalInfo,
     HierarchicalParsedSteps,
     SelectionsList,
@@ -103,7 +104,7 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
                 {selections.steps.type === "operation" ? selections.steps.identifier : selections.steps.type}
             </label>
             {all != null && (
-                <MultiSelect<string>
+                <MultiSelect<FullIndex>
                     selectAll={() => store.getState().select(selections.steps, undefined, "add")}
                     unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
                     className="mb-3 mx-3"
@@ -121,9 +122,9 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
 
 function getValues(
     selection: SelectionsList[number],
-    all: Array<string>
-): Array<[label: string, selected: boolean, value: string]> {
-    return all.map((index) => [index, selection.indices.includes(index), index])
+    all: Array<FullIndex>
+): Array<[label: string, selected: boolean, value: FullIndex]> {
+    return all.map((index) => [`${index.before}/${index.after}`, selection.indices.includes(index), index])
 }
 
 function GUISteps({ value }: { value: HierarchicalParsedSteps | string }): JSX.Element | null {
@@ -155,9 +156,7 @@ function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
         <div className="d-flex flex-column mx-3 mb-3">
             {value.children.map((child, i) => (
                 <div key={i} className="d-flex flex-row align-items-center border-bottom">
-                    <div
-                        className="flex-grow-1 p-3 pointer"
-                        onClick={(e) => store.getState().select(child)}>
+                    <div className="flex-grow-1 p-3 pointer" onClick={(e) => store.getState().select(child)}>
                         {serializeStepString(child)}
                     </div>
                 </div>

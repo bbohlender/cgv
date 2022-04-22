@@ -1,17 +1,10 @@
 import produce from "immer"
-import { ParsedSteps } from "../parser"
-import {
-    filterNull,
-    getAtPath,
-    HierarchicalParsedGrammarDefinition,
-    HierarchicalParsedSteps,
-    HierarchicalPath,
-    translatePath,
-} from "../util"
+import { getAtPath, HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, translatePath } from "../util"
 import { findSymbolsWithIdentifier } from "./noun"
 
-export type IndicesMap = { [Path in string]?: Array<string> }
-export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Array<string> }>
+export type IndicesMap = { [Path in string]?: Array<FullIndex> }
+export type FullIndex = { after: string; before: string }
+export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Array<FullIndex>; fill: boolean }>
 
 export type SelectionState = {
     indicesMap: IndicesMap
@@ -19,45 +12,11 @@ export type SelectionState = {
     hovered: SelectionsList[number] | undefined
 }
 
-const removeLastIndexRegex = /^(.+),\d+$/
-
-function indexIsPredecessorOrEqual(from: string, to: string) {
-    return indexIsSucccessorOrEqual(to, from)
-}
-
-function indexIsSucccessorOrEqual(from: string, to: string) {
-    if (from === to) {
-        return true
-    }
-    if (from.length === 0) {
-        //"0" is successor of ""
-        return !to.includes(",")
-    }
-    const match = removeLastIndexRegex.exec(to)
-    if (match == null) {
-        return false
-    }
-    return match[1] === from
-}
-
-export function getParent(
-    steps: HierarchicalParsedSteps,
-    grammar: HierarchicalParsedGrammarDefinition
-): HierarchicalParsedSteps | undefined {
-    if (steps.path.length <= 1) {
-        return undefined
-    }
-    const translatedPath = translatePath(grammar, steps.path)
-    if (translatedPath == null) {
-        throw new Error(`invalid path "${steps.path.join(",")}"`)
-    }
-    return getAtPath(translatedPath, steps.path.length - 2)
-}
-
 export function editSelectionRelated(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
     targetSelectionsList: SelectionsList,
+    filter: (index: FullIndex) => boolean,
     grammar: HierarchicalParsedGrammarDefinition,
     relation: "predecessor" | "successor",
     type: "replace" | "add"
@@ -67,8 +26,12 @@ export function editSelectionRelated(
             if (type === "replace") {
                 editSelectionOnDraft(indicesMap, selectionsDraft, steps, indices, "remove")
             }
-            const parent = getParent(steps, grammar)
-            const related = getRelatedSelections(indicesMap, steps, parent, indices, grammar, relation)
+            const parents = getIndirectParentsSteps(steps, grammar)
+            const related =
+                relation === "predecessor"
+                    ? getPredecessorSelections(indicesMap, parents, steps, indices, filter)
+                    : getSuccessorSelections(indicesMap, parents, steps, indices, grammar, filter)
+
             for (const { steps, indices } of related) {
                 editSelectionOnDraft(indicesMap, selectionsDraft, steps, indices, "add")
             }
@@ -76,94 +39,144 @@ export function editSelectionRelated(
     })
 }
 
-/**
- * @returns undefined or an array possible related steps (undefined means all steps are possibly related)
- */
-function getRelatedSteps(
-    steps: HierarchicalParsedSteps,
-    parent: HierarchicalParsedSteps | undefined,
-    grammar: HierarchicalParsedGrammarDefinition,
-    relation: "predecessor" | "successor"
-): Array<HierarchicalParsedSteps> {
-    const lastPathEntry = steps.path[steps.path.length - 1]
-
-    //forward/backward
-    const nextEntry = (lastPathEntry as number) + (relation === "successor" ? 1 : -1)
-    if (parent?.type === "sequential" && 0 <= nextEntry && nextEntry < parent.children.length) {
-        return [parent.children[nextEntry]]
-    }
-
-    const result: Array<HierarchicalParsedSteps> = []
-
-    //up
-    if (parent == null) {
-        for (const root of Object.values(grammar)) {
-            findSymbolsWithIdentifier(root, lastPathEntry as string, (steps) => result.push(steps))
-        }
-    } else {
-        result.push(parent)
-    }
-
-    //down
-    if (relation === "successor") {
-        if (steps.type === "symbol") {
-            result.push(grammar[steps.identifier])
-        } else if (steps.type === "sequential") {
-            result.push(steps.children[0])
-        } else if (steps.children != null) {
-            result.push(...steps.children)
-        }
-    }
-
-    return result
-}
-
-//TODO: consider beforeIndex and afterIndex
-export function getRelatedSelections(
+function getPositionedSelections(
     indicesMap: IndicesMap,
-    steps: HierarchicalParsedSteps,
-    parent: HierarchicalParsedSteps | undefined,
-    indices: Array<string>,
-    grammar: HierarchicalParsedGrammarDefinition,
-    relation: "predecessor" | "successor"
+    relatedStepsList: Array<HierarchicalParsedSteps>,
+    indices: Array<FullIndex>,
+    indexIsRelated: (current: FullIndex, next: FullIndex) => boolean,
+    filter: (index: FullIndex) => boolean
 ): SelectionsList {
-    const relatedSteps = getRelatedSteps(steps, parent, grammar, relation)
-    const indicesAreRelated = relation === "predecessor" ? indexIsPredecessorOrEqual : indexIsSucccessorOrEqual
-    const relatedStepsPaths = relatedSteps.map((steps) => steps.path.join(","))
-    const relatedIndicesMap = Object.entries(indicesMap)
-        .filter(([path]) => relatedStepsPaths.includes(path))
-        .map<[string, Array<string> | undefined]>(([path, indicesFromMap]) => [
-            path,
-            indicesFromMap?.filter(
-                (indexFromMap) => indices.find((index) => indicesAreRelated(index, indexFromMap)) != null
-            ),
-        ])
-        .filter(filterNullAndEmpty)
-    return relatedIndicesMap
-        .map(([joinedPath, indices]) => {
-            const splittedPath = joinedPath.split(",")
-            const path: HierarchicalPath = [splittedPath[0], ...splittedPath.slice(1).map((value) => parseInt(value))]
-            const translatedPath = translatePath(grammar, path)
-            if (translatedPath == null) {
+    return relatedStepsList
+        .map((relatedSteps) => {
+            const path = relatedSteps.path.join(",")
+            const existingIndices = indicesMap[path]
+            if (existingIndices == null) {
                 return undefined
             }
-            return {
-                steps: getAtPath(translatedPath, path.length - 1),
-                indices,
-            }
+            const forwardIndices = existingIndices.filter(
+                (existingIndex) =>
+                    indices.find((index) => indexIsRelated(index, existingIndex) && filter(existingIndex)) != null
+            )
+            return { steps: relatedSteps, indices: forwardIndices, fill: true }
         })
-        .filter(filterNull)
+        .filter(filterNullAndEmpty)
 }
 
-function filterNullAndEmpty(value: [string, Array<string> | undefined]): value is [string, Array<string>] {
-    return value[1] != null && value[1].length > 0
+function filterNullAndEmpty<T extends { indices: Array<any> }>(value: T | undefined): value is T {
+    return value != null && value.indices.length > 0
+}
+
+export function getPredecessorSelections(
+    indicesMap: IndicesMap,
+    parents: Array<HierarchicalParsedSteps>,
+    steps: HierarchicalParsedSteps,
+    indices: Array<FullIndex>,
+    filter: (index: FullIndex) => boolean
+): SelectionsList {
+    return getRelatedSelections(
+        indicesMap,
+        parents,
+        steps,
+        [],
+        indices,
+        -1,
+        (current, next) => current.before === next.after,
+        undefined,
+        (current, next) => current.before.startsWith(next.before),
+        filter
+    )
+}
+
+export function getSuccessorSelections(
+    indicesMap: IndicesMap,
+    parents: Array<HierarchicalParsedSteps>,
+    steps: HierarchicalParsedSteps,
+    indices: Array<FullIndex>,
+    grammar: HierarchicalParsedGrammarDefinition,
+    filter: (index: FullIndex) => boolean
+): SelectionsList {
+    const childrens =
+        steps.type === "symbol"
+            ? [grammar[steps.identifier]]
+            : steps.type === "sequential"
+            ? [steps.children[0]]
+            : steps.children ?? []
+
+    return getRelatedSelections(
+        indicesMap,
+        parents,
+        steps,
+        childrens,
+        indices,
+        1,
+        (current, next) => current.after === next.before,
+        (current, next) => next.before.startsWith(next.before),
+        (current, next) => current.after === next.after,
+        filter
+    )
+}
+
+export function getIndirectParentsSteps(
+    steps: HierarchicalParsedSteps,
+    grammar: HierarchicalParsedGrammarDefinition
+): Array<HierarchicalParsedSteps> {
+    if (steps.path.length > 1) {
+        const translatedPath = translatePath(grammar, steps.path)
+        if (translatedPath == null) {
+            return []
+        }
+        return [getAtPath(translatedPath, steps.path.length - 2)]
+    }
+
+    const parents: Array<HierarchicalParsedSteps> = []
+    for (const root of Object.values(grammar)) {
+        findSymbolsWithIdentifier(root, steps.path[0], (steps) => parents.push(steps))
+    }
+
+    return parents
+}
+
+function getRelatedSelections(
+    indicesMap: IndicesMap,
+    parents: Array<HierarchicalParsedSteps>,
+    steps: HierarchicalParsedSteps,
+    children: Array<HierarchicalParsedSteps>,
+    indices: Array<FullIndex>,
+    horizontalOffset: number,
+    isHorizontalIndex: (current: FullIndex, next: FullIndex) => boolean,
+    isDownwardIndex: ((current: FullIndex, next: FullIndex) => boolean) | undefined,
+    isUpwardIndex: ((current: FullIndex, next: FullIndex) => boolean) | undefined,
+    filter: (index: FullIndex) => boolean
+): SelectionsList {
+    const nextIndex = (steps.path[steps.path.length - 1] as number) + horizontalOffset
+    if (
+        steps.path.length > 1 &&
+        parents[0].type === "sequential" &&
+        0 <= nextIndex &&
+        nextIndex < parents[0].children.length
+    ) {
+        const horizontalSteps = parents[0].children[nextIndex]
+
+        const selections = getPositionedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
+        if (selections.length > 0) {
+            return selections
+        }
+    }
+    const result: SelectionsList = []
+    if (isUpwardIndex != null && parents.length > 0) {
+        result.push(...getPositionedSelections(indicesMap, parents, indices, isUpwardIndex, filter))
+    }
+    if (isDownwardIndex != null && children.length > 0) {
+        result.push(...getPositionedSelections(indicesMap, children, indices, isDownwardIndex, filter))
+    }
+    return result
 }
 
 function editSelectionOnDraft(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
     steps: HierarchicalParsedSteps,
-    indices: Array<string> | undefined,
+    indices: Array<FullIndex> | undefined,
     type: "toggle" | "add" | "remove"
 ): void {
     const path = steps.path.join(",")
@@ -178,6 +191,7 @@ function editSelectionOnDraft(
         selectionsList.push({
             steps,
             indices: indices == null ? all : indices,
+            fill: true,
         })
         return
     }
@@ -195,7 +209,7 @@ function editSelectionOnDraft(
     }
 
     for (const index of indices) {
-        const indexIndex = selections.indices.indexOf(index)
+        const indexIndex = selections.indices.findIndex((selectedIndex) => selectedIndex.after === index.after)
 
         if (indexIndex === -1 && (type === "toggle" || type === "add")) {
             selections.indices.push(index)
@@ -213,7 +227,7 @@ function editSelectionOnDraft(
 export function editSelection(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    targetSelectionsList: Array<{ steps: HierarchicalParsedSteps; indices: Array<string> | undefined }>,
+    targetSelectionsList: Array<{ steps: HierarchicalParsedSteps; indices: Array<FullIndex> | undefined }>,
     type: "replace" | "toggle" | "add" | "remove"
 ): SelectionsList {
     return produce(type === "replace" ? [] : selectionsList, (selectionsDraft) => {
@@ -229,7 +243,7 @@ export function editIndices(
     hovered: SelectionState["hovered"],
     indices: Array<{
         steps: HierarchicalParsedSteps
-        index: string
+        index: FullIndex
     }>,
     add: boolean
 ) {
@@ -247,17 +261,21 @@ export function editIndices(
                     return
                 }
 
-                const indexIndex = all.indexOf(index)
+                const indexIndex = all.findIndex((allIndex) => allIndex.after === index.after)
                 all.splice(indexIndex, 1)
                 if (selections != null) {
-                    const indexIndex = selections.indices.indexOf(index)
+                    const indexIndex = selections.indices.findIndex(
+                        (selectedIndex) => selectedIndex.after === index.after
+                    )
                     selections.indices.splice(indexIndex, 1)
                     if (selections.indices.length === 0) {
                         selectionsDraft.splice(selectionsIndex, 1)
                     }
                 }
                 if (hovered?.steps === steps && hoveredDraft != null) {
-                    const indexIndex = hoveredDraft.indices.indexOf(index)
+                    const indexIndex = hoveredDraft.indices.findIndex(
+                        (hoveredIndex) => hoveredIndex.after === index.after
+                    )
                     hoveredDraft.indices.splice(indexIndex, 1)
                     if (hoveredDraft.indices.length === 0) {
                         draft.hovered = undefined
@@ -270,12 +288,8 @@ export function editIndices(
                 indicesDraft[path] = all
             }
 
-            if (selections != null && all.length === selections.indices.length) {
+            if (selections != null && all.length === selections.indices.length && selections.fill) {
                 selections.indices.push(index)
-            }
-
-            if (hoveredDraft != null && all.length === hoveredDraft.indices.length) {
-                hoveredDraft.indices.push(index)
             }
 
             all.push(index)
