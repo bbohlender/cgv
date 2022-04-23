@@ -1,13 +1,19 @@
 import {
     AbstractParsedOperation,
     FullIndex,
+    getIndirectParentsSteps,
+    getPredecessorSelections,
+    getSuccessorSelections,
     HierarchicalInfo,
     HierarchicalParsedSteps,
     SelectionsList,
     serializeStepString,
 } from "cgv"
-import { HTMLProps } from "react"
-import { UseBaseStore, useBaseStore } from "../global"
+import { HTMLProps, useMemo } from "react"
+import { operationGuiMap } from "../domains/shape"
+import { useBaseGlobal, UseBaseStore, useBaseStore } from "../global"
+import { ArrowDownRight } from "../icons/arrow-down-right"
+import { ArrowLeftUp } from "../icons/arrow-left-up"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
 import { MultiSelect } from "./multi-select"
@@ -20,6 +26,10 @@ import { GUISymbolStep } from "./symbol"
 
 export type OperationGUIMap = {
     [name in string]?: (props: { value: AbstractParsedOperation<HierarchicalInfo> }) => JSX.Element | null
+}
+
+export function childrenSelectable(operationGuiMap: OperationGUIMap, steps: HierarchicalParsedSteps): boolean {
+    return steps.type !== "operation" || operationGuiMap[steps.identifier] == null
 }
 
 export function getSelectionTitle(selections: Array<SelectionsList[number] & { selected: Array<Array<number>> }>) {
@@ -47,7 +57,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
         return null
     }
     return (
-        <div {...rest} className={`${className} d-flex flex-column px-0 pt-2`}>
+        <div {...rest} className={`${className} d-flex flex-column px-0 pt-3`}>
             <div className="d-flex flex-column">
                 <div className="btn-group mx-3 mb-2 d-flex">
                     <button
@@ -86,7 +96,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                     </button>
                 </div>
                 {selectionsList.map((selections) => (
-                    <GUISelection selections={selections} />
+                    <GUISelection key={selections.steps.path.join(",")} selections={selections} />
                 ))}
             </div>
         </div>
@@ -96,38 +106,109 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
 function GUISelection({ selections }: { selections: SelectionsList[number] }) {
     const store = useBaseStore()
     const path = selections.steps.path.join(",")
-    const all = store((state) => (state.type === "gui" ? state.indicesMap[path] : undefined))
+    const indicesMap = store((state) => (state.type === "gui" ? state.indicesMap : undefined))
+    const grammar = store((state) => (state.type === "gui" ? state.grammar : undefined))
+    const all = useMemo(() => (indicesMap != null ? indicesMap[path] : undefined), [indicesMap])
+    const { operationGuiMap } = useBaseGlobal()
+    const parents = useMemo(
+        () => (grammar != null ? getIndirectParentsSteps(selections.steps, grammar) : undefined),
+        [grammar, selections]
+    )
+    const predecessors = useMemo(
+        () =>
+            indicesMap != null && parents != null
+                ? getPredecessorSelections(indicesMap, parents, selections.steps, selections.indices, undefined)
+                : undefined,
+        [selections, indicesMap, parents]
+    )
+    const successors = useMemo(
+        () =>
+            indicesMap != null && parents != null && grammar != null
+                ? getSuccessorSelections(
+                      indicesMap,
+                      parents,
+                      selections.steps,
+                      selections.indices,
+                      grammar,
+                      undefined,
+                      childrenSelectable(operationGuiMap, selections.steps)
+                  )
+                : undefined,
+        [selections, indicesMap, grammar, operationGuiMap]
+    )
 
     return (
         <div className="d-flex flex-column">
-            <label className="mb-3 mx-3">
-                {selections.steps.type === "operation" ? selections.steps.identifier : selections.steps.type}
-            </label>
+            <label className="mb-3 mx-3">{getSelectionsLabel(selections)}</label>
+            {predecessors != null && predecessors.length > 0 && (
+                <div className="mb-3 mx-3 btn-group-vertical">
+                    {predecessors.map((predecessor) => (
+                        <div
+                            onClick={() => store.getState().selectRelated(selections, predecessor)}
+                            onMouseEnter={() => store.getState().onStartHover(predecessor.steps, predecessor.indices)}
+                            onMouseLeave={() => store.getState().onEndHover(predecessor.steps)}
+                            className="d-flex flex-row align-items-center btn-sm btn btn-outline-secondary"
+                            key={predecessor.steps.path.join(",")}>
+                            <ArrowLeftUp />
+                            <span className="ms-2">{getSelectionsLabel(predecessor)}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
             {all != null && (
                 <MultiSelect<FullIndex>
                     selectAll={() => store.getState().select(selections.steps, undefined, "add")}
                     unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
                     className="mb-3 mx-3"
-                    label={`${selections.indices.length} selected`}
+                    label={`${selections.indices.length}/${all.length} selected`}
                     onChange={(index, selected) => {
                         store.getState().select(selections.steps, index, selected ? "add" : "remove")
                     }}
                     values={getValues(selections, all)}
                 />
             )}
-            <GUISteps value={selections.steps} />
+            {successors != null && successors.length > 0 && (
+                <div className="btn-group-vertical mx-3 mb-3">
+                    {successors.map((successor) => (
+                        <div
+                            className="d-flex flex-row align-items-center btn btn-sm btn-outline-secondary"
+                            onClick={() => store.getState().selectRelated(selections, successor)}
+                            onMouseEnter={() => store.getState().onStartHover(successor.steps, successor.indices)}
+                            onMouseLeave={() => store.getState().onEndHover(successor.steps)}
+                            key={successor.steps.path.join(",")}>
+                            <ArrowDownRight />
+                            <span className="ms-2">{getSelectionsLabel(successor)}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <GUISteps value={selections.steps} indices={selections.indices} />
         </div>
     )
+}
+
+function getSelectionsLabel(selections: SelectionsList[number]) {
+    return selections.steps.type === "operation" ? selections.steps.identifier : selections.steps.type
 }
 
 function getValues(
     selection: SelectionsList[number],
     all: Array<FullIndex>
 ): Array<[label: string, selected: boolean, value: FullIndex]> {
-    return all.map((index) => [`${index.before}/${index.after}`, selection.indices.includes(index), index])
+    return all.map((index) => [
+        `${index.before} -> ${index.after}`,
+        selection.indices.find((selectedIndex) => selectedIndex.after === index.after) != null,
+        index,
+    ])
 }
 
-function GUISteps({ value }: { value: HierarchicalParsedSteps | string }): JSX.Element | null {
+function GUISteps({
+    value,
+    indices,
+}: {
+    value: HierarchicalParsedSteps | string
+    indices: Array<FullIndex>
+}): JSX.Element | null {
     if (typeof value === "string") {
         return <GUINounStep value={value} />
     }
@@ -137,30 +218,12 @@ function GUISteps({ value }: { value: HierarchicalParsedSteps | string }): JSX.E
         case "symbol":
             return <GUISymbolStep value={value} />
         case "operation":
-            return <GUIOperation value={value} />
+            return <GUIOperation value={value} indices={indices} />
         case "random":
-            return <GUIRandomStep value={value} />
+            return <GUIRandomStep value={value} indices={indices} />
         case "switch":
-            return <GUISwitchStep value={value} />
+            return <GUISwitchStep value={value} indices={indices} />
         default:
-            return <GUIDefaultStep value={value} />
+            return null
     }
-}
-
-function GUIDefaultStep({ value }: { value: HierarchicalParsedSteps }) {
-    const store = useBaseStore()
-    if (value.children == null) {
-        return null
-    }
-    return (
-        <div className="d-flex flex-column mx-3 mb-3">
-            {value.children.map((child, i) => (
-                <div key={i} className="d-flex flex-row align-items-center border-bottom">
-                    <div className="flex-grow-1 p-3 pointer" onClick={(e) => store.getState().select(child)}>
-                        {serializeStepString(child)}
-                    </div>
-                </div>
-            ))}
-        </div>
-    )
 }

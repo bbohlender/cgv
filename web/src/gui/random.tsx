@@ -1,9 +1,15 @@
-import { AbstractParsedRandom, HierarchicalInfo, serializeStepString } from "cgv"
+import { AbstractParsedRandom, FullIndex, HierarchicalInfo, serializeStepString } from "cgv"
 import { UseBaseStore, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
 
-export function GUIRandomStep({ value }: { value: AbstractParsedRandom<HierarchicalInfo> }) {
+export function GUIRandomStep({
+    value,
+    indices,
+}: {
+    value: AbstractParsedRandom<HierarchicalInfo>
+    indices: Array<FullIndex>
+}) {
     const store = useBaseStore()
     return (
         <div className="d-flex flex-column mx-3 mb-3">
@@ -21,8 +27,10 @@ export function GUIRandomStep({ value }: { value: AbstractParsedRandom<Hierarchi
                     />
                     <div
                         className="flex-grow-1 ms-2 p-3 pointer"
-                        onClick={(e) => store.getState().select(child)}>
-                        {serializeStepString(child)}
+                        onClick={(e) => store.getState().selectChildren(value, indices, child)}>
+                        {
+                            serializeStepString(child) //TODO: dont use serialize here
+                        }
                     </div>
                     <div
                         onClick={() =>

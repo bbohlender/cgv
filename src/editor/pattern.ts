@@ -33,62 +33,60 @@ function toCondition(
     //TODO: detect more advanced patterns and use different condition
 
     if (selectedIndices.length > allIndices.length * 0.5) {
-        return toAndUnequalCondition(selectedIndices, allIndices, type) ?? { type: "raw", value: false }
+        return toAndUnequalCondition(0, selectedIndices, allIndices, type) ?? { type: "raw", value: false }
     }
 
     return toOrEqualCondition(selectedIndices, type)
 }
 
 function toAndUnequalCondition(
+    allIndicesIndex: number,
     selectedIndices: Array<FullIndex>,
     allIndices: Array<FullIndex>,
     type: "before" | "after"
 ): ParsedSteps | undefined {
-    if (selectedIndices.length === 0) {
+    if (allIndicesIndex >= allIndices.length) {
         return undefined
     }
-    const restCondition = toAndUnequalCondition(selectedIndices.slice(1), allIndices, type)
+    const restCondition = toAndUnequalCondition(allIndicesIndex + 1, selectedIndices, allIndices, type)
+    const index = allIndices[allIndicesIndex][type]
     const firstCondition: ParsedSteps | undefined =
-        allIndices.find((existingIndex) => existingIndex[type] === selectedIndices[0][type]) != null
-            ? undefined
-            : {
+        selectedIndices.find((selectedIndex) => selectedIndex[type] === index) == null
+            ? {
                   type: "unequal",
                   children: [
                       { type: "operation", children: [], identifier: "id" },
-                      { type: "raw", value: selectedIndices[0][type] },
+                      { type: "raw", value: index },
                   ],
               }
+            : undefined
 
-    if (restCondition == null) {
-        return firstCondition
+    if (firstCondition != null && restCondition != null) {
+        return {
+            type: "and",
+            children: [firstCondition, restCondition],
+        }
     }
 
-    if (firstCondition == null) {
-        return restCondition
-    }
-
-    return {
-        type: "and",
-        children: [firstCondition, restCondition],
-    }
+    return firstCondition ?? restCondition
 }
 
-function toOrEqualCondition(index: Array<FullIndex>, type: "after" | "before"): ParsedSteps {
-    if (index.length === 0) {
+function toOrEqualCondition(indices: Array<FullIndex>, type: "after" | "before"): ParsedSteps {
+    if (indices.length === 0) {
         return { type: "raw", value: false }
     }
     const firstCondition: ParsedSteps = {
         type: "equal",
         children: [
             { type: "operation", children: [], identifier: "id" },
-            { type: "raw", value: index[0][type] },
+            { type: "raw", value: indices[0][type] },
         ],
     }
-    if (index.length === 1) {
+    if (indices.length === 1) {
         return firstCondition
     }
     return {
         type: "or",
-        children: [firstCondition, toOrEqualCondition(index.slice(1), type)],
+        children: [firstCondition, toOrEqualCondition(indices.slice(1), type)],
     }
 }

@@ -54,8 +54,7 @@ export function insert(
 
                 newSelections.push({
                     steps: resultSteps,
-                    indices: [],
-                    fill: true
+                    indices: []
                 })
             }
         }

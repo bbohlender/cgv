@@ -1,9 +1,10 @@
 import { HierarchicalParsedSteps, serializeSteps, serializeStepString, shallowEqual } from "cgv"
-import { HTMLProps, MouseEvent, useMemo, useRef } from "react"
+import { Fragment, HTMLProps, MouseEvent, useMemo, useRef } from "react"
 import { useBaseGlobal } from "../global"
 import { useBaseStore } from "../global"
 import { EditIcon } from "../icons/edit"
 import { BaseState } from "../base-state"
+import { childrenSelectable } from "../gui"
 
 export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
@@ -13,19 +14,21 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     }
     return (
         <div {...rest} className={`${className} position-relative`}>
-            {nouns.map(([name, value]) => (
-                <>
-                    {`${name} -> `} <InteractableSteps key={name} value={value} />
-                    <br />
-                    <br />
-                </>
-            ))}
-            <button
-                className="d-flex align-items-center btn btn-sm btn-primary"
-                style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
-                onClick={() => store.getState().setType("tui")}>
-                <EditIcon />
-            </button>
+            <div className="m-3">
+                {nouns.map(([name, value]) => (
+                    <Fragment key={name}>
+                        {`${name} -> `} <InteractableSteps key={name} value={value} />
+                        <br />
+                        <br />
+                    </Fragment>
+                ))}
+                <button
+                    className="d-flex align-items-center btn btn-sm btn-secondary"
+                    style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
+                    onClick={() => store.getState().setType("tui")}>
+                    <EditIcon />
+                </button>
+            </div>
         </div>
     )
 }
@@ -48,7 +51,7 @@ function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.E
     if (value == null || events == null) {
         return null
     }
-    if (value.type == "operation" && operationGuiMap[value.identifier] != null) {
+    if (!childrenSelectable(operationGuiMap, value)) {
         return (
             <span {...events} className={cssClassName}>
                 <FlatSteps value={value} />
@@ -61,6 +64,7 @@ function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.E
         </span>
     )
 }
+
 function FlatSteps({ value }: { value: HierarchicalParsedSteps }): JSX.Element {
     return <>{serializeStepString(value)}</>
 }
@@ -78,10 +82,17 @@ function NestedSteps({
 }): JSX.Element {
     return serializeSteps(
         value,
-        (text) => <span {...events}>{text}</span>,
-        (child, i) => <InteractableSteps key={i} value={child} />,
-        (...values) => <>{values}</>
-    )
+        (text) => (index: number) =>
+            (
+                <span key={index} {...events}>
+                    {text}
+                </span>
+            ),
+        (child) => (index) => <InteractableSteps key={index} value={child} />,
+        (...values) =>
+            (index) =>
+                <Fragment key={index}>{values.map((value, i) => value(i))}</Fragment>
+    )(0)
 }
 
 function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): string | undefined {

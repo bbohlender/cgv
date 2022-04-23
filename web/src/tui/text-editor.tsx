@@ -2,6 +2,7 @@ import { HTMLProps, KeyboardEvent } from "react"
 import { ErrorMessage } from "../error-message"
 import { useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
+import { EditIcon } from "../icons/edit"
 
 export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
@@ -21,14 +22,14 @@ export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 onKeyDown={(e) => onKeyDown(e, store.getState().setText)}
                 spellCheck={false}
                 onChange={(e) => store.getState().setText(e.target.value)}
-                className="bg-transparent p-0 border-0 flex-basis-0 flex-grow-1 text-light"
+                className="bg-transparent p-3 border-0 flex-basis-0 flex-grow-1 text-light"
             />
             {error == null ? (
                 <button
                     className="d-flex align-items-center btn btn-sm btn-primary"
                     style={{ position: "absolute", right: "1rem", bottom: "1rem" }}
                     onClick={() => store.getState().setType("gui")}>
-                    <CheckIcon />
+                    <EditIcon />
                 </button>
             ) : (
                 <ErrorMessage

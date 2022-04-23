@@ -35,7 +35,7 @@ export function MultiSelect<T>({
                         </button>
                     </div>
                     {values.map(([label, selected, value], i) => (
-                        <li className="mx-3 mb-2">
+                        <li key={label} className="mx-3 mb-2">
                             <EndLabel value={label}>
                                 <input
                                     onChange={(e) => onChange(value, e.target.checked, i)}

@@ -39,7 +39,7 @@ export function GUIMultiSplitSteps({ value }: { value: AbstractParsedOperation<H
                 />
             </StartLabel>
             {value.children.slice(1).map((child, i) => (
-                <StartLabel value="Size" className="mb-3">
+                <StartLabel value="Size" key={i} className="mb-3">
                     <BlurInput
                         className="min-w-0 form-control form-control-sm"
                         type="number"

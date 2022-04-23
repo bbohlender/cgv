@@ -11,7 +11,7 @@ import {
     Axis,
     Split,
 } from "."
-import { Box3, Color, Matrix4, Shape, Vector2, Vector3 } from "three"
+import { Box3, Color, Matrix4, Shape, ShapeUtils, Vector2, Vector3 } from "three"
 import * as THREE from "three"
 import { defaultOperations } from ".."
 import { ObjectPrimitive } from "./primitive"
@@ -53,7 +53,6 @@ function computePoint2(x: number, z: number): Observable<Array<Primitive>> {
 
 const helperVector = new Vector3()
 
-//TODO: make capable of 3d (currently only 2d)
 function computeFace(...points: ReadonlyArray<Primitive>): Observable<Array<Primitive>> {
     if (points.length < 3) {
         return of([])
@@ -62,6 +61,9 @@ function computeFace(...points: ReadonlyArray<Primitive>): Observable<Array<Prim
         helperVector.setFromMatrixPosition(point.matrix)
         return new Vector2(helperVector.x, helperVector.z)
     })
+    if (ShapeUtils.isClockWise(points2d)) {
+        points2d.reverse()
+    }
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
     return of([new FacePrimitive(new Matrix4(), new Shape(points2d), redMaterialGenerator)])

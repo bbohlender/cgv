@@ -14,7 +14,7 @@ import {
     FullIndex,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef } from "react"
+import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment } from "react"
 import { of, Subject, Subscription } from "rxjs"
 import { Box3, BoxBufferGeometry, Color, EdgesGeometry, Group, LineBasicMaterial, Matrix4, Vector3 } from "three"
 import { ErrorMessage } from "../../../error-message"
@@ -27,8 +27,9 @@ import { ViewControls } from "./view-controls"
 import { Control } from "./control"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
-import { ShiftIcon } from "../../../icons/shift"
 import { SpeedSelection } from "../../../gui/speed-selection"
+import { MultiSelectIcon } from "../../../icons/multi-select"
+import { ArrowLeftUp } from "../../../icons/arrow-left-up"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -101,7 +102,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 </Bridge>
             </Canvas>
             <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
-                <ShiftButton className="me-2" />
+                <MultiSelectButton className="me-2" />
+                <ParentSelectButton className="me-2" />
                 <BackgroundToggle className="me-2" />
                 <BackButton className="me-2" />
                 <SpeedSelection className="me-2" />
@@ -258,7 +260,7 @@ function Result() {
                 if (steps == null || index == null) {
                     return
                 }
-                store.getState().onStartHover(steps, index)
+                store.getState().onStartHover(steps, [index])
             }}
             onPointerOut={(e) => {
                 e.stopPropagation()
@@ -268,7 +270,7 @@ function Result() {
                 if (steps == null || index == null) {
                     return
                 }
-                store.getState().onEndHover(steps, index)
+                store.getState().onEndHover(steps)
             }}
             onClick={(e) => {
                 e.stopPropagation()
@@ -314,20 +316,23 @@ function SelectedPrimitives() {
     const store = useBaseStore()
     const [primitives, setPrimitives] = useState<Array<Primitive>>([])
     useEffect(() => {
-        let selections: Array<FullIndex> | undefined
-        let hovered: Array<FullIndex> | undefined = undefined
+        let selectionsAfterIndices: Array<string> | undefined
+        let hoveredAfterIndices: Array<string> | undefined
         let primitiveMap: PrimitiveMap | undefined
         const updatePrimitives = () => {
-            if (selections == null || primitiveMap == null) {
+            if (selectionsAfterIndices == null || primitiveMap == null) {
                 return
             }
-            const current = getHighlightedPrimitives(hovered, selections, primitiveMap)
+            const current = getHighlightedPrimitives(hoveredAfterIndices, selectionsAfterIndices, primitiveMap)
             startTransition(() => setPrimitives((prev) => (shallowEqual(prev, current) ? prev : current)))
         }
         const unsubscribeSelectionsList = store.subscribe(
             (state) => (state.type === "gui" ? state.selectionsList : undefined),
             (list) => {
-                selections = list?.reduce<Array<FullIndex>>((prev, selections) => prev.concat(selections.indices), [])
+                selectionsAfterIndices = list?.reduce<Array<string>>(
+                    (prev, selections) => prev.concat(selections.indices.map((index) => index.after)),
+                    []
+                )
                 updatePrimitives()
             },
             { fireImmediately: true }
@@ -335,7 +340,7 @@ function SelectedPrimitives() {
         const unsubscribeHovered = store.subscribe(
             (state) => (state.type === "gui" ? state.hovered : undefined),
             (h) => {
-                hovered = h?.indices
+                hoveredAfterIndices = h?.indices.map((index) => index.after)
                 updatePrimitives()
             },
             { fireImmediately: true }
@@ -357,10 +362,10 @@ function SelectedPrimitives() {
     return (
         <>
             {primitives.map((primitive) => (
-                <>
-                    <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
+                <Fragment key={primitive.getOutline().uuid}>
+                    <primitive object={primitive.getOutline()} />
                     <axesHelper args={[10]} matrix={primitive.matrix} matrixAutoUpdate={false} />
-                </>
+                </Fragment>
             ))}
         </>
     )
@@ -380,7 +385,7 @@ function BackgroundToggle({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function ShiftButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+function MultiSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
     const shift = store((s) => (s.type === "gui" ? s.shift : false))
     return (
@@ -391,7 +396,23 @@ function ShiftButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             className={`${className} d-flex align-items-center justify-content-center btn ${
                 shift ? "btn-primary" : "btn-secondary"
             } btn-sm `}>
-            <ShiftIcon />
+            <MultiSelectIcon />
+        </div>
+    )
+}
+
+function ParentSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const store = useBaseStore()
+    const control = store((s) => (s.type === "gui" ? s.control : false))
+    return (
+        <div
+            {...rest}
+            onPointerDown={() => store.getState().setControl(true)}
+            onPointerUp={() => store.getState().setControl(false)}
+            className={`${className} d-flex align-items-center justify-content-center btn ${
+                control ? "btn-primary" : "btn-secondary"
+            } btn-sm `}>
+            <ArrowLeftUp />
         </div>
     )
 }
@@ -412,14 +433,17 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
 }
 
 function getHighlightedPrimitives(
-    hovered: Array<FullIndex> | undefined,
-    selections: Array<FullIndex> | undefined,
+    hoveredAfterIndices: Array<string> | undefined,
+    selectionsAfterIndices: Array<string> | undefined,
     primitiveMap: PrimitiveMap | undefined
 ): Array<Primitive> {
-    if (selections == null || primitiveMap == null) {
+    if (selectionsAfterIndices == null || primitiveMap == null) {
         return []
     }
-    const highlightIndicies = hovered == null ? selections : Array.from(new Set(selections.concat(hovered)))
+    const highlightAfterIndicies =
+        hoveredAfterIndices == null
+            ? selectionsAfterIndices
+            : Array.from(new Set(selectionsAfterIndices.concat(hoveredAfterIndices)))
     const map = primitiveMap
-    return highlightIndicies.map((index) => map[index.after]).filter((value) => value != null)
+    return highlightAfterIndicies.map((afterIndex) => map[afterIndex]).filter((value) => value != null)
 }

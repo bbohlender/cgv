@@ -1,16 +1,24 @@
-import { AbstractParsedSwitch, HierarchicalInfo, serializeStepString } from "cgv"
+import { AbstractParsedSwitch, FullIndex, HierarchicalInfo, serializeStepString } from "cgv"
 import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
 import { StartLabel } from "./label"
 import { stringToConstant } from "./util"
 
-export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<HierarchicalInfo> }) {
+export function GUISwitchStep({
+    value,
+    indices,
+}: {
+    value: AbstractParsedSwitch<HierarchicalInfo>
+    indices: Array<FullIndex>
+}) {
     const store = useBaseStore()
     return (
         <div className="d-flex flex-column mb-3 mx-3">
             <StartLabel
-                onClick={(e) => store.getState().select(value.children[0])}
+                onClick={
+                    (e) => store.getState().selectChildren(value, indices, value.children[0])
+                }
                 value="Condition"
                 className="pointer mb-3">
                 <div className="flex-grow-1 text-end px-2">{serializeStepString(value.children[0])}</div>
@@ -29,8 +37,12 @@ export function GUISwitchStep({ value }: { value: AbstractParsedSwitch<Hierarchi
                     />
                     <div
                         className="flex-grow-1 ms-2 p-3 pointer"
-                        onClick={(e) => store.getState().select(child)}>
-                        {serializeStepString(child)}
+                        onClick={
+                            (e) => store.getState().selectChildren(value, indices, child)
+                        }>
+                        {
+                            serializeStepString(child) //TODO: dont use serialize here
+                        }
                     </div>
                     <div
                         onClick={() => {

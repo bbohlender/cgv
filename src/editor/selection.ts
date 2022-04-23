@@ -1,10 +1,11 @@
 import produce from "immer"
+import { ParsedSteps } from "../parser"
 import { getAtPath, HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, translatePath } from "../util"
 import { findSymbolsWithIdentifier } from "./noun"
 
 export type IndicesMap = { [Path in string]?: Array<FullIndex> }
 export type FullIndex = { after: string; before: string }
-export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Array<FullIndex>; fill: boolean }>
+export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Array<FullIndex> }>
 
 export type SelectionState = {
     indicesMap: IndicesMap
@@ -16,10 +17,11 @@ export function editSelectionRelated(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
     targetSelectionsList: SelectionsList,
-    filter: (index: FullIndex) => boolean,
+    filter: ((index: FullIndex) => boolean) | undefined,
     grammar: HierarchicalParsedGrammarDefinition,
     relation: "predecessor" | "successor",
-    type: "replace" | "add"
+    type: "replace" | "add",
+    shouldIncludeChildren: (steps: HierarchicalParsedSteps) => boolean
 ): SelectionsList {
     return produce(selectionsList, (selectionsDraft) => {
         for (const { steps, indices } of targetSelectionsList) {
@@ -30,7 +32,15 @@ export function editSelectionRelated(
             const related =
                 relation === "predecessor"
                     ? getPredecessorSelections(indicesMap, parents, steps, indices, filter)
-                    : getSuccessorSelections(indicesMap, parents, steps, indices, grammar, filter)
+                    : getSuccessorSelections(
+                          indicesMap,
+                          parents,
+                          steps,
+                          indices,
+                          grammar,
+                          filter,
+                          shouldIncludeChildren(steps)
+                      )
 
             for (const { steps, indices } of related) {
                 editSelectionOnDraft(indicesMap, selectionsDraft, steps, indices, "add")
@@ -39,12 +49,12 @@ export function editSelectionRelated(
     })
 }
 
-function getPositionedSelections(
+export function getPositionedSelections(
     indicesMap: IndicesMap,
     relatedStepsList: Array<HierarchicalParsedSteps>,
     indices: Array<FullIndex>,
     indexIsRelated: (current: FullIndex, next: FullIndex) => boolean,
-    filter: (index: FullIndex) => boolean
+    filter: ((index: FullIndex) => boolean) | undefined
 ): SelectionsList {
     return relatedStepsList
         .map((relatedSteps) => {
@@ -55,9 +65,11 @@ function getPositionedSelections(
             }
             const forwardIndices = existingIndices.filter(
                 (existingIndex) =>
-                    indices.find((index) => indexIsRelated(index, existingIndex) && filter(existingIndex)) != null
+                    indices.find(
+                        (index) => indexIsRelated(index, existingIndex) && (filter == null || filter(existingIndex))
+                    ) != null
             )
-            return { steps: relatedSteps, indices: forwardIndices, fill: true }
+            return { steps: relatedSteps, indices: forwardIndices }
         })
         .filter(filterNullAndEmpty)
 }
@@ -71,20 +83,35 @@ export function getPredecessorSelections(
     parents: Array<HierarchicalParsedSteps>,
     steps: HierarchicalParsedSteps,
     indices: Array<FullIndex>,
-    filter: (index: FullIndex) => boolean
+    filter: ((index: FullIndex) => boolean) | undefined
 ): SelectionsList {
-    return getRelatedSelections(
+    const backwardSelections = getHorizontalSelections(
         indicesMap,
         parents,
         steps,
-        [],
         indices,
         -1,
         (current, next) => current.before === next.after,
-        undefined,
-        (current, next) => current.before.startsWith(next.before),
         filter
     )
+
+    if (backwardSelections.length > 0) {
+        return backwardSelections
+    }
+
+    if (parents.length > 0) {
+        //upward
+        const upwardSelections = getPositionedSelections(
+            indicesMap,
+            parents,
+            indices,
+            (current, next) => current.before.startsWith(next.before),
+            filter
+        )
+        return upwardSelections
+    }
+
+    return []
 }
 
 export function getSuccessorSelections(
@@ -93,27 +120,40 @@ export function getSuccessorSelections(
     steps: HierarchicalParsedSteps,
     indices: Array<FullIndex>,
     grammar: HierarchicalParsedGrammarDefinition,
-    filter: (index: FullIndex) => boolean
+    filter: ((index: FullIndex) => boolean) | undefined,
+    includeChildren: boolean
 ): SelectionsList {
-    const childrens =
-        steps.type === "symbol"
-            ? [grammar[steps.identifier]]
-            : steps.type === "sequential"
-            ? [steps.children[0]]
-            : steps.children ?? []
-
-    return getRelatedSelections(
+    const selections = getHorizontalSelections(
         indicesMap,
         parents,
         steps,
-        childrens,
         indices,
         1,
         (current, next) => current.after === next.before,
-        (current, next) => next.before.startsWith(next.before),
-        (current, next) => current.after === next.after,
         filter
     )
+
+    if (includeChildren) {
+        const children =
+            steps.type === "symbol"
+                ? [grammar[steps.identifier]]
+                : steps.type === "sequential"
+                ? [steps.children[0]]
+                : steps.children ?? []
+
+        if (children.length > 0) {
+            selections.push(
+                ...getPositionedSelections(
+                    indicesMap,
+                    children,
+                    indices,
+                    (current, next) => next.before.startsWith(current.before),
+                    filter
+                )
+            )
+        }
+    }
+    return selections
 }
 
 export function getIndirectParentsSteps(
@@ -136,40 +176,26 @@ export function getIndirectParentsSteps(
     return parents
 }
 
-function getRelatedSelections(
+function getHorizontalSelections(
     indicesMap: IndicesMap,
     parents: Array<HierarchicalParsedSteps>,
     steps: HierarchicalParsedSteps,
-    children: Array<HierarchicalParsedSteps>,
     indices: Array<FullIndex>,
     horizontalOffset: number,
     isHorizontalIndex: (current: FullIndex, next: FullIndex) => boolean,
-    isDownwardIndex: ((current: FullIndex, next: FullIndex) => boolean) | undefined,
-    isUpwardIndex: ((current: FullIndex, next: FullIndex) => boolean) | undefined,
-    filter: (index: FullIndex) => boolean
+    filter: ((index: FullIndex) => boolean) | undefined
 ): SelectionsList {
+    if (steps.path.length <= 1 || parents[0].type != "sequential") {
+        return []
+    }
     const nextIndex = (steps.path[steps.path.length - 1] as number) + horizontalOffset
-    if (
-        steps.path.length > 1 &&
-        parents[0].type === "sequential" &&
-        0 <= nextIndex &&
-        nextIndex < parents[0].children.length
-    ) {
-        const horizontalSteps = parents[0].children[nextIndex]
 
-        const selections = getPositionedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
-        if (selections.length > 0) {
-            return selections
-        }
+    if (nextIndex < 0 || parents[0].children.length <= nextIndex) {
+        return []
     }
-    const result: SelectionsList = []
-    if (isUpwardIndex != null && parents.length > 0) {
-        result.push(...getPositionedSelections(indicesMap, parents, indices, isUpwardIndex, filter))
-    }
-    if (isDownwardIndex != null && children.length > 0) {
-        result.push(...getPositionedSelections(indicesMap, children, indices, isDownwardIndex, filter))
-    }
-    return result
+
+    const horizontalSteps = parents[0].children[nextIndex]
+    return getPositionedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
 }
 
 function editSelectionOnDraft(
@@ -191,7 +217,6 @@ function editSelectionOnDraft(
         selectionsList.push({
             steps,
             indices: indices == null ? all : indices,
-            fill: true,
         })
         return
     }
@@ -288,7 +313,7 @@ export function editIndices(
                 indicesDraft[path] = all
             }
 
-            if (selections != null && all.length === selections.indices.length && selections.fill) {
+            if (selections != null && all.length === selections.indices.length) {
                 selections.indices.push(index)
             }
 

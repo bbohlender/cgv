@@ -8,6 +8,7 @@ export function MultiplePoint3Control({ value }: { value: AbstractParsedOperatio
                 (child, i) =>
                     child.type === "operation" && (
                         <Point3Control<"operation">
+                            key={i}
                             getSubstep={(draft) => assureType("operation", draft.children[i])}
                             value={value}
                         />
@@ -24,6 +25,7 @@ export function MultiplePoint2Control({ value }: { value: AbstractParsedOperatio
                 (child, i) =>
                     child.type === "operation" && (
                         <Point2Control<"operation">
+                            key={i}
                             getSubstep={(draft) => assureType("operation", draft.children[i])}
                             value={value}
                         />
