@@ -1,11 +1,33 @@
 import produce from "immer"
-import { ParsedSteps } from "../parser"
-import { getAtPath, HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, translatePath } from "../util"
+import {
+    getAtPath,
+    HierarchicalParsedGrammarDefinition,
+    HierarchicalParsedSteps,
+    HierarchicalPath,
+    translatePath,
+} from "../util"
 import { findSymbolsWithIdentifier } from "./noun"
 
 export type IndicesMap = { [Path in string]?: Array<FullIndex> }
 export type FullIndex = { after: string; before: string }
-export type SelectionsList = Array<{ steps: HierarchicalParsedSteps; indices: Array<FullIndex> }>
+export type SelectionsList = Array<Selections>
+export type Selections = { steps: SelectedSteps; indices: Array<FullIndex> }
+export type SelectedSteps = HierarchicalParsedSteps | string
+
+export function getSelectedStepsJoinedPath(steps: SelectedSteps): string {
+    return typeof steps === "string" ? steps : steps.path.join(",")
+}
+
+export function getSelectedStepsPath(steps: SelectedSteps): HierarchicalPath {
+    return typeof steps === "string" ? [steps] : steps.path
+}
+
+export function compareSelectedStepsPath(s1: SelectedSteps, s2: SelectedSteps, s2PathJoined?: string): boolean {
+    if (typeof s1 === "string") {
+        return typeof s2 === "string" && s1 === s2
+    }
+    return getSelectedStepsJoinedPath(s1) === (s2PathJoined ?? getSelectedStepsJoinedPath(s2))
+}
 
 export type SelectionState = {
     indicesMap: IndicesMap
@@ -21,7 +43,7 @@ export function editSelectionRelated(
     grammar: HierarchicalParsedGrammarDefinition,
     relation: "predecessor" | "successor",
     type: "replace" | "add",
-    shouldIncludeChildren: (steps: HierarchicalParsedSteps) => boolean
+    shouldIncludeChildren: (steps: SelectedSteps) => boolean
 ): SelectionsList {
     return produce(selectionsList, (selectionsDraft) => {
         for (const { steps, indices } of targetSelectionsList) {
@@ -42,23 +64,23 @@ export function editSelectionRelated(
                           shouldIncludeChildren(steps)
                       )
 
-            for (const { steps, indices } of related) {
-                editSelectionOnDraft(indicesMap, selectionsDraft, steps, indices, "add")
+            for (const { steps: value, indices } of related) {
+                editSelectionOnDraft(indicesMap, selectionsDraft, value, indices, "add")
             }
         }
     })
 }
 
-export function getPositionedSelections(
+export function getRelatedSelections(
     indicesMap: IndicesMap,
-    relatedStepsList: Array<HierarchicalParsedSteps>,
+    relatedStepsList: Array<SelectedSteps>,
     indices: Array<FullIndex>,
     indexIsRelated: (current: FullIndex, next: FullIndex) => boolean,
     filter: ((index: FullIndex) => boolean) | undefined
-): SelectionsList {
+): SelectionState["selectionsList"] {
     return relatedStepsList
         .map((relatedSteps) => {
-            const path = relatedSteps.path.join(",")
+            const path = getSelectedStepsJoinedPath(relatedSteps)
             const existingIndices = indicesMap[path]
             if (existingIndices == null) {
                 return undefined
@@ -80,8 +102,8 @@ function filterNullAndEmpty<T extends { indices: Array<any> }>(value: T | undefi
 
 export function getPredecessorSelections(
     indicesMap: IndicesMap,
-    parents: Array<HierarchicalParsedSteps>,
-    steps: HierarchicalParsedSteps,
+    parents: Array<SelectedSteps>,
+    steps: SelectedSteps,
     indices: Array<FullIndex>,
     filter: ((index: FullIndex) => boolean) | undefined
 ): SelectionsList {
@@ -101,7 +123,7 @@ export function getPredecessorSelections(
 
     if (parents.length > 0) {
         //upward
-        const upwardSelections = getPositionedSelections(
+        const upwardSelections = getRelatedSelections(
             indicesMap,
             parents,
             indices,
@@ -116,8 +138,8 @@ export function getPredecessorSelections(
 
 export function getSuccessorSelections(
     indicesMap: IndicesMap,
-    parents: Array<HierarchicalParsedSteps>,
-    steps: HierarchicalParsedSteps,
+    parents: Array<SelectedSteps>,
+    steps: SelectedSteps,
     indices: Array<FullIndex>,
     grammar: HierarchicalParsedGrammarDefinition,
     filter: ((index: FullIndex) => boolean) | undefined,
@@ -135,15 +157,17 @@ export function getSuccessorSelections(
 
     if (includeChildren) {
         const children =
-            steps.type === "symbol"
-                ? [grammar[steps.identifier]]
+            typeof steps === "string"
+                ? [grammar[steps]]
+                : steps.type === "symbol"
+                ? [steps.identifier]
                 : steps.type === "sequential"
                 ? [steps.children[0]]
                 : steps.children ?? []
 
         if (children.length > 0) {
             selections.push(
-                ...getPositionedSelections(
+                ...getRelatedSelections(
                     indicesMap,
                     children,
                     indices,
@@ -157,9 +181,17 @@ export function getSuccessorSelections(
 }
 
 export function getIndirectParentsSteps(
-    steps: HierarchicalParsedSteps,
+    steps: SelectedSteps,
     grammar: HierarchicalParsedGrammarDefinition
-): Array<HierarchicalParsedSteps> {
+): Array<SelectedSteps> {
+    if (typeof steps === "string") {
+        const parents: Array<HierarchicalParsedSteps> = []
+        for (const root of Object.values(grammar)) {
+            findSymbolsWithIdentifier(root, steps, (steps) => parents.push(steps))
+        }
+
+        return parents
+    }
     if (steps.path.length > 1) {
         const translatedPath = translatePath(grammar, steps.path)
         if (translatedPath == null) {
@@ -168,24 +200,22 @@ export function getIndirectParentsSteps(
         return [getAtPath(translatedPath, steps.path.length - 2)]
     }
 
-    const parents: Array<HierarchicalParsedSteps> = []
-    for (const root of Object.values(grammar)) {
-        findSymbolsWithIdentifier(root, steps.path[0], (steps) => parents.push(steps))
-    }
-
-    return parents
+    return [steps.path[0]]
 }
 
 function getHorizontalSelections(
     indicesMap: IndicesMap,
-    parents: Array<HierarchicalParsedSteps>,
-    steps: HierarchicalParsedSteps,
+    parents: Array<SelectedSteps>,
+    steps: SelectedSteps,
     indices: Array<FullIndex>,
     horizontalOffset: number,
     isHorizontalIndex: (current: FullIndex, next: FullIndex) => boolean,
     filter: ((index: FullIndex) => boolean) | undefined
 ): SelectionsList {
-    if (steps.path.length <= 1 || parents[0].type != "sequential") {
+    if (typeof steps === "string") {
+        return []
+    }
+    if (steps.path.length <= 1 || typeof parents[0] == "string" || parents[0].type != "sequential") {
         return []
     }
     const nextIndex = (steps.path[steps.path.length - 1] as number) + horizontalOffset
@@ -195,18 +225,20 @@ function getHorizontalSelections(
     }
 
     const horizontalSteps = parents[0].children[nextIndex]
-    return getPositionedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
+    return getRelatedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
 }
 
 function editSelectionOnDraft(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    steps: HierarchicalParsedSteps,
+    steps: SelectedSteps,
     indices: Array<FullIndex> | undefined,
     type: "toggle" | "add" | "remove"
 ): void {
-    const path = steps.path.join(",")
-    const selectionsIndex = selectionsList.findIndex((selections) => selections.steps.path.join(",") === path)
+    const path = getSelectedStepsJoinedPath(steps)
+    const selectionsIndex = selectionsList.findIndex((selections) =>
+        compareSelectedStepsPath(selections.steps, steps, path)
+    )
     const all = indicesMap[path] ?? []
 
     if (selectionsIndex === -1) {
@@ -215,7 +247,7 @@ function editSelectionOnDraft(
         }
         //can only happen for replace, add, toggle
         selectionsList.push({
-            steps,
+            steps: steps,
             indices: indices == null ? all : indices,
         })
         return
@@ -252,7 +284,7 @@ function editSelectionOnDraft(
 export function editSelection(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    targetSelectionsList: Array<{ steps: HierarchicalParsedSteps; indices: Array<FullIndex> | undefined }>,
+    targetSelectionsList: Array<{ steps: HierarchicalParsedSteps | string; indices: Array<FullIndex> | undefined }>,
     type: "replace" | "toggle" | "add" | "remove"
 ): SelectionsList {
     return produce(type === "replace" ? [] : selectionsList, (selectionsDraft) => {
@@ -265,14 +297,14 @@ export function editSelection(
 export function editIndices(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    hovered: SelectionState["hovered"],
+    hovered: Selections | undefined,
     indices: Array<{
         steps: HierarchicalParsedSteps
         index: FullIndex
     }>,
     add: boolean
-) {
-    return produce<SelectionState>({ hovered, indicesMap, selectionsList }, (draft) => {
+): SelectionState {
+    return produce({ hovered, indicesMap, selectionsList }, (draft) => {
         for (const { index, steps } of indices) {
             const { indicesMap: indicesDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
 

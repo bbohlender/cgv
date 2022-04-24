@@ -3,9 +3,11 @@ import {
     FullIndex,
     getIndirectParentsSteps,
     getPredecessorSelections,
+    getSelectedStepsJoinedPath,
     getSuccessorSelections,
     HierarchicalInfo,
     HierarchicalParsedSteps,
+    SelectedSteps,
     SelectionsList,
     serializeStepString,
 } from "cgv"
@@ -28,14 +30,14 @@ export type OperationGUIMap = {
     [name in string]?: (props: { value: AbstractParsedOperation<HierarchicalInfo> }) => JSX.Element | null
 }
 
-export function childrenSelectable(operationGuiMap: OperationGUIMap, steps: HierarchicalParsedSteps): boolean {
-    return steps.type !== "operation" || operationGuiMap[steps.identifier] == null
+export function childrenSelectable(operationGuiMap: OperationGUIMap, steps: SelectedSteps): boolean {
+    return typeof steps == "string" || steps.type !== "operation" || operationGuiMap[steps.identifier] == null
 }
 
-export function getSelectionTitle(selections: Array<SelectionsList[number] & { selected: Array<Array<number>> }>) {
+export function getSelectionTitle(selections: Array<SelectionsList[number]>) {
     if (selections.length === 1) {
         const steps = selections[0].steps
-        return steps.type === "operation" ? steps.identifier : steps.type
+        return typeof steps === "string" ? steps : steps.type === "operation" ? steps.identifier : steps.type
     }
     return `${selections.length} steps selected`
 }
@@ -96,7 +98,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                     </button>
                 </div>
                 {selectionsList.map((selections) => (
-                    <GUISelection key={selections.steps.path.join(",")} selections={selections} />
+                    <GUISelection key={getSelectedStepsJoinedPath(selections.steps)} selections={selections} />
                 ))}
             </div>
         </div>
@@ -105,7 +107,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
 
 function GUISelection({ selections }: { selections: SelectionsList[number] }) {
     const store = useBaseStore()
-    const path = selections.steps.path.join(",")
+    const path = getSelectedStepsJoinedPath(selections.steps)
     const indicesMap = store((state) => (state.type === "gui" ? state.indicesMap : undefined))
     const grammar = store((state) => (state.type === "gui" ? state.grammar : undefined))
     const all = useMemo(() => (indicesMap != null ? indicesMap[path] : undefined), [indicesMap])
@@ -148,7 +150,7 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
                             onMouseEnter={() => store.getState().onStartHover(predecessor.steps, predecessor.indices)}
                             onMouseLeave={() => store.getState().onEndHover(predecessor.steps)}
                             className="d-flex flex-row align-items-center btn-sm btn btn-outline-secondary"
-                            key={predecessor.steps.path.join(",")}>
+                            key={getSelectedStepsJoinedPath(predecessor.steps)}>
                             <ArrowLeftUp />
                             <span className="ms-2">{getSelectionsLabel(predecessor)}</span>
                         </div>
@@ -175,7 +177,7 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
                             onClick={() => store.getState().selectRelated(selections, successor)}
                             onMouseEnter={() => store.getState().onStartHover(successor.steps, successor.indices)}
                             onMouseLeave={() => store.getState().onEndHover(successor.steps)}
-                            key={successor.steps.path.join(",")}>
+                            key={getSelectedStepsJoinedPath(successor.steps)}>
                             <ArrowDownRight />
                             <span className="ms-2">{getSelectionsLabel(successor)}</span>
                         </div>
@@ -188,7 +190,11 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
 }
 
 function getSelectionsLabel(selections: SelectionsList[number]) {
-    return selections.steps.type === "operation" ? selections.steps.identifier : selections.steps.type
+    return typeof selections.steps === "string"
+        ? selections.steps
+        : selections.steps.type === "operation"
+        ? selections.steps.identifier
+        : selections.steps.type
 }
 
 function getValues(

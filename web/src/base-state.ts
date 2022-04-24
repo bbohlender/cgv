@@ -15,11 +15,13 @@ import {
     editSelection,
     editIndices,
     EditorState,
-    shallowEqual,
     editSelectionRelated,
     FullIndex,
     SelectionsList,
-    getPositionedSelections,
+    getRelatedSelections,
+    compareSelectedStepsPath,
+    SelectedSteps,
+    getSelectedStepsJoinedPath,
 } from "cgv"
 import { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -129,15 +131,16 @@ function createBaseStateFunctions(
                 return
             }
         },
-        onStartHover: (steps: HierarchicalParsedSteps, indices: Array<FullIndex> | undefined) => {
+        onStartHover: (steps: SelectedSteps, indices: Array<FullIndex> | undefined) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            indices = indices ?? state.indicesMap[steps.path.join(",")] ?? []
-            if (state.hovered?.steps === steps && shallowEqual(state.hovered.indices, indices)) {
+            indices = indices ?? state.indicesMap[getSelectedStepsJoinedPath(steps)] ?? []
+            /*if (state.hovered?.steps === steps && shallowEqual(state.hovered.indices, indices)) {
                 return
-            }
+            }*/
+            console.log("on start hover")
             set({
                 hovered: {
                     steps,
@@ -145,7 +148,7 @@ function createBaseStateFunctions(
                 },
             })
         },
-        onEndHover: (steps: HierarchicalParsedSteps | string) => {
+        onEndHover: (steps: SelectedSteps | string) => {
             const state = get()
             if (state.type != "gui" || state.hovered?.steps != steps) {
                 return
@@ -168,7 +171,7 @@ function createBaseStateFunctions(
             }
             set(editIndices(state.indicesMap, state.selectionsList, state.hovered, indices, add))
         },
-        select: (steps: HierarchicalParsedSteps, index?: FullIndex, type?: "replace" | "add" | "remove" | "toggle") => {
+        select: (steps: SelectedSteps, index?: FullIndex, type?: "replace" | "add" | "remove" | "toggle") => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -229,7 +232,7 @@ function createBaseStateFunctions(
                 ),
             })
         },
-        selectChildren: (steps: HierarchicalParsedSteps, indices: Array<FullIndex>, child: HierarchicalParsedSteps) => {
+        selectChildren: (steps: SelectedSteps, indices: Array<FullIndex>, child: HierarchicalParsedSteps) => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -238,7 +241,7 @@ function createBaseStateFunctions(
                 selectionsList: editSelection(
                     state.indicesMap,
                     editSelection(state.indicesMap, state.selectionsList, [{ steps, indices }], "remove"),
-                    getPositionedSelections(
+                    getRelatedSelections(
                         state.indicesMap,
                         [child],
                         indices,
@@ -354,19 +357,20 @@ function createBaseStateFunctions(
         },
         replace: <Type extends ParsedSteps["type"]>(
             replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void,
-            steps?: HierarchicalParsedSteps
+            steps?: SelectedSteps
         ) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
+            const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
             set(
                 replace(
                     state.indicesMap,
                     steps == null
                         ? state.selectionsList
-                        : state.selectionsList.filter(
-                              (selections) => selections.steps.path.join(",") === steps.path.join(",")
+                        : state.selectionsList.filter((selections) =>
+                              compareSelectedStepsPath(selections.steps, steps, joinedPath)
                           ),
                     replaceWith as any,
                     state.grammar

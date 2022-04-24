@@ -1,4 +1,4 @@
-import { HierarchicalParsedSteps } from "cgv"
+import { getSelectedStepsJoinedPath, SelectedSteps } from "cgv"
 import { useBaseStore } from "../../../../global"
 import { MultiplePoint2Control, MultiplePoint3Control } from "./multiple-points"
 import { Point2Control, Point3Control } from "./point"
@@ -14,14 +14,14 @@ export function Control() {
     return (
         <>
             {selectionsList.map((selections) => (
-                <OperationControl key={selections.steps.path.join(",")} value={selections.steps} />
+                <OperationControl key={getSelectedStepsJoinedPath(selections.steps)} value={selections.steps} />
             ))}
         </>
     )
 }
 
-function OperationControl({ value }: { value: HierarchicalParsedSteps }) {
-    if (value.type != "operation") {
+function OperationControl({ value }: { value: SelectedSteps }) {
+    if (typeof value == "string" || value.type != "operation") {
         return null
     }
     switch (value.identifier) {

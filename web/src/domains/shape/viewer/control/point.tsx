@@ -1,4 +1,4 @@
-import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps, SelectionsList } from "cgv"
+import { AbstractParsedOperation, HierarchicalInfo, HierarchicalParsedSteps, ParsedOperation, ParsedSteps, SelectionsList } from "cgv"
 import { Draft } from "immer"
 import { useBaseStore } from "../../../../global"
 import { Transform2Control, Transform3Control } from "./transform-control"
@@ -8,7 +8,7 @@ export function Point3Control<Type extends ParsedSteps["type"]>({
     getSubstep,
 }: {
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
-    value: ParsedSteps & { type: Type }
+    value: HierarchicalParsedSteps & { type: Type }
 }) {
     const substepValue = getSubstep(value)
     const store = useBaseStore()
@@ -36,7 +36,7 @@ export function Point2Control<Type extends ParsedSteps["type"]>({
     getSubstep,
 }: {
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
-    value: ParsedSteps & { type: Type }
+    value: HierarchicalParsedSteps & { type: Type }
 }) {
     const substepValue = getSubstep(value)
     const store = useBaseStore()

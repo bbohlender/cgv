@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorState } from "."
+import { EditorState, IndicesMap, SelectionsList } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -7,6 +7,27 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
+import { insert } from "./insert"
+import { replaceOnDraft } from "./replace"
+
+export function removeUnusedNouns(grammar: HierarchicalParsedGrammarDefinition): HierarchicalParsedGrammarDefinition {
+    const entries = Object.entries(grammar)
+    const usedNouns = new Set([entries[0][0]]) //pre add the first entry
+    for (const [rootName, rootSteps] of entries) {
+        traverseSteps(rootSteps, (steps) => {
+            if (steps.type === "symbol" && steps.identifier !== rootName) {
+                usedNouns.add(steps.identifier)
+            }
+        })
+    }
+    return produce(grammar, (draft) => {
+        for (const name of Object.keys(draft)) {
+            if (!usedNouns.has(name)) {
+                delete draft[name]
+            }
+        }
+    })
+}
 
 /*export function removeNounOnDraft<T, A>(
     name: string,
@@ -32,47 +53,53 @@ import {
     }
 }*/
 
-/*export function insertNoun(
+export function setName(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    grammar: HierarchicalParsedGrammarDefinition,
-    name: string
+    name: string,
+    grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
-
-    const partial = produce(
-        { grammar, selectionsList: [] as SelectionsList },
-        ({ grammar: draft, selectionsList: newSelections }) => {
-        insertOnDraft()
-        draft[name] = 
-    })
-    return {
-        ...partial,
-        hovered: undefined,
+    if (grammar[name] == null) {
+        grammar = produce(grammar, (draft) => {
+            draft[name] = { type: "this", path: [name] }
+        })
     }
-}*/
+    const state = insert(indicesMap, selectionsList, "after", () => ({ type: "symbol", identifier: name }), grammar)
+    return {
+        ...state,
+        selectionsList: [{ steps: name, indices: [] }],
+    }
+}
 
 export function renameNoun(
-    name: string,
+    indicesMap: IndicesMap,
+    selectionsList: SelectionsList,
     newName: string,
     grammar: HierarchicalParsedGrammarDefinition
-): Omit<EditorState, "indicesMap"> {
+): EditorState {
+    const partial = produce({ grammar, selectionsList: [] }, () => {
+        for (const selections of selectionsList) {
+            if (typeof selections.steps !== "string") {
+                continue
+            }
+            const name = selections.steps
+            if (grammar[newName] != null || grammar[name] == null) {
+                continue
+            }
+
+            const editedGrammar = produce(grammar, (draft) => {
+                const entry = draft[name]
+                draft[newName] = //TODO: copy
+            })
+
+            replaceOnDraft(indicesMap, , () => ({ type: "" }), editedGrammar)
+        }
+    })
     return {
-        grammar: produce(grammar, (draft) => {
-            if (newName in draft) {
-                throw new Error(`can't  rename noun "${name}" into "${newName}" since it already exisits`)
-            }
-            const entry = draft[name]
-            if (entry == null) {
-                throw new Error(`can't rename non exisiting noun "${name}"`)
-            }
-            delete draft[name]
-            draft[newName] = toHierarchicalSteps(entry, newName)
-            for (const value of Object.values(draft)) {
-                findSymbolsWithIdentifier(value, name, (step) => (step.identifier = newName))
-            }
-        }),
-        selectionsList: [],
         hovered: undefined,
+        indicesMap: {},
+        selectionsList: partial.selectionsList,
+        grammar: removeUnusedNouns(partial.grammar),
     }
 }
 
@@ -81,14 +108,19 @@ export function findSymbolsWithIdentifier(
     identifier: string,
     onFound: (step: AbstractParsedSymbol<HierarchicalInfo>) => void
 ): void {
-    if (root.type === "symbol" && root.identifier === identifier) {
-        onFound(root)
-        return
-    }
+    traverseSteps(root, (step) => {
+        if (step.type === "symbol" && step.identifier === identifier) {
+            onFound(step)
+        }
+    })
+}
+
+export function traverseSteps(root: HierarchicalParsedSteps, cb: (step: HierarchicalParsedSteps) => void) {
+    cb(root)
     if (root.children == null) {
         return
     }
     for (const child of root.children) {
-        findSymbolsWithIdentifier(child, identifier, onFound)
+        traverseSteps(child, cb)
     }
 }

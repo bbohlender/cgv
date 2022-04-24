@@ -1,4 +1,4 @@
-import { AbstractParsedOperation, HierarchicalInfo, ParsedOperation, ParsedSteps } from "cgv"
+import { AbstractParsedOperation, HierarchicalInfo, HierarchicalParsedSteps, ParsedOperation, ParsedSteps } from "cgv"
 import { Draft } from "immer"
 import { useBaseStore } from "../../../global"
 import { BlurInput } from "../../../gui/blur-input"
@@ -12,7 +12,7 @@ export function GUIVector3<Type extends ParsedSteps["type"]>({
     defaultValue: number
     className: string
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
-    value: ParsedSteps & { type: Type }
+    value: HierarchicalParsedSteps & { type: Type }
 }) {
     const substepValue = getSubstep(value)
     const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
@@ -64,7 +64,7 @@ export function GUIVector2<Type extends ParsedSteps["type"]>({
     defaultValue: number
     className: string
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
-    value: ParsedSteps & { type: Type }
+    value: HierarchicalParsedSteps & { type: Type }
 }) {
     const substepValue = getSubstep(value)
     const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined

@@ -9,6 +9,7 @@ import {
 } from ".."
 import { replace, insert, EditorState } from "."
 import { IndicesMap, SelectionsList } from "./selection"
+import { removeUnusedNouns } from "./noun"
 
 function getNeutralStep(
     path: HierarchicalPath,
@@ -76,7 +77,7 @@ function getNeutralStep(
         case "parallel":
         case "random":
         case "switch":
-            return getNeutralStep(path, translatedPath, operations, index - 1)
+            return { type: "null" }
         case "if":
             if (childIndex === 0) {
                 return {
@@ -111,5 +112,10 @@ export function removeStep(
         (_, path, translatedPath) => getNeutralStep(path, translatedPath, operations),
         grammar
     )
-    return { grammar: result, selectionsList: [], indicesMap: {}, hovered: undefined }
+    return {
+        grammar: removeUnusedNouns(result),
+        selectionsList: [],
+        indicesMap: {},
+        hovered: undefined,
+    }
 }

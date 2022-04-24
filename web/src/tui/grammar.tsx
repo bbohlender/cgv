@@ -1,4 +1,11 @@
-import { HierarchicalParsedSteps, serializeSteps, serializeStepString, shallowEqual } from "cgv"
+import {
+    HierarchicalParsedGrammarDefinition,
+    HierarchicalParsedSteps,
+    SelectedSteps,
+    serializeSteps,
+    serializeStepString,
+    shallowEqual,
+} from "cgv"
 import { Fragment, HTMLProps, MouseEvent, useMemo, useRef } from "react"
 import { useBaseGlobal } from "../global"
 import { useBaseStore } from "../global"
@@ -16,11 +23,7 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
         <div {...rest} className={`${className} position-relative`}>
             <div className="m-3">
                 {nouns.map(([name, value]) => (
-                    <Fragment key={name}>
-                        {`${name} -> `} <InteractableSteps key={name} value={value} />
-                        <br />
-                        <br />
-                    </Fragment>
+                    <InteractableSteps key={name} value={value} noun={name} />
                 ))}
                 <button
                     className="d-flex align-items-center btn btn-sm btn-secondary"
@@ -33,23 +36,29 @@ export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function InteractableSteps({ value }: { value: HierarchicalParsedSteps }): JSX.Element | null {
+function InteractableSteps({ value, noun }: { value: HierarchicalParsedSteps; noun?: string }): JSX.Element | null {
     const store = useBaseStore()
     const events = useMemo(() => {
-        if (value == null) {
-            return undefined
-        }
         const { onEndHover, onStartHover, select } = store.getState()
         return {
-            onMouseLeave: onEndHover.bind(null, value, undefined),
-            onMouseEnter: onStartHover.bind(null, value, undefined),
-            onClick: select.bind(null, value, undefined, undefined),
+            onMouseLeave: onEndHover.bind(null, noun ?? value, undefined),
+            onMouseEnter: onStartHover.bind(null, noun ?? value, undefined),
+            onClick: select.bind(null, noun ?? value, undefined, undefined),
         }
-    }, [store, value])
+    }, [store, value, noun])
     const { operationGuiMap } = useBaseGlobal()
-    const cssClassName = store(value == null ? () => "" : computeCssClassName.bind(null, value))
-    if (value == null || events == null) {
-        return null
+    const cssClassName = store(computeCssClassName.bind(null, noun ?? value))
+    if (noun != null) {
+        return (
+            <>
+                <span className={cssClassName}>
+                    <span {...events}>{`${noun} -> `}</span>
+                    <InteractableSteps value={value} />
+                </span>
+                <br />
+                <br />
+            </>
+        )
     }
     if (!childrenSelectable(operationGuiMap, value)) {
         return (
@@ -95,7 +104,7 @@ function NestedSteps({
     )(0)
 }
 
-function computeCssClassName(steps: HierarchicalParsedSteps, state: BaseState): string | undefined {
+function computeCssClassName(steps: SelectedSteps, state: BaseState): string | undefined {
     if (state.type != "gui") {
         return undefined
     }

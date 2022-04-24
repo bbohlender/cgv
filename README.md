@@ -161,38 +161,19 @@ Building -> expand(200)
 `Task 1`
 
 ```
-Start -> face(
-	point2(10,90),
-	point2(-30,0),
-	point2(80,10),
-	point2(60,60)
-) -> Lot
+Start -> face(point2(26.09, 136.11), point2(29.84, 51.57), point2(110.36, 53.93), point2(107.5, 136.39)) -> Lot
 
 Lot -> color("#333343") -> extrude(60) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
 
 Wall -> split("z", 20) -> Floor
 
-Roof -> color("#881111")
+Roof -> color("#881111") -> extrude(30) -> gableRoof()
 
 Floor -> split("x", 20) -> WindowFrame
 
-WindowFrame -> if size("x") >= 20
-	then {
-		multiSplit("x", 5, 10) -> switch index() {
-			case 0: this
-			case 1:
-				multiSplit("z", 5, 10) -> switch index() {
-					case 0: this
-					case 1: Window
-					case 2: this
-                }
-			case 2: this
-        }
-    } else {
-        this
-    }
+WindowFrame -> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id() == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
 
-Window -> color("#EEEEEE")
+Window -> if id() == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
 ```
 
 `Task 2`

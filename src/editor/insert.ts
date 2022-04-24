@@ -11,7 +11,8 @@ import {
     translateSelectionsForStep,
 } from ".."
 import { HierarchicalParsedSteps } from "../util"
-import { IndicesMap, SelectionsList } from "./selection"
+import { getSelectedStepsUpwardsPaths } from "./replace"
+import { getSelectedStepsJoinedPath, getSelectedStepsPath, IndicesMap, SelectionsList } from "./selection"
 
 export function insert(
     indicesMap: IndicesMap,
@@ -26,36 +27,40 @@ export function insert(
         ({ grammar: draft, selectionsList: newSelections }) => {
             const type = position === "parallel" ? "parallel" : "sequential"
             for (const { indices, steps } of selectionsList) {
-                const path = steps.path.join(",")
-                const all = indicesMap[path] ?? []
+                const paths =
+                    position === "after" ? [getSelectedStepsPath(steps)] : getSelectedStepsUpwardsPaths(steps, grammar)
+                for (const path of paths) {
+                    const joinedPath = path.join(",")
+                    const all = indicesMap[joinedPath] ?? []
 
-                const translatedPath = translatePath<HierarchicalInfo>(draft, steps.path)
-                if (translatedPath == null) {
-                    continue
+                    const translatedPath = translatePath<HierarchicalInfo>(draft, path)
+                    if (translatedPath == null) {
+                        continue
+                    }
+
+                    const newSteps = stepGenerator(path)
+                    const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
+                    const translatedSteps = translateSelectionsForStep(
+                        all,
+                        indices,
+                        position === "parallel" ? "before" : position,
+                        newSteps,
+                        oldSteps
+                    )
+
+                    const current = getAtPath(translatedPath, path.length - 1)
+                    setAtPath(path, translatedPath, path.length - 1, {
+                        type,
+                        children: position === "before" ? [translatedSteps, current] : [current, translatedSteps],
+                    })
+
+                    const resultSteps = newSteps as HierarchicalParsedSteps
+
+                    newSelections.push({
+                        steps: resultSteps,
+                        indices: [],
+                    })
                 }
-
-                const newSteps = stepGenerator(steps.path)
-                const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
-                const translatedSteps = translateSelectionsForStep(
-                    all,
-                    indices,
-                    position === "parallel" ? "before" : position,
-                    newSteps,
-                    oldSteps
-                )
-
-                const current = getAtPath(translatedPath, steps.path.length - 1)
-                setAtPath(steps.path, translatedPath, steps.path.length - 1, {
-                    type,
-                    children: position === "before" ? [translatedSteps, current] : [current, translatedSteps],
-                })
-
-                const resultSteps = newSteps as HierarchicalParsedSteps
-
-                newSelections.push({
-                    steps: resultSteps,
-                    indices: []
-                })
             }
         }
     )

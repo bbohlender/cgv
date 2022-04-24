@@ -181,3 +181,9 @@ function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: V
     const angle = v1.angleTo(v2)
     return cw ? angle : Math.PI * 2 - angle
 }*/
+
+
+//line expand algorithm (size per edge, offset per edge)
+//for each node
+//compute normal (add all vectors -> normalize)
+//
