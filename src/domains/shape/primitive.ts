@@ -24,7 +24,7 @@ import {
     Vector3,
 } from "three"
 import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
-import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix } from "."
+import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix, YAXIS } from "."
 import { filterNull } from "../../util"
 import { distributeOverSizes, makeScaleMatrix } from "./math"
 import { sampleGeometry } from "./sample"
@@ -186,14 +186,20 @@ export class PointPrimitive extends Primitive {
     }
 }
 
-const YAXIS = new Vector3(0, 1, 0)
-
 /**
  * line in x direction
  */
 export class LinePrimitive extends Primitive {
     changeMaterialGenerator(generator: (type: ObjectType) => Material): Primitive {
         return new LinePrimitive(this.matrix, this.length, generator)
+    }
+
+    getStart(): Vector3 {
+        return new Vector3(0, 0, 0).applyMatrix4(this.matrix)
+    }
+
+    getEnd(): Vector3 {
+        return new Vector3(this.length, 0, 0).applyMatrix4(this.matrix)
     }
 
     protected changeMatrix(matrix: Matrix4): Primitive {

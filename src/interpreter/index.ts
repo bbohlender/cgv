@@ -34,6 +34,7 @@ import {
     ParsedSymbol,
     ParsedUnaryOperator,
 } from "../parser"
+import { getNounIndex } from "../util"
 import { toList } from "./list"
 
 export type Operation<T, A> = {
@@ -139,11 +140,10 @@ export function interprete<T, A, I>(
     operations: Operations<T, A>,
     options: InterpreterOptions<T, A, I>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    const entries = Object.entries(grammar)
-    if (entries.length === 0) {
+    if (grammar.length === 0) {
         return (input) => input
     }
-    const [startSymbolName] = entries[0]
+    const startSymbolName = grammar[0].name
     const compiledGrammar: CompiledGrammar<T, A> = {}
     const context: InterpretionContext<T, A, I> = {
         grammar,
@@ -152,8 +152,8 @@ export function interprete<T, A, I>(
         ...options,
         maxSymbolDepth: options.maxSymbolDepth ?? 100,
     }
-    for (const [name, steps] of entries) {
-        compiledGrammar[name] = interpreteStep(steps, context)
+    for (const { name, step } of grammar) {
+        compiledGrammar[name] = interpreteStep(step, context)
     }
     return compiledGrammar[startSymbolName]
 }
@@ -548,7 +548,7 @@ function interpreteSymbol<T, A, I>(
     context: InterpretionContext<T, A, I>,
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
-    if (!(step.identifier in context.grammar)) {
+    if (getNounIndex(step.identifier, context.grammar) == null) {
         throw new Error(`unknown symbol "${step.identifier}"`)
     }
     return (input) => {

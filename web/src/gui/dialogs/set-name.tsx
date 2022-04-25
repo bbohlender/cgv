@@ -4,7 +4,7 @@ import { useBaseStore } from "../../global"
 import { CheckIcon } from "../../icons/check"
 import { CloseIcon } from "../../icons/close"
 
-export function CreateNounDialog({ fulfill }: { fulfill: (value: any) => void }) {
+export function SetNameDialog({ fulfill }: { fulfill: (value: any) => void }) {
     const store = useBaseStore()
     const [value, setValue] = useState("")
     const valueValid = useMemo(() => {

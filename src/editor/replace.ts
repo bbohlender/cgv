@@ -12,8 +12,8 @@ export function getSelectedStepsUpwardsPaths(
 ): Array<HierarchicalPath> {
     if (typeof steps === "string") {
         const paths: Array<HierarchicalPath> = []
-        for (const rootSteps of Object.values(grammar)) {
-            findSymbolsWithIdentifier(rootSteps, steps, (symbol) => paths.push(symbol.path))
+        for (const { step: rootStep } of grammar) {
+            findSymbolsWithIdentifier(rootStep, steps, (symbol) => paths.push(symbol.path))
         }
         return paths
     } else {
@@ -53,7 +53,7 @@ export function replaceOnDraft(
         translatedPath: TranslatedPath<HierarchicalInfo>
     ) => Draft<ParsedSteps> | void,
     grammar: HierarchicalParsedGrammarDefinition,
-    newSelections?: SelectionsList
+    newSelectionsList?: SelectionsList
 ) {
     for (const { indices, steps } of selectionsList) {
         for (const path of getSelectedStepsUpwardsPaths(steps, grammar)) {
@@ -74,7 +74,7 @@ export function replaceOnDraft(
 
             const resultSteps = newSteps as HierarchicalParsedSteps
 
-            newSelections?.push({
+            newSelectionsList?.push({
                 steps: resultSteps,
                 indices: [],
             })

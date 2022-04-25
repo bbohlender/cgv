@@ -50,6 +50,10 @@ function requestReplace(store: UseBaseStore) {
     store.getState().request("create-step", (stepGenerator) => store.getState().replace(stepGenerator))
 }
 
+function requestSetName(store: UseBaseStore) {
+    store.getState().request("set-name", (name) => store.getState().setName(name))
+}
+
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
     const selectionsList = store((state) =>
@@ -61,7 +65,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     return (
         <div {...rest} className={`${className} d-flex flex-column px-0 pt-3`}>
             <div className="d-flex flex-column">
-                <div className="btn-group mx-3 mb-2 d-flex">
+                <div className="btn-group mx-3 mb-1 d-flex">
                     <button
                         onClick={requestAdd.bind(null, store, "before")}
                         className="btn btn-sm btn-outline-success flex-grow-1 flex-basis-0">
@@ -78,6 +82,19 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         + After
                     </button>
                 </div>
+
+                <div className="btn-group mx-3 mb-1 d-flex">
+                    <button
+                        onClick={requestReplace.bind(null, store)}
+                        className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
+                        Replace
+                    </button>
+                    <button
+                        onClick={requestSetName.bind(null, store)}
+                        className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
+                        Set-Name
+                    </button>
+                </div>
                 <div className="btn-group mx-3 mb-3 d-flex">
                     <button
                         onClick={() => {
@@ -85,11 +102,6 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         }}
                         className="d-flex align-items-center justify-content-center btn btn-sm btn-outline-primary flex-grow-1 flex-basis-0">
                         <CheckIcon />
-                    </button>
-                    <button
-                        onClick={requestReplace.bind(null, store)}
-                        className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
-                        Replace
                     </button>
                     <button
                         onClick={store.getState().removeStep.bind(null, undefined)}

@@ -2,6 +2,7 @@ import { useBaseStoreState } from "../../global"
 import { CreateNounDialog } from "./create-noun"
 import { CreateStepDialog } from "./create-step"
 import { SelectNounDialog } from "./select-noun"
+import { SetNameDialog } from "./set-name"
 
 export function Dialogs() {
     const requested = useBaseStoreState((state) => (state.type === "gui" ? state.requested : undefined))
@@ -29,6 +30,8 @@ function selectDialog(type: string, fullfill: (value: any) => void) {
             return <SelectNounDialog fulfill={fullfill} />
         case "create-step":
             return <CreateStepDialog fulfill={fullfill} />
+        case "set-name":
+            return <SetNameDialog fulfill={fullfill} />
     }
 }
 

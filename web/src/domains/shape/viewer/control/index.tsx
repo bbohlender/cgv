@@ -1,6 +1,6 @@
 import { getSelectedStepsJoinedPath, SelectedSteps } from "cgv"
 import { useBaseStore } from "../../../../global"
-import { MultiplePoint2Control, MultiplePoint3Control } from "./multiple-points"
+import { MultiplePointControl } from "./multiple-points"
 import { Point2Control, Point3Control } from "./point"
 
 export function Control() {
@@ -30,9 +30,8 @@ function OperationControl({ value }: { value: SelectedSteps }) {
         case "point2":
             return <Point2Control getSubstep={(draft) => draft} value={value} />
         case "face":
-            return <MultiplePoint2Control value={value} />
         case "line":
-            return <MultiplePoint3Control value={value} />
+            return <MultiplePointControl value={value} />
         default:
             return null
     }

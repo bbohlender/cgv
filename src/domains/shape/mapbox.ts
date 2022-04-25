@@ -7,6 +7,7 @@ import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, LinePri
 //@ts-ignore
 import { VectorTile } from "vector-tile"
 import Protobuf from "pbf"
+import { MaterialGenerator } from "./primitive"
 
 export type Layers = {
     [Layer in string]: Array<{
@@ -15,10 +16,10 @@ export type Layers = {
     }>
 }
 
-export async function loadMap() {
+export async function loadMap(materialGenerator: MaterialGenerator) {
     const layers = await loadMapLayers()
-    const roads = getRoads(layers)
-    const buildings = getBuildings(layers)
+    const roads = getRoads(layers, materialGenerator)
+    const buildings = getBuildings(layers, materialGenerator)
     return [roads, buildings]
 }
 
@@ -51,8 +52,7 @@ const buildingParameters: Parameters = {
     layer: of("building"),
 }
 
-function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
-    const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
+function getBuildings(layers: Layers, materialGenerator: MaterialGenerator): Array<[Primitive, Parameters]> {
     return layers["building"].reduce<Array<[Primitive, Parameters]>>(
         (prev, feature) =>
             prev.concat(
@@ -60,7 +60,7 @@ function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
                     new FacePrimitive(
                         new Matrix4(),
                         new Shape(lot.map(({ x, y }) => new Vector2(x, y))),
-                        redMaterialGenerator
+                        materialGenerator
                     ),
                     buildingParameters,
                 ])
@@ -69,8 +69,7 @@ function getBuildings(layers: Layers): Array<[Primitive, Parameters]> {
     )
 }
 
-function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
-    const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
+function getRoads(layers: Layers, materialGenerator: MaterialGenerator): Array<[Primitive, Parameters]> {
     return layers["road"]
         .filter((feature) => feature.properties.class === "street")
         .reduce<Array<[Primitive, Parameters]>>(
@@ -85,7 +84,7 @@ function getRoads(layers: Layers): Array<[Primitive, Parameters]> {
                                     new Matrix4(),
                                     new Vector3(p1.x, 0, p1.y),
                                     new Vector3(p2.x, 0, p2.y),
-                                    redMaterialGenerator
+                                    materialGenerator
                                 )
                             })
                         ),

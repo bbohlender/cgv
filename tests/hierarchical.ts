@@ -1,7 +1,7 @@
 import { HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, HierarchicalPath, shallowEqual } from "../src"
 
 export function validateHierarchical(grammar: HierarchicalParsedGrammarDefinition): void {
-    for (const [name, step] of Object.entries(grammar)) {
+    for (const { name, step } of grammar) {
         validateHierarchicalSteps(step, name)
     }
 }

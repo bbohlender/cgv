@@ -45,11 +45,13 @@ const lexer = moo.compile({
 %}
 @lexer lexer
 
-GrammarDefinition       ->  ws RuleDefinition ws                                            {% ([,[identifier, steps]]) => ({ [identifier]: steps }) %}
-                        |   ws RuleDefinition %ws GrammarDefinition                         {% ([,[identifier, steps],,prev]) => { if(identifier in prev) { throw new Error(`rule "${identifier}" is already defined`) } else { return { [identifier]: steps, ...prev } } } %}
-                        |   ws                                                              {% () => ({ }) %}
+GrammarDefinition       ->  ws RuleDefinition ws                                            {% ([,rule]) => [rule] %}
+                        |   ws RuleDefinitions:+ RuleDefinition ws                          {% ([,rules,rule]) => { if(rules.find(({ name }: { name: string }) => name === rule.name) != null) { throw new Error(`rule "${identifier}" is already defined`) } else { return [...rules, rule] } } %}
+                        |   ws                                                              {% () => [] %}
 
-RuleDefinition          ->  %identifier ws %arrow ws Steps                                  {% ([{ value },,,,steps]) => [value, steps] %}
+RuleDefinitions         ->  RuleDefinition %ws                                              {% ([rule]) => rule %}
+
+RuleDefinition          ->  %identifier ws %arrow ws Steps                                  {% ([{ value },,,,step]) => ({ name: value, step }) %}
 
 Steps                   ->  ParallelSteps                                                   {% ([steps]) => steps %}
 

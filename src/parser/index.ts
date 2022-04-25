@@ -129,6 +129,4 @@ export type AbstractParsedGetVariable<T> = {
     children?: undefined
 } & T
 
-export type AbstractParsedGrammarDefinition<T> = {
-    [Symbol in string]: AbstractParsedSteps<T>
-}
+export type AbstractParsedGrammarDefinition<T> = Array<{ name: string; step: AbstractParsedSteps<T> }>

@@ -1,4 +1,5 @@
 import produce, { isDraft } from "immer"
+import { getNounIndex, getNounStep, setNounStep } from "."
 import { ParsedGrammarDefinition, ParsedSteps, AbstractParsedGrammarDefinition, AbstractParsedSteps } from ".."
 
 export type HierarchicalPath = [string, ...Array<number>]
@@ -14,10 +15,13 @@ export type TranslatedPath<I> = [
 
 export function translatePath<I>(
     grammar: AbstractParsedGrammarDefinition<I>,
-    [noun, ...rest]: HierarchicalPath
+    [name, ...rest]: HierarchicalPath
 ): TranslatedPath<I> | undefined {
-    const path: TranslatedPath<I> = [grammar, grammar[noun]]
-    let current = grammar[noun]
+    let current = getNounStep(name, grammar)
+    if (current == null) {
+        return undefined
+    }
+    const path: TranslatedPath<I> = [grammar, current]
     for (const index of rest) {
         if (current.children == null) {
             return undefined
@@ -35,8 +39,8 @@ export function setAtPath<I>(
     set: AbstractParsedSteps<I>
 ): void {
     if (pathIndex === 0) {
-        const noun = path[0]
-        translatedPath[0][noun] = toHierarchicalSteps(set, noun)
+        const nounName = path[0]
+        setNounStep(nounName, translatedPath[0], toHierarchicalSteps(set, nounName))
         return
     }
     const step = translatedPath[pathIndex] as AbstractParsedSteps<I>
@@ -67,11 +71,8 @@ export function toHierarchicalSteps<T = unknown>(
 export function toHierarchical<T = unknown>(
     grammar: AbstractParsedGrammarDefinition<T>
 ): HierarchicalParsedGrammarDefinition<T> {
-    return Object.entries(grammar).reduce<HierarchicalParsedGrammarDefinition<T>>(
-        (prev, [name, steps]) => ({
-            ...prev,
-            [name]: toHierarchicalSteps(steps, name),
-        }),
-        {}
+    return grammar.reduce<HierarchicalParsedGrammarDefinition<T>>(
+        (prev, { name, step }) => [...prev, { name, step: toHierarchicalSteps(step, name) }],
+        []
     )
 }

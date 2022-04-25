@@ -22,6 +22,8 @@ import {
     compareSelectedStepsPath,
     SelectedSteps,
     getSelectedStepsJoinedPath,
+    renameNoun,
+    setName,
 } from "cgv"
 import { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -76,9 +78,12 @@ function createBaseStateInitial(): BaseState {
         indicesMap: {},
         selectionsList: [],
         hovered: undefined,
-        grammar: toHierarchical({
-            Start: { type: "this" },
-        }),
+        grammar: toHierarchical([
+            {
+                name: "Start",
+                step: { type: "this" },
+            },
+        ]),
         interpretationDelay: 0,
         requested: undefined,
         shift: false,
@@ -140,7 +145,6 @@ function createBaseStateFunctions(
             /*if (state.hovered?.steps === steps && shallowEqual(state.hovered.indices, indices)) {
                 return
             }*/
-            console.log("on start hover")
             set({
                 hovered: {
                     steps,
@@ -309,15 +313,15 @@ function createBaseStateFunctions(
             }
             set({ requested: undefined })
         },
-        createNoun: (name: string) => {
+        /*createNoun: (name: string) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
             set({
-                grammar: { ...state.grammar, [name]: toHierarchicalSteps({ type: "this" }, name) },
+                grammar: [...state.grammar, [name]: toHierarchicalSteps({ type: "this" }, name) },
             })
-        },
+        },*/
         insert: (type: "before" | "after" | "parallel", stepGenerator: () => ParsedSteps) => {
             const state = get()
             if (state.type != "gui") {
@@ -340,20 +344,19 @@ function createBaseStateFunctions(
             }
             set(removeValue(state.indicesMap, state.selectionsList, state.grammar))
         },
-        rename: (name: string) => {
-            /*const state = get()
-            if (state.type != "gui" || state.selections.length <= 0) {
+        renameNoun: (name: string) => {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            if (state.selections.length > 1) {
+            set(renameNoun(state.indicesMap, state.selectionsList, name, state.grammar))
+        },
+        setName: (name: string) => {
+            const state = get()
+            if (state.type != "gui") {
                 return
             }
-            const selection = state.selections[0]
-            if (Array.isArray(selection.path) && selection.path.length > 1) {
-                return
-            }
-
-            set(renameNoun(Array.isArray(selection.path) ? selection.path[0] : selection.path, name, state.grammar))*/
+            set(setName(state.indicesMap, state.selectionsList, name, state.grammar))
         },
         replace: <Type extends ParsedSteps["type"]>(
             replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void,

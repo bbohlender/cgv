@@ -8,7 +8,7 @@ export function applyToObject3D<A>(
     input: Observable<Value<Primitive, A>>,
     object: Object3D,
     toObject: (value: Value<Primitive, A>) => Object3D,
-    onError: (message: string) => void
+    onError: (error: any) => void
 ): Subscription {
     const map = new Map<string, Object3D>()
     return input.pipe(valuesToChanges()).subscribe({
@@ -27,7 +27,7 @@ export function applyToObject3D<A>(
             }
         },
         error: (error) => {
-            onError(error.message)
+            onError(error)
         },
     })
 }

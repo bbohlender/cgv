@@ -1,7 +1,7 @@
-import { Box3, BufferGeometry, Material, Matrix4, Mesh, Object3D, Vector3 } from "three"
+import { Box3, BufferAttribute, BufferGeometry, Material, Matrix4, Quaternion, Shape, Vector3 } from "three"
 import { CSG } from "three-csg-ts"
-import { makeTranslationMatrix, ObjectPrimitive, ObjectType, PointPrimitive, Primitive } from "."
-import { GeometryPrimitive } from "./primitive"
+import { makeTranslationMatrix, ObjectType, Primitive } from "."
+import { FacePrimitive, GeometryPrimitive, MaterialGenerator } from "./primitive"
 
 const matrixHelper = new Matrix4()
 
@@ -91,25 +91,49 @@ export function CSGInverse(primitive: Primitive, materialGenerator: (type: Objec
     )
 }
 
-export function createGraph(lines: Array<[Vector3, Vector3]>, threshold: number) {
+function addConnectionToGraph(connectionsList: Array<Array<number>>, i1: number, i2: number): void {
+    let connections = connectionsList[i1]
+    if (connections == null) {
+        connections = []
+        connectionsList[i1] = connections
+    }
+    connections.push(i2)
+}
+
+export function createGraph(lines: Array<[Vector3, Vector3]>, normal: Vector3, threshold: number): Graph {
     const thresholdSquared = threshold * threshold
     const points: Array<Vector3> = []
     const connectionsList: Array<Array<number>> = []
     for (const [p1, p2] of lines) {
-        const i1 = getIndexInPoints(points, p1, threshold)
-        const i2 = getIndexInPoints(points, p2, threshold)
-        let connections = connectionsList[i1]
-        if (connections == null) {
-            connections = []
-            connectionsList[i1] = connections
-        }
-        connections.push(i2)
+        const i1 = getIndexInPoints(points, p1, thresholdSquared)
+        const i2 = getIndexInPoints(points, p2, thresholdSquared)
+        addConnectionToGraph(connectionsList, i1, i2)
+        addConnectionToGraph(connectionsList, i2, i1)
+    }
+    for (let i = 0; i < connectionsList.length; i++) {
+        const connections = connectionsList[i]
+        connectionsList[i] = [
+            connections[0],
+            ...connections
+                .slice(1)
+                .map((index) => ({
+                    index,
+                    angle: degreeBetween(points[i], points[connections[0]], points[connections[i]], normal),
+                }))
+                .sort((e1, e2) => e1.angle - e2.angle)
+                .map(({ index }) => index),
+        ]
+    }
+    console.log(connectionsList, points)
+    return {
+        connectionsList,
+        points,
     }
 }
 
 function getIndexInPoints(points: Array<Vector3>, point: Vector3, thresholdSquared: number) {
     let index = points.findIndex((p) => vectorHelper.copy(p).sub(point).lengthSq() < thresholdSquared)
-    if (index !== -1) {
+    if (index === -1) {
         index = points.length
         points.push(point)
     }
@@ -134,45 +158,160 @@ function getIndexInPoints(points: Array<Vector3>, point: Vector3, thresholdSquar
 
 type Graph = {
     points: Array<Vector3>
-    connectionsList: Array<Array<number>>
+    connectionsList: Array<Array<number> | undefined>
 }
 
-/*
 export function expandGraph(
     graph: Graph,
     distance: Array<number> | number,
+    offset: Array<number> | number,
     normal: Vector3,
-    options: {
-        inside: "expand" | "nothing" | "fill"
-        outside: "expand" | "nothing"
+    materialGenerator: MaterialGenerator
+): Array<Primitive> {
+    if (graph.points.length === 0) {
+        return []
     }
-): Shape {
-    const finishedPoints = new Set<number>()
-    for(let i = 0; i < graph.points.length; i++) {
-        const target = graph.points[i]
-        const first = graph.points[graph.connectionsList[i][0]]
-        const sortedConnections = graph.connectionsList[i].map(index => {
-            const point = graph.points[index]
-            return { index, degree: degreeBetween(target, first, point, normal) }
-        }).sort((a, b) => a.degree - b.degree)
-        for(const { degree, index } of sortedConnections) {
-            if(finishedPoints.has(index)) {
-                continue
-            }
-            const degreeToPrevious = ;
-            const degreeToNext = ;
-            const towardPoint = graph.points[index]
-            //TODO: hexagon between target and towardPoint
+    const visited = new Set<string>()
+    return graph.connectionsList.reduce<Array<Primitive>>((prev, connections, pointIndex) => {
+        if (connections == null) {
+            return prev
         }
-        finishedPoints.add(i)
-    }
+        const filteredConnections = connections.filter((otherPointIndex) => {
+            const key1 = `${otherPointIndex}/${pointIndex}`
+            const key2 = `${pointIndex}/${otherPointIndex}`
+            if (visited.has(key1) || visited.has(key2)) {
+                return false
+            }
+            visited.add(key1)
+            return true
+        })
+        if (filteredConnections.length === 0) {
+            return prev
+        }
+        return [
+            ...prev,
+            ...filteredConnections.map((_, connectionIndex) =>
+                generateFaces(
+                    graph,
+                    pointIndex,
+                    filteredConnections,
+                    connectionIndex,
+                    distance,
+                    offset,
+                    normal,
+                    materialGenerator
+                )
+            ),
+        ]
+    }, [])
+}
+
+const globalToLocal = new Matrix4()
+const quaternionHelper = new Quaternion()
+
+export const YAXIS = new Vector3(0, 1, 0)
+export const ZAXIS = new Vector3(0, 1, 0)
+
+export function generateFaces(
+    graph: Graph,
+    pointIndex: number,
+    connections: Array<number>,
+    connectionIndex: number,
+    distance: Array<number> | number,
+    offset: Array<number> | number,
+    normal: Vector3,
+    materialGenerator: MaterialGenerator
+): Primitive {
+    const otherPointIndex = connections[connectionIndex]
+    console.log(connectionIndex, otherPointIndex, connections.length)
+    const shape = new Shape()
+    const matrix = new Matrix4()
+    const currentPoint = graph.points[pointIndex]
+    const nextPoint = graph.points[otherPointIndex]
+    vectorHelper.copy(nextPoint).sub(currentPoint).setY(0).normalize()
+    matrix.makeBasis(vectorHelper, YAXIS, new Vector3().crossVectors(vectorHelper, YAXIS))
+    //quaternionHelper.setFromUnitVectors(ZAXIS, vectorHelper)
+    matrix.premultiply(makeTranslationMatrix(currentPoint.x, currentPoint.y, currentPoint.z))
+
+    globalToLocal.copy(matrix).invert()
+    drawTriangle(
+        graph,
+        shape,
+        globalToLocal,
+        Array.isArray(distance) ? distance[pointIndex] : distance,
+        currentPoint,
+        nextPoint,
+        normal,
+        connectionIndex,
+        connections,
+        true
+    )
+    const otherConnections = graph.connectionsList[otherPointIndex]
+    const indexOfConnectionToPoint = otherConnections?.indexOf(pointIndex)
+    drawTriangle(
+        graph,
+        shape,
+        globalToLocal,
+        Array.isArray(distance) ? distance[otherPointIndex] : distance,
+        nextPoint,
+        currentPoint,
+        normal,
+        indexOfConnectionToPoint,
+        otherConnections,
+        false
+    )
+    return new FacePrimitive(matrix, shape, materialGenerator)
 }
 
 const v1 = new Vector3()
 const v2 = new Vector3()
 const v3 = new Vector3()
 
-function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: Vector3) {
+function drawTriangle(
+    graph: Graph,
+    shape: Shape,
+    globalToLocal: Matrix4,
+    distance: number,
+    origin: Vector3,
+    otherOrigin: Vector3,
+    normal: Vector3,
+    i: number | undefined,
+    connections: Array<number> | undefined,
+    initial: boolean
+) {
+    v2.copy(origin).applyMatrix4(globalToLocal)
+    if (i != null && connections != null && connections.length > 1) {
+        if (connections.length === 2) {
+            vectorHelper.add(otherOrigin).sub(origin).normalize()
+            v1.copy(graph.points[connections[(i + 1) % connections.length]])
+                .sub(origin)
+                .normalize()
+                .add(vectorHelper)
+                .normalize()
+                .multiplyScalar(distance)
+            v3.copy(v1).multiplyScalar(-1)
+            v1.add(origin).applyMatrix4(globalToLocal)
+            v3.add(origin).applyMatrix4(globalToLocal)
+        } else {
+            v1.copy(graph.points[connections[(i + connections.length - 1) % connections.length]])
+            v3.copy(graph.points[connections[(i + 1) % connections.length]])
+        }
+    } else {
+        v1.copy(otherOrigin).sub(origin).cross(normal).normalize().multiplyScalar(distance)
+        v3.copy(v1).multiplyScalar(-1)
+        v1.add(origin).applyMatrix4(globalToLocal)
+        v3.add(origin).applyMatrix4(globalToLocal)
+    }
+    if (initial) {
+        shape.moveTo(v1.x, v1.z)
+    } else {
+        shape.lineTo(v1.x, v1.z)
+    }
+    shape.lineTo(v2.x, v2.z)
+    shape.lineTo(v3.x, v3.z)
+}
+
+function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: Vector3): number {
     v1.copy(p1).sub(targetPoint)
     v2.copy(p2).sub(targetPoint)
     const cw = v3.copy(v1).cross(normal).dot(v2) >= 0
@@ -180,10 +319,31 @@ function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: V
     v2.projectOnPlane(normal)
     const angle = v1.angleTo(v2)
     return cw ? angle : Math.PI * 2 - angle
-}*/
+}
 
-
-//line expand algorithm (size per edge, offset per edge)
-//for each node
-//compute normal (add all vectors -> normalize)
-//
+function expandLine(
+    distance: number,
+    offset: number,
+    position1: Vector3,
+    normal1: Vector3,
+    position2: Vector3,
+    normal2: Vector3
+): BufferGeometry {
+    const geometry = new BufferGeometry()
+    const vertecies = new Float32Array()
+    vectorHelper.copy(normal1).multiplyScalar(offset).add(position1).toArray(vertecies, 0)
+    vectorHelper.copy(normal2).multiplyScalar(offset).add(position2).toArray(vertecies, 3)
+    vectorHelper
+        .copy(normal2)
+        .multiplyScalar(offset + distance)
+        .add(position2)
+        .toArray(vertecies, 9)
+    vectorHelper
+        .copy(normal1)
+        .multiplyScalar(offset + distance)
+        .add(position1)
+        .toArray(vertecies, 6)
+    geometry.setAttribute("position", new BufferAttribute(vertecies, 3))
+    geometry.setIndex([0, 1, 2, 0, 2, 3])
+    return geometry
+}

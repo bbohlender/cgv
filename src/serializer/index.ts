@@ -2,9 +2,7 @@ import { ParsedGrammarDefinition, ParsedSteps } from ".."
 import { serializeSteps } from "./serialize"
 
 export function serializeString(grammarDefinition: ParsedGrammarDefinition): string {
-    return Object.entries(grammarDefinition)
-        .map(([symbol, step]) => `${symbol} -> ${serializeStepString(step)}`)
-        .join("\n\n")
+    return grammarDefinition.map(({ name, step }) => `${name} -> ${serializeStepString(step)}`).join("\n\n")
 }
 
 export function serializeStepString(steps: ParsedSteps): string {

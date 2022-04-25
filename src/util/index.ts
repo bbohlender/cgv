@@ -1,4 +1,5 @@
 import { AbstractParsedSteps, ParsedSteps } from ".."
+import { AbstractParsedGrammarDefinition, ParsedGrammarDefinition } from "../parser"
 
 export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> | undefined): boolean {
     if (array1 == null || array2 == null) {
@@ -30,6 +31,33 @@ export function assureType<Type extends ParsedSteps["type"], T>(
 
 export function filterNull<T>(val: T | null | undefined): val is T {
     return val != null
+}
+
+export function getNounIndex(name: string, grammar: ParsedGrammarDefinition): number | undefined {
+    const index = grammar.findIndex(({ name: nounName }) => nounName === name)
+    return index === -1 ? undefined : index
+}
+
+export function setNounStep(name: string, grammar: ParsedGrammarDefinition, step: ParsedSteps): void {
+    const index = getNounIndex(name, grammar)
+    if (index != null) {
+        grammar[index].step = step
+    }
+}
+/*
+export function setNounName(name: string, grammar: ParsedGrammarDefinition, newName: string): void {
+    const index = getNounIndex(name, grammar)
+    if(index != null) {
+        grammar[index].name = newName
+    }
+}*/
+
+export function getNounStep<T>(
+    name: string,
+    grammar: AbstractParsedGrammarDefinition<T>
+): AbstractParsedSteps<T> | undefined {
+    const index = getNounIndex(name, grammar)
+    return index == null ? undefined : grammar[index].step
 }
 
 export * from "./precendence"

@@ -15,15 +15,15 @@ import { childrenSelectable } from "../gui"
 
 export function Grammar({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const nouns = store((state) => (state.type === "gui" ? Object.entries(state.grammar) : undefined), shallowEqual)
+    const nouns = store((state) => (state.type === "gui" ? state.grammar : undefined))
     if (nouns == null) {
         return null
     }
     return (
         <div {...rest} className={`${className} position-relative`}>
             <div className="m-3">
-                {nouns.map(([name, value]) => (
-                    <InteractableSteps key={name} value={value} noun={name} />
+                {nouns.map(({ name, step }) => (
+                    <InteractableSteps key={name} value={step} noun={name} />
                 ))}
                 <button
                     className="d-flex align-items-center btn btn-sm btn-secondary"

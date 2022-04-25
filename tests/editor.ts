@@ -15,6 +15,7 @@ import {
     HierarchicalParsedSteps,
     HierarchicalPath,
     translatePath,
+    getNounStep,
 } from "../src"
 import { validateHierarchical } from "./hierarchical"
 
@@ -197,7 +198,7 @@ describe("editor", () => {
 
     it("should rename noun", () => {
         const inputGrammar = toHierarchical(parse(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`))
-        const { grammar } = renameNoun("b", "xyz", inputGrammar)
+        const { grammar } = renameNoun({}, [{ steps: "b", indices: [] }], "xyz", inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar)).to.equal(`a -> 1 | xyz * 2 -> this + 3\n\nxyz -> 2`)
     })
@@ -251,7 +252,7 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> this | b * 2 -> this + 3\n\nb -> 2`)
+        expect(serializeString(grammar)).to.equal(`a -> null | b * 2 -> this + 3\n\nb -> 2`)
     })
 
     it("should remove step from sequential and simplify", () => {

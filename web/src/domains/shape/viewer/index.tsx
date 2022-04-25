@@ -213,9 +213,9 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
                             }
                             return child
                         },
-                        (error) => {
+                        (error: any) => {
                             console.error(error)
-                            useViewerState.getState().setError(error)
+                            useViewerState.getState().setError(error.message)
                         }
                     )
                     /*

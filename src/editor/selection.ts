@@ -1,6 +1,8 @@
 import produce from "immer"
 import {
+    filterNull,
     getAtPath,
+    getNounStep,
     HierarchicalParsedGrammarDefinition,
     HierarchicalParsedSteps,
     HierarchicalPath,
@@ -81,23 +83,19 @@ export function getRelatedSelections(
     return relatedStepsList
         .map((relatedSteps) => {
             const path = getSelectedStepsJoinedPath(relatedSteps)
-            const existingIndices = indicesMap[path]
-            if (existingIndices == null) {
-                return undefined
-            }
+            const existingIndices = indicesMap[path] ?? []
             const forwardIndices = existingIndices.filter(
                 (existingIndex) =>
                     indices.find(
                         (index) => indexIsRelated(index, existingIndex) && (filter == null || filter(existingIndex))
                     ) != null
             )
+            if (forwardIndices.length === 0 && existingIndices.length > 0) {
+                return undefined
+            }
             return { steps: relatedSteps, indices: forwardIndices }
         })
-        .filter(filterNullAndEmpty)
-}
-
-function filterNullAndEmpty<T extends { indices: Array<any> }>(value: T | undefined): value is T {
-    return value != null && value.indices.length > 0
+        .filter(filterNull)
 }
 
 export function getPredecessorSelections(
@@ -158,7 +156,7 @@ export function getSuccessorSelections(
     if (includeChildren) {
         const children =
             typeof steps === "string"
-                ? [grammar[steps]]
+                ? [getNounStep(steps, grammar)!]
                 : steps.type === "symbol"
                 ? [steps.identifier]
                 : steps.type === "sequential"
@@ -186,7 +184,7 @@ export function getIndirectParentsSteps(
 ): Array<SelectedSteps> {
     if (typeof steps === "string") {
         const parents: Array<HierarchicalParsedSteps> = []
-        for (const root of Object.values(grammar)) {
+        for (const { step: root } of grammar) {
             findSymbolsWithIdentifier(root, steps, (steps) => parents.push(steps))
         }
 
@@ -308,9 +306,11 @@ export function editIndices(
         for (const { index, steps } of indices) {
             const { indicesMap: indicesDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
 
-            const selectionsIndex = selectionsList.findIndex((selections) => selections.steps === steps)
-            const selections = selectionsDraft[selectionsIndex]
             const path = steps.path.join(",")
+            const selectionsIndex = selectionsList.findIndex(
+                (selections) => getSelectedStepsJoinedPath(selections.steps) === path
+            )
+            const selections = selectionsDraft[selectionsIndex]
             let all = indicesDraft[path]
 
             if (!add) {

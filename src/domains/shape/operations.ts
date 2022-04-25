@@ -18,9 +18,30 @@ import { ObjectPrimitive } from "./primitive"
 import { GLTFLoader } from "three-stdlib/loaders/GLTFLoader"
 import { DRACOLoader } from "three-stdlib/loaders/DRACOLoader"
 import { computeGableRoof } from "./roof"
+import { createGraph, expandGraph, YAXIS } from "./primitive-utils"
 
-function computeMapbox(/*[lat, lon]: ReadonlyArray<any>*/): Observable<Array<Primitive>> {
-    return from(loadMap()).pipe(
+function computeGraphExpand(
+    instance: Primitive,
+    distance: number,
+    ...lines: Array<LinePrimitive>
+): Observable<Array<Primitive>> {
+    return of(
+        expandGraph(
+            createGraph(
+                lines.map((line) => [line.getStart(), line.getEnd()]),
+                YAXIS,
+                1
+            ),
+            distance,
+            0,
+            YAXIS,
+            instance.materialGenerator
+        )
+    )
+}
+
+function computeMapbox(instance: Primitive /*[lat, lon]: ReadonlyArray<any>*/): Observable<Array<Primitive>> {
+    return from(loadMap(instance.materialGenerator)).pipe(
         map(([roads, buildings]) => {
             //TODO: forward parameters
             const values = [...roads, ...buildings].map<Primitive>(([primitive, parameters], i) => primitive)
@@ -225,8 +246,13 @@ export const operations: Operations<any, any> = {
     },
     mapbox: {
         execute: simpleExecution<any, unknown>(computeMapbox),
-        includeThis: false,
+        includeThis: true,
         defaultParameters: [],
+    },
+    expandGraph: {
+        execute: simpleExecution<any, unknown>(computeGraphExpand),
+        includeThis: true,
+        defaultParameters: [() => ({ type: "raw", value: 30 })],
     },
     load: {
         execute: simpleExecution<any, unknown>(computeLoad),
