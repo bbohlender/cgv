@@ -259,3 +259,21 @@ SmallTile -> if (size("x") >= 180)
 
 Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 ```
+
+World 1
+
+```
+Start -> expandGraph(20, line(point2(205.09, -7.75), point2(97.35, -6.38)), line(point2(-1.91, -198.75), point2(-98.57, -98.43)), line(point2(-145.86, 23.73), point2(-100, -100)), line(point2(-100, -100), point2(97.62, -7.15))) -> (sample(2) -> load("/cgv/car.gltf") -> scale(6, 6, 6) -> rotate(0, 90, 0) | this -> color("#8f8f8f")) | face(point2(86.74, 19.26), point2(199.71, 16.55), point2(185.67, 147.77), point2(36.18, 131.63), point2(-119.68, 39.67), point2(-87.81, -66.99)) -> (sample(50) -> load("/cgv/tree.gltf") -> scale(80, 80, 80) | color("#63bf31")) | face(point2(-22.6, -88.57), point2(-22.53, -137.76), point2(62.55, -119.99), point2(71.6, -84.9)) -> Lot
+
+Lot -> color("#333343") -> extrude(60) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
+
+Wall -> split("z", 20) -> Floor
+
+Roof -> color("#881111") -> extrude(30) -> gableRoof()
+
+Floor -> split("x", 20) -> WindowFrame
+
+WindowFrame -> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id() == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
+
+Window -> if id() == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
+```

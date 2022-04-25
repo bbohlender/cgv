@@ -1,6 +1,7 @@
 import { Box3, BufferAttribute, BufferGeometry, Material, Matrix4, Quaternion, Shape, Vector3 } from "three"
 import { CSG } from "three-csg-ts"
 import { makeTranslationMatrix, ObjectType, Primitive } from "."
+import { filterNull } from "../../util"
 import { FacePrimitive, GeometryPrimitive, MaterialGenerator } from "./primitive"
 
 const matrixHelper = new Matrix4()
@@ -112,17 +113,15 @@ export function createGraph(lines: Array<[Vector3, Vector3]>, normal: Vector3, t
     }
     for (let i = 0; i < connectionsList.length; i++) {
         const connections = connectionsList[i]
-        connectionsList[i] = [
-            connections[0],
-            ...connections
-                .slice(1)
-                .map((index) => ({
-                    index,
-                    angle: degreeBetween(points[i], points[connections[0]], points[connections[i]], normal),
-                }))
-                .sort((e1, e2) => e1.angle - e2.angle)
-                .map(({ index }) => index),
-        ]
+        const sortedAngles = connections
+            .slice(1)
+            .map((index) => ({
+                index,
+                angle: degreeBetween(points[i], points[connections[0]], points[index], normal),
+            }))
+            .sort((e1, e2) => e1.angle - e2.angle)
+        console.log(sortedAngles)
+        connectionsList[i] = [connections[0], ...sortedAngles.map(({ index }) => index)]
     }
     console.log(connectionsList, points)
     return {
@@ -176,32 +175,28 @@ export function expandGraph(
         if (connections == null) {
             return prev
         }
-        const filteredConnections = connections.filter((otherPointIndex) => {
-            const key1 = `${otherPointIndex}/${pointIndex}`
-            const key2 = `${pointIndex}/${otherPointIndex}`
-            if (visited.has(key1) || visited.has(key2)) {
-                return false
-            }
-            visited.add(key1)
-            return true
-        })
-        if (filteredConnections.length === 0) {
-            return prev
-        }
         return [
             ...prev,
-            ...filteredConnections.map((_, connectionIndex) =>
-                generateFaces(
-                    graph,
-                    pointIndex,
-                    filteredConnections,
-                    connectionIndex,
-                    distance,
-                    offset,
-                    normal,
-                    materialGenerator
-                )
-            ),
+            ...connections
+                .map((otherPointIndex, connectionIndex) => {
+                    const key1 = `${otherPointIndex}/${pointIndex}`
+                    const key2 = `${pointIndex}/${otherPointIndex}`
+                    if (visited.has(key1) || visited.has(key2)) {
+                        return undefined
+                    }
+                    visited.add(key1)
+                    return generateFaces(
+                        graph,
+                        pointIndex,
+                        connections,
+                        connectionIndex,
+                        distance,
+                        offset,
+                        normal,
+                        materialGenerator
+                    )
+                })
+                .filter(filterNull),
         ]
     }, [])
 }
@@ -267,6 +262,10 @@ const v1 = new Vector3()
 const v2 = new Vector3()
 const v3 = new Vector3()
 
+const otherOriginToOriginNormal = new Vector3()
+const originToSuccessorConnectionNormal = new Vector3()
+const originToPredecessorConnectionNormal = new Vector3()
+
 function drawTriangle(
     graph: Graph,
     shape: Shape,
@@ -281,27 +280,49 @@ function drawTriangle(
 ) {
     v2.copy(origin).applyMatrix4(globalToLocal)
     if (i != null && connections != null && connections.length > 1) {
+        otherOriginToOriginNormal.copy(otherOrigin).sub(origin).normalize()
+
+        originToSuccessorConnectionNormal
+            .copy(graph.points[connections[(i + connections.length - 1) % connections.length]])
+            .sub(origin)
+            .normalize()
+
+        v1.copy(otherOriginToOriginNormal).add(originToSuccessorConnectionNormal).normalize().multiplyScalar(distance)
+
         if (connections.length === 2) {
-            vectorHelper.add(otherOrigin).sub(origin).normalize()
-            v1.copy(graph.points[connections[(i + 1) % connections.length]])
+            originToPredecessorConnectionNormal.copy(originToSuccessorConnectionNormal)
+            v3.copy(v1)
+        } else {
+            originToPredecessorConnectionNormal
+                .copy(graph.points[connections[(i + 1) % connections.length]])
                 .sub(origin)
                 .normalize()
-                .add(vectorHelper)
+
+            v3.copy(otherOriginToOriginNormal)
+                .add(originToPredecessorConnectionNormal)
                 .normalize()
                 .multiplyScalar(distance)
-            v3.copy(v1).multiplyScalar(-1)
-            v1.add(origin).applyMatrix4(globalToLocal)
-            v3.add(origin).applyMatrix4(globalToLocal)
-        } else {
-            v1.copy(graph.points[connections[(i + connections.length - 1) % connections.length]])
-            v3.copy(graph.points[connections[(i + 1) % connections.length]])
+        }
+
+        vectorHelper.crossVectors(otherOriginToOriginNormal, normal)
+
+        const successorClockwise = vectorHelper.dot(originToSuccessorConnectionNormal) >= 0
+        if (!successorClockwise) {
+            v1.multiplyScalar(-1)
+        }
+
+        const predecessorClockwise = vectorHelper.dot(originToPredecessorConnectionNormal) >= 0
+        if (predecessorClockwise) {
+            v3.multiplyScalar(-1)
         }
     } else {
         v1.copy(otherOrigin).sub(origin).cross(normal).normalize().multiplyScalar(distance)
         v3.copy(v1).multiplyScalar(-1)
-        v1.add(origin).applyMatrix4(globalToLocal)
-        v3.add(origin).applyMatrix4(globalToLocal)
     }
+
+    v1.add(origin).applyMatrix4(globalToLocal)
+    v3.add(origin).applyMatrix4(globalToLocal)
+
     if (initial) {
         shape.moveTo(v1.x, v1.z)
     } else {
@@ -314,7 +335,7 @@ function drawTriangle(
 function degreeBetween(targetPoint: Vector3, p1: Vector3, p2: Vector3, normal: Vector3): number {
     v1.copy(p1).sub(targetPoint)
     v2.copy(p2).sub(targetPoint)
-    const cw = v3.copy(v1).cross(normal).dot(v2) >= 0
+    const cw = v3.crossVectors(v1, normal).dot(v2) < 0
     v1.projectOnPlane(normal)
     v2.projectOnPlane(normal)
     const angle = v1.angleTo(v2)

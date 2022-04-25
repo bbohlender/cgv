@@ -30,7 +30,7 @@ function computeGraphExpand(
             createGraph(
                 lines.map((line) => [line.getStart(), line.getEnd()]),
                 YAXIS,
-                1
+                distance
             ),
             distance,
             0,
