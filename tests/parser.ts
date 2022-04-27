@@ -1,6 +1,7 @@
-import { parse } from "../src"
+import { globalizeDescriptions, parse, parseDescription } from "../src"
 import { expect } from "chai"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
+import produce from "immer"
 
 describe("parse grammar", () => {
     it("should parse grammars from test-data", () => {
@@ -9,8 +10,17 @@ describe("parse grammar", () => {
         }
     })
 
+    it("should parse grammars from test-data transformed with description name", () => {
+        for (const { parsed, unparsed } of parsedAndUnparsedGrammarPairs) {
+            expect(parseDescription(unparsed, "testName")).to.deep.equal(
+                produce(parsed, (draft) => globalizeDescriptions(draft, "testName"))
+            )
+        }
+    })
+
     it("should efficiently parse big grammar", () => {
-        expect(() => parse(`Start -> face(
+        expect(() =>
+            parse(`Start -> face(
             point2(10,90),
             point2(-30,0),
             point2(80,10),
@@ -41,6 +51,7 @@ describe("parse grammar", () => {
                 this
             }
         
-        Window -> color("#EEEEEE")`)).to.not.throw()
+        Window -> color("#EEEEEE")`)
+        ).to.not.throw()
     }).timeout(500)
 })

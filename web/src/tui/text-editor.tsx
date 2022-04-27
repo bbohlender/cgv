@@ -1,7 +1,6 @@
 import { HTMLProps, KeyboardEvent } from "react"
 import { ErrorMessage } from "../error-message"
 import { useBaseStore } from "../global"
-import { CheckIcon } from "../icons/check"
 import { EditIcon } from "../icons/edit"
 
 export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {

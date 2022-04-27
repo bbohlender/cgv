@@ -23,7 +23,6 @@ export type PanoramaViewerState = {
 }
 
 export type ResultViewerState = {
-    result: Object3D | undefined
     error: string | undefined
     primitiveMap: PrimitiveMap
 }
@@ -54,7 +53,6 @@ export function createViewerStateInitial(): ViewerState {
         position: topPosition,
         error: undefined,
         primitiveMap: {},
-        result: undefined,
         showBackground: false,
     }
 }
@@ -111,10 +109,7 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
                 rotation,
             })
         },
-        setResult: (result: Object3D) => {
-            set({ result, error: undefined })
-        },
-        setError: (error: string) => {
+        setError: (error: string | undefined) => {
             set({ error })
         },
         addPrimitive: (index: string, primitive: Primitive) => {

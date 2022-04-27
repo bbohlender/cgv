@@ -4,7 +4,7 @@ import { StartLabel } from "./label"
 
 export function GUISymbolStep({ value }: { value: AbstractParsedSymbol<HierarchicalInfo> }) {
     const store = useBaseStore()
-    const nouns = store((state) => (state.type === "gui" ? Object.keys(state.grammar) : undefined))
+    const nouns = store((state) => (state.type === "gui" ? state.grammar.map((noun) => noun.name) : undefined))
     if (nouns == null) {
         return null
     }

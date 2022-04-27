@@ -60,6 +60,17 @@ export function getNounStep<T>(
     return index == null ? undefined : grammar[index].step
 }
 
+export function traverseSteps<T>(root: AbstractParsedSteps<T>, cb: (step: AbstractParsedSteps<T>) => void) {
+    cb(root)
+    if (root.children == null) {
+        return
+    }
+    for (const child of root.children) {
+        traverseSteps(child, cb)
+    }
+}
+
 export * from "./precendence"
 export * from "./hierarchical"
 export * from "./flatten"
+export * from "./description"

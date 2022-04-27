@@ -7,6 +7,7 @@ import {
     getSuccessorSelections,
     HierarchicalInfo,
     HierarchicalParsedSteps,
+    localizeStepsSerializer,
     SelectedSteps,
     SelectionsList,
     serializeStepString,
@@ -34,14 +35,6 @@ export function childrenSelectable(operationGuiMap: OperationGUIMap, steps: Sele
     return typeof steps == "string" || steps.type !== "operation" || operationGuiMap[steps.identifier] == null
 }
 
-export function getSelectionTitle(selections: Array<SelectionsList[number]>) {
-    if (selections.length === 1) {
-        const steps = selections[0].steps
-        return typeof steps === "string" ? steps : steps.type === "operation" ? steps.identifier : steps.type
-    }
-    return `${selections.length} steps selected`
-}
-
 function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") {
     store.getState().request("create-step", (stepGenerator) => store.getState().insert(type, stepGenerator))
 }
@@ -50,16 +43,17 @@ function requestReplace(store: UseBaseStore) {
     store.getState().request("create-step", (stepGenerator) => store.getState().replace(stepGenerator))
 }
 
-function requestSetName(store: UseBaseStore) {
-    store.getState().request("set-name", (name) => store.getState().setName(name))
+function requestSetName(store: UseBaseStore, descriptionName: string) {
+    store.getState().request("set-name", (name) => store.getState().setName(name, descriptionName))
 }
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
+    const descriptionName = store((state) => state.selectedDescription)
     const selectionsList = store((state) =>
         state.type === "gui" && state.requested == null ? state.selectionsList : undefined
     )
-    if (selectionsList == null || selectionsList.length === 0) {
+    if (selectionsList == null || selectionsList.length === 0 || descriptionName == null) {
         return null
     }
     return (
@@ -90,7 +84,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         Replace
                     </button>
                     <button
-                        onClick={requestSetName.bind(null, store)}
+                        onClick={requestSetName.bind(null, store, descriptionName)}
                         className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
                         Set-Name
                     </button>
@@ -110,14 +104,24 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                     </button>
                 </div>
                 {selectionsList.map((selections) => (
-                    <GUISelection key={getSelectedStepsJoinedPath(selections.steps)} selections={selections} />
+                    <GUISelection
+                        descriptionName={descriptionName}
+                        key={getSelectedStepsJoinedPath(selections.steps)}
+                        selections={selections}
+                    />
                 ))}
             </div>
         </div>
     )
 }
 
-function GUISelection({ selections }: { selections: SelectionsList[number] }) {
+function GUISelection({
+    selections,
+    descriptionName,
+}: {
+    descriptionName: string
+    selections: SelectionsList[number]
+}) {
     const store = useBaseStore()
     const path = getSelectedStepsJoinedPath(selections.steps)
     const indicesMap = store((state) => (state.type === "gui" ? state.indicesMap : undefined))
@@ -153,7 +157,7 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
 
     return (
         <div className="d-flex flex-column">
-            <label className="mb-3 mx-3">{getSelectionsLabel(selections)}</label>
+            <label className="mb-3 mx-3">{getSelectionsLabel(selections, descriptionName)}</label>
             {predecessors != null && predecessors.length > 0 && (
                 <div className="mb-3 mx-3 btn-group-vertical">
                     {predecessors.map((predecessor) => (
@@ -164,7 +168,7 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
                             className="d-flex flex-row align-items-center btn-sm btn btn-outline-secondary"
                             key={getSelectedStepsJoinedPath(predecessor.steps)}>
                             <ArrowLeftUp />
-                            <span className="ms-2">{getSelectionsLabel(predecessor)}</span>
+                            <span className="ms-2">{getSelectionsLabel(predecessor, descriptionName)}</span>
                         </div>
                     ))}
                 </div>
@@ -191,19 +195,19 @@ function GUISelection({ selections }: { selections: SelectionsList[number] }) {
                             onMouseLeave={() => store.getState().onEndHover(successor.steps)}
                             key={getSelectedStepsJoinedPath(successor.steps)}>
                             <ArrowDownRight />
-                            <span className="ms-2">{getSelectionsLabel(successor)}</span>
+                            <span className="ms-2">{getSelectionsLabel(successor, descriptionName)}</span>
                         </div>
                     ))}
                 </div>
             )}
-            <GUISteps value={selections.steps} indices={selections.indices} />
+            <GUISteps descriptionName={descriptionName} value={selections.steps} indices={selections.indices} />
         </div>
     )
 }
 
-function getSelectionsLabel(selections: SelectionsList[number]) {
+function getSelectionsLabel(selections: SelectionsList[number], descriptionName: string) {
     return typeof selections.steps === "string"
-        ? selections.steps
+        ? localizeStepsSerializer(descriptionName, selections.steps)
         : selections.steps.type === "operation"
         ? selections.steps.identifier
         : selections.steps.type
@@ -223,12 +227,14 @@ function getValues(
 function GUISteps({
     value,
     indices,
+    descriptionName,
 }: {
+    descriptionName: string
     value: HierarchicalParsedSteps | string
     indices: Array<FullIndex>
 }): JSX.Element | null {
     if (typeof value === "string") {
-        return <GUINounStep value={value} />
+        return <GUINounStep descriptionName={descriptionName} value={value} />
     }
     switch (value.type) {
         case "raw":
