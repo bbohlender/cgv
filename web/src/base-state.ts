@@ -4,11 +4,8 @@ import {
     replace,
     Operations,
     ParsedSteps,
-    parse,
-    serializeString,
     ParsedGrammarDefinition,
     toHierarchical,
-    toHierarchicalSteps,
     insert,
     removeStep,
     removeValue,
@@ -24,8 +21,16 @@ import {
     getSelectedStepsJoinedPath,
     renameNoun,
     setName,
+    parseDescription,
+    getDescriptionOfNoun,
+    serializeString,
+    globalizeStepsSerializer,
+    getDescription,
+    exchangeDescription,
+    getDescriptionRootStep,
+    localizeStepsSerializer,
 } from "cgv"
-import { Draft } from "immer"
+import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { operationGuiMap } from "./domains/shape"
@@ -34,6 +39,11 @@ import { childrenSelectable } from "./gui"
 
 export type BaseState = (CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>) & {
     interpretationDelay: number
+    descriptions: Array<{
+        name: string
+        visible: boolean
+    }>
+    selectedDescription: string | undefined
 }
 
 export type CombineEmpty<T, K> = T & {
@@ -64,6 +74,7 @@ export type TuiIncorrectState = {
     text: string
     correct: false
     error: string
+    grammar: ParsedGrammarDefinition
 }
 
 export function createBaseState(operations: Operations<any, any>) {
@@ -78,12 +89,9 @@ function createBaseStateInitial(): BaseState {
         indicesMap: {},
         selectionsList: [],
         hovered: undefined,
-        grammar: toHierarchical([
-            {
-                name: "Start",
-                step: { type: "this" },
-            },
-        ]),
+        grammar: [],
+        descriptions: [],
+        selectedDescription: undefined,
         interpretationDelay: 0,
         requested: undefined,
         shift: false,
@@ -97,14 +105,81 @@ function createBaseStateFunctions(
     get: GetState<BaseState>
 ) {
     return {
+        selectDescription: (name: string) => {
+            const state = get()
+            if (state.selectedDescription === name) {
+                return
+            }
+            if (state.type === "gui") {
+                const rootStep = getDescriptionRootStep(state.grammar, name)
+                set({
+                    selectedDescription: name,
+                    indicesMap: {},
+                    selectionsList:
+                        rootStep == null
+                            ? []
+                            : [
+                                  {
+                                      steps: rootStep,
+                                      indices: [],
+                                  },
+                              ],
+                    hovered: undefined,
+                })
+            } else {
+                set({
+                    selectedDescription: name,
+                    text: serializeString(
+                        getDescription(state.grammar, name, false),
+                        localizeStepsSerializer.bind(null, name)
+                    ),
+                })
+            }
+        },
+        addDescription: (name: string) => {
+            const { descriptions, grammar } = get()
+            if (descriptions.findIndex((description) => description.name === name) !== -1) {
+                return
+            }
+            set({
+                descriptions: produce(get().descriptions, (draft) => {
+                    draft.push({
+                        name,
+                        visible: true,
+                    })
+                }),
+                grammar: grammar.concat(toHierarchical([{ name: `${name}@Start`, step: { type: "this" } }])),
+            })
+        },
+        deleteDescription: (index: number) => {
+            const { descriptions } = get()
+            //TODO: delete all the nouns from the grammar (which should implicitly change the selectionsList)
+            /*set({
+                descriptions: produce(descriptions, (draft) => {
+                    draft.splice(index, 1)
+                }),
+            })*/
+        },
+        toggleDescriptionVisible: (index: number) => {
+            const { descriptions } = get()
+            set({
+                descriptions: produce(descriptions, (draft) => {
+                    draft[index].visible = !draft[index].visible
+                }),
+            })
+        },
         setText: (text: string) => {
             const state = get()
-            if (state.type != "tui") {
+            if (state.type != "tui" || state.selectedDescription == null) {
                 return
             }
             try {
-                const grammar = parse(text)
-                set({ text, correct: true, grammar })
+                const description = parseDescription(text, state.selectedDescription)
+                set({
+                    text,
+                    correct: true,
+                    grammar: exchangeDescription(state.grammar, description, state.selectedDescription),
+                })
             } catch (error: any) {
                 set({ text, correct: false, error: error.message })
             }
@@ -126,15 +201,19 @@ function createBaseStateFunctions(
                 })
                 return
             }
-            if (state.type === "gui") {
-                set({
-                    type: "tui",
-                    grammar: state.grammar,
-                    text: serializeString(state.grammar),
-                    correct: true,
-                })
-                return
-            }
+
+            set({
+                type: "tui",
+                grammar: state.grammar,
+                text:
+                    state.selectedDescription == null
+                        ? ""
+                        : serializeString(
+                              getDescription(state.grammar, state.selectedDescription, false),
+                              localizeStepsSerializer.bind(null, state.selectedDescription)
+                          ),
+                correct: true,
+            })
         },
         onStartHover: (steps: SelectedSteps, indices: Array<FullIndex> | undefined) => {
             const state = get()
@@ -344,19 +423,33 @@ function createBaseStateFunctions(
             }
             set(removeValue(state.indicesMap, state.selectionsList, state.grammar))
         },
-        renameNoun: (name: string) => {
+        renameNoun: (name: string, descriptionName: string) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(renameNoun(state.indicesMap, state.selectionsList, name, state.grammar))
+            set(
+                renameNoun(
+                    state.indicesMap,
+                    state.selectionsList,
+                    globalizeStepsSerializer(descriptionName, name) ?? name,
+                    state.grammar
+                )
+            )
         },
-        setName: (name: string) => {
+        setName: (name: string, descriptionName: string) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(setName(state.indicesMap, state.selectionsList, name, state.grammar))
+            set(
+                setName(
+                    state.indicesMap,
+                    state.selectionsList,
+                    globalizeStepsSerializer(descriptionName, name) ?? name,
+                    state.grammar
+                )
+            )
         },
         replace: <Type extends ParsedSteps["type"]>(
             replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void,
@@ -398,6 +491,18 @@ function createBaseStateFunctions(
             set({ interpretationDelay })
         },
     }
+}
+
+export function getFirstSelectedDescription(state: BaseState): string | undefined {
+    if (state.type !== "gui" || state.selectionsList.length === 0) {
+        return undefined
+    }
+
+    const firstSelections = state.selectionsList[0]
+
+    return getDescriptionOfNoun(
+        typeof firstSelections.steps === "string" ? firstSelections.steps : firstSelections.steps.path[0]
+    )
 }
 
 export type BaseStateFunctions = ReturnType<typeof createBaseStateFunctions>

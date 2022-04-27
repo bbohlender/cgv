@@ -12,9 +12,11 @@ import {
     ParsedSteps,
     debounceBufferTime,
     FullIndex,
+    getDescription,
+    HierarchicalParsedGrammarDefinition,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment } from "react"
+import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment, useMemo } from "react"
 import { of, Subject, Subscription } from "rxjs"
 import { Box3, BoxBufferGeometry, Color, EdgesGeometry, Group, LineBasicMaterial, Matrix4, Vector3 } from "three"
 import { ErrorMessage } from "../../../error-message"
@@ -95,7 +97,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <ViewControls />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
-                    <Result />
+                    <SelectedDescriptionResult />
+                    <UnselectedDescriptionResults />
                     <SelectedPrimitives />
                     <Panoramas />
                     <Background />
@@ -122,103 +125,115 @@ function ShowError() {
     return <ErrorMessage message={error} align="left" />
 }
 
-function useInterpretation(ref: RefObject<ReactNode & Group>) {
+function useSimpleInterpretation(
+    description: HierarchicalParsedGrammarDefinition | undefined,
+    ref: RefObject<ReactNode & Group>
+) {
     const store = useBaseStore()
     useEffect(() => {
+        if (ref.current == null || description == null) {
+            return
+        }
+        const subscription = applyToObject3D(
+            of(point).pipe(
+                toValue(),
+                interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
+                    delay: store.getState().interpretationDelay,
+                })
+            ),
+            ref.current,
+            (value) => {
+                useViewerState.getState().setError(undefined)
+                return value.raw.getObject()
+            },
+            (error: any) => {
+                console.error(error)
+                useViewerState.getState().setError(error.message)
+            }
+        )
+        return () => subscription.unsubscribe()
+    }, [store, description])
+}
+
+function useInterpretation(
+    description: HierarchicalParsedGrammarDefinition | undefined,
+    ref: RefObject<ReactNode & Group>
+) {
+    const store = useBaseStore()
+    useEffect(() => {
+        if (ref.current == null || description == null) {
+            return
+        }
+
         let subscription: Subscription | undefined
 
-        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; index: FullIndex }>()
         const beforeIndicesMap = new Map<ParsedSteps, Array<string>>()
 
-        let unsubscribeAfterStep: Subscription | undefined
+        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; index: FullIndex }>()
 
-        const unsubscribeGrammar = store.subscribe(
-            (state) => (state.type === "gui" ? state.grammar : undefined),
-            (grammar) => {
-                if (ref.current == null) {
-                    return
-                }
-                ref.current.remove(...ref.current.children)
-                useViewerState.getState().clearPrimitives()
+        const unsubscribeAfterStep = afterStepSubject
+            .pipe(debounceBufferTime(300))
+            .subscribe((entries) => store.getState().editIndices(entries, true))
+        try {
+            subscription = applyToObject3D(
+                of(point).pipe(
+                    toValue(),
+                    interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
+                        delay: store.getState().interpretationDelay,
+                        //TODO: we need a possibility to know when a value is removed
+                        annotateAfterStep: (value, steps) => {
+                            const afterIndex = value.index.join(",")
 
-                subscription?.unsubscribe()
-                subscription = undefined
-
-                unsubscribeAfterStep?.unsubscribe()
-                unsubscribeAfterStep = undefined
-
-                beforeIndicesMap.clear()
-
-                if (grammar == null) {
-                    return
-                }
-                unsubscribeAfterStep = afterStepSubject
-                    .pipe(debounceBufferTime(300))
-                    .subscribe((entries) => store.getState().editIndices(entries, true))
-                try {
-                    subscription = applyToObject3D(
-                        of(point).pipe(
-                            toValue(),
-                            interprete<Primitive, Annotation, HierarchicalInfo>(grammar, operations, {
-                                delay: store.getState().interpretationDelay,
-                                //TODO: we need a possibility to know when a value is removed
-                                annotateAfterStep: (value, steps) => {
-                                    const afterIndex = value.index.join(",")
-
-                                    const beforeIndices = beforeIndicesMap.get(steps)
-                                    const beforeIndex = beforeIndices?.find((beforeIndex) =>
-                                        afterIndex.startsWith(beforeIndex)
-                                    )
-                                    if (beforeIndex != null) {
-                                        afterStepSubject.next({
-                                            steps,
-                                            index: { after: afterIndex, before: beforeIndex },
-                                        })
-                                    }
-                                    if (value.raw instanceof Primitive) {
-                                        useViewerState.getState().addPrimitive(afterIndex, value.raw)
-                                    }
-                                    return getAnnotationAfterStep(value, steps)
-                                },
-                                annotateBeforeStep: (value, steps) => {
-                                    let beforeIndices = beforeIndicesMap.get(steps)
-                                    if (beforeIndices == null) {
-                                        beforeIndices = []
-                                        beforeIndicesMap.set(steps, beforeIndices)
-                                    }
-                                    beforeIndices.push(value.index.join(","))
-                                    return getAnnotationBeforeStep(value, steps)
-                                },
-                            })
-                        ),
-                        ref.current,
-                        (value) => {
-                            const child = value.raw.getObject()
-                            if (value.annotation != null) {
-                                const afterIndex = value.index.join(",")
-                                const beforeIndices = beforeIndicesMap.get(value.annotation)
-                                const beforeIndex = beforeIndices?.find((beforeIndex) =>
-                                    afterIndex.startsWith(beforeIndex)
-                                )
-                                if (beforeIndex != null) {
-                                    const index: FullIndex = {
-                                        after: afterIndex,
-                                        before: beforeIndex,
-                                    }
-                                    child.traverse((o) => {
-                                        o.userData.steps = value.annotation
-                                        o.userData.index = index
-                                    })
-                                }
+                            const beforeIndices = beforeIndicesMap.get(steps)
+                            const beforeIndex = beforeIndices?.find((beforeIndex) => afterIndex.startsWith(beforeIndex))
+                            if (beforeIndex != null) {
+                                afterStepSubject.next({
+                                    steps,
+                                    index: { after: afterIndex, before: beforeIndex },
+                                })
                             }
-                            return child
+                            if (value.raw instanceof Primitive) {
+                                useViewerState.getState().addPrimitive(afterIndex, value.raw)
+                            }
+                            return getAnnotationAfterStep(value, steps)
                         },
-                        (error: any) => {
-                            console.error(error)
-                            useViewerState.getState().setError(error.message)
+                        annotateBeforeStep: (value, steps) => {
+                            let beforeIndices = beforeIndicesMap.get(steps)
+                            if (beforeIndices == null) {
+                                beforeIndices = []
+                                beforeIndicesMap.set(steps, beforeIndices)
+                            }
+                            beforeIndices.push(value.index.join(","))
+                            return getAnnotationBeforeStep(value, steps)
+                        },
+                    })
+                ),
+                ref.current,
+                (value) => {
+                    const child = value.raw.getObject()
+                    if (value.annotation != null) {
+                        const afterIndex = value.index.join(",")
+                        const beforeIndices = beforeIndicesMap.get(value.annotation)
+                        const beforeIndex = beforeIndices?.find((beforeIndex) => afterIndex.startsWith(beforeIndex))
+                        if (beforeIndex != null) {
+                            const index: FullIndex = {
+                                after: afterIndex,
+                                before: beforeIndex,
+                            }
+                            child.traverse((o) => {
+                                o.userData.steps = value.annotation
+                                o.userData.index = index
+                            })
                         }
-                    )
-                    /*
+                    }
+                    return child
+                },
+                (error: any) => {
+                    console.error(error)
+                    useViewerState.getState().setError(error.message)
+                }
+            )
+            /*
                         .subscribe({
                             next: (object) => useViewerState.getState().setResult(object),
                             error: (error) => {
@@ -226,26 +241,75 @@ function useInterpretation(ref: RefObject<ReactNode & Group>) {
                                 useViewerState.getState().setError(error.message)
                             },
                         })*/
-                } catch (error: any) {
-                    useViewerState.getState().setError(error.message)
-                }
-            },
-            {
-                fireImmediately: true,
-            }
-        )
+        } catch (error: any) {
+            useViewerState.getState().setError(error.message)
+        }
         return () => {
-            unsubscribeGrammar()
+            ref.current?.remove(...ref.current.children)
+            useViewerState.getState().clearPrimitives()
             subscription?.unsubscribe()
             unsubscribeAfterStep?.unsubscribe()
         }
-    }, [store])
+    }, [store, description])
 }
 
-function Result() {
-    const groupRef = useRef<ReactNode & Group>(null)
-    useInterpretation(groupRef)
+function UnselectedDescriptionResults() {
     const store = useBaseStore()
+    const unselectedDescriptions = store(
+        (state) =>
+            state.type === "gui"
+                ? state.descriptions
+                      .filter((description) => description.visible && description.name !== state.selectedDescription)
+                      .map((description) => description.name)
+                : undefined,
+        shallowEqual
+    )
+
+    if (unselectedDescriptions == null) {
+        return null
+    }
+
+    return (
+        <>
+            {unselectedDescriptions.map((unselectedDescription) => (
+                <UnselectedDescription key={unselectedDescription} description={unselectedDescription} />
+            ))}
+        </>
+    )
+}
+
+function UnselectedDescription({ description }: { description: string }) {
+    const groupRef = useRef<ReactNode & Group>(null)
+    const store = useBaseStore()
+    const unselectedDescription = store(
+        (state) =>
+            state.type === "gui"
+                ? state.selectedDescription == null
+                    ? state.grammar
+                    : getDescription(state.grammar, description, true)
+                : undefined,
+        shallowEqual
+    )
+    useSimpleInterpretation(unselectedDescription, groupRef)
+    return <group ref={groupRef} />
+}
+
+function SelectedDescriptionResult() {
+    const store = useBaseStore()
+    const selectedDescription = store(
+        (state) =>
+            state.type === "gui" &&
+            state.selectedDescription != null &&
+            state.descriptions.find((description) => description.name === state.selectedDescription)?.visible
+                ? getDescription(state.grammar, state.selectedDescription, true)
+                : undefined,
+        shallowEqual
+    )
+    const groupRef = useRef<ReactNode & Group>(null)
+    useInterpretation(selectedDescription, groupRef)
+    if (selectedDescription == null) {
+        return null
+    }
     return (
         <group
             ref={groupRef}

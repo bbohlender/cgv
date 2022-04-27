@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react"
-import { TextEditor, Grammar } from "./tui"
+import { TextEditor, Grammar, TUI } from "./tui"
 import { GUI } from "./gui"
 import { useBaseStore } from "./global"
 import { useBaseGlobal } from "./global"
 import { Dialogs } from "./gui/dialogs"
 import { TextEditorToggle } from "./gui/toggles/text"
 import { FullscreenToggle } from "./gui/toggles/fullscreen"
+import { DescriptionList } from "./gui/description-list"
 
 export function Editor() {
     const store = useBaseStore()
@@ -57,7 +58,7 @@ export function Editor() {
             style={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <Dialogs />
             <Viewer
-                style={{ whiteSpace: "pre-line", top: 0, left: 0, right: 0, bottom: 0, position: "absolute" }}
+                style={{ whiteSpace: "pre-line", top: 0, left: 0, right: 0, bottom: 0 }}
                 className="flex-basis-0 flex-grow-1 bg-white">
                 <GUI
                     className="bg-light position-absolute border rounded shadow w-100"
@@ -67,14 +68,11 @@ export function Editor() {
                     <TextEditorToggle className="me-2" value={showTextEditor} setValue={setShowTextEditor} />
                     <FullscreenToggle rootRef={rootRef} />
                 </div>
+                <DescriptionList className="position-absolute" style={{ top: "1rem", left: "1rem" }} />
             </Viewer>
             {showTextEditor && (
                 <>
-                    <Grammar
-                        style={{ overflowX: "hidden", overflowY: "auto" }}
-                        className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative"
-                    />
-                    <TextEditor
+                    <TUI
                         style={{ overflowX: "hidden", overflowY: "auto" }}
                         className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative"
                     />

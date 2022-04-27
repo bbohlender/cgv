@@ -7,7 +7,7 @@ import { StartLabel } from "../label"
 export function SelectNounDialog({ fulfill }: { fulfill: (value: any) => void }) {
     const store = useBaseStore()
     const [value, setValue] = useState<string | undefined>(undefined)
-    const nouns = store((state) => (state.type === "gui" ? Object.keys(state.grammar) : undefined))
+    const nouns = store((state) => (state.type === "gui" ? state.grammar.map((noun) => noun.name) : undefined))
     if (nouns == null) {
         return null
     }
@@ -16,7 +16,9 @@ export function SelectNounDialog({ fulfill }: { fulfill: (value: any) => void })
             <StartLabel className="mb-3" value="Noun">
                 <select value={value} onChange={(e) => setValue(e.target.value)} className="form-select form-select-sm">
                     {nouns.map((noun) => (
-                        <option value={noun}>{noun}</option>
+                        <option key={noun} value={noun}>
+                            {noun}
+                        </option>
                     ))}
                 </select>
             </StartLabel>

@@ -120,10 +120,8 @@ export function createGraph(lines: Array<[Vector3, Vector3]>, normal: Vector3, t
                 angle: degreeBetween(points[i], points[connections[0]], points[index], normal),
             }))
             .sort((e1, e2) => e1.angle - e2.angle)
-        console.log(sortedAngles)
         connectionsList[i] = [connections[0], ...sortedAngles.map(({ index }) => index)]
     }
-    console.log(connectionsList, points)
     return {
         connectionsList,
         points,
@@ -218,7 +216,6 @@ export function generateFaces(
     materialGenerator: MaterialGenerator
 ): Primitive {
     const otherPointIndex = connections[connectionIndex]
-    console.log(connectionIndex, otherPointIndex, connections.length)
     const shape = new Shape()
     const matrix = new Matrix4()
     const currentPoint = graph.points[pointIndex]

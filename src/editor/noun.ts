@@ -7,7 +7,8 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
-import { getNounIndex } from "../util"
+import { AbstractParsedSteps } from "../parser"
+import { getNounIndex, traverseSteps } from "../util"
 import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
 import { getIndirectParentsSteps, getRelatedSelections } from "./selection"
@@ -143,14 +144,4 @@ export function findSymbolsWithIdentifier(
             onFound(step)
         }
     })
-}
-
-export function traverseSteps(root: HierarchicalParsedSteps, cb: (step: HierarchicalParsedSteps) => void) {
-    cb(root)
-    if (root.children == null) {
-        return
-    }
-    for (const child of root.children) {
-        traverseSteps(child, cb)
-    }
 }

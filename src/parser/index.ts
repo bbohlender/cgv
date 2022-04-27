@@ -1,4 +1,5 @@
 import { Grammar, Parser } from "nearley"
+import { globalizeDescriptions } from "../util"
 import grammar from "./parser"
 
 const G = Grammar.fromCompiled(grammar)
@@ -10,6 +11,13 @@ export function parse(text: string): ParsedGrammarDefinition {
         throw new Error("unexpected end of input")
     }
     return parser.results[0]
+}
+
+export function parseDescription(text: string, descriptionName: string): ParsedGrammarDefinition {
+    const result = parse(text)
+    //transform the result
+    globalizeDescriptions(result, descriptionName)
+    return result
 }
 
 export type ParsedGrammarDefinition = AbstractParsedGrammarDefinition<unknown>
