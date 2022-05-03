@@ -6,17 +6,58 @@ import type {
     ParsedSteps,
 } from "../parser"
 
-export function getDescription<T>(
-    globalDescriptions: AbstractParsedGrammarDefinition<T>,
-    descriptionName: string,
-    includeDepdencies: boolean
-): AbstractParsedGrammarDefinition<T> {
-    const localDescription = globalDescriptions.filter((noun) => isNounOfDescription(descriptionName, noun.name))
-    if (includeDepdencies) {
-        const dependencies = getDependencies(globalDescriptions, descriptionName) //TODO
-        localDescription.push(...globalDescriptions /*.filter((noun) => dependencies.includes(noun.name))*/)
+/**
+ * map of dependencies
+ * key: name of description
+ * values: array of nouns from other descriptions
+ */
+export type DependencyMap = {
+    [Name in string]: Array<string> | undefined
+}
+
+export function computeDependencies<T>(globalDescriptions: AbstractParsedGrammarDefinition<T>): DependencyMap {
+    const result: DependencyMap = {}
+    for (const noun of globalDescriptions) {
+        const nounDescriptionName = getDescriptionOfNoun(noun.name)
+        traverseSteps(noun.step, (step) => {
+            if (step.type !== "symbol") {
+                return
+            }
+            const symbolDescriptionName = getDescriptionOfNoun(step.identifier)
+            if (symbolDescriptionName === nounDescriptionName) {
+                return
+            }
+            let entry = result[nounDescriptionName]
+            if (entry == null) {
+                entry = []
+                result[nounDescriptionName] = entry
+            }
+            if (!entry.includes(step.identifier)) {
+                entry.push(step.identifier)
+            }
+        })
     }
-    return localDescription
+    return result
+}
+
+/**
+ * @param dependencyMap if null the method returns the local description without dependencies
+ */
+export function getLocalDescription<T>(
+    globalDescription: AbstractParsedGrammarDefinition<T>,
+    dependencyMap: DependencyMap | undefined,
+    localDescriptionName: string
+): AbstractParsedGrammarDefinition<T> {
+    const localDescriptionWithoutDependencies = globalDescription.filter(
+        (noun) => getDescriptionOfNoun(noun.name) === localDescriptionName
+    )
+    if (dependencyMap == null) {
+        return localDescriptionWithoutDependencies
+    }
+    const dependencies = dependencyMap[localDescriptionName] ?? []
+    return localDescriptionWithoutDependencies.concat(
+        globalDescription.filter((noun) => dependencies.includes(noun.name))
+    )
 }
 
 export function isNounOfDescription(descriptionName: string, nounName: string): boolean {
@@ -36,22 +77,6 @@ export function getDescriptionRootStep<T>(
     localDescriptionName: string
 ): AbstractParsedSteps<T> | undefined {
     return globalDescription.find((noun) => isNounOfDescription(localDescriptionName, noun.name))?.step
-}
-
-function getDependencies(description: ParsedGrammarDefinition, descriptionName: string): Array<string> {
-    //TODO: get the dependecy tree (tree shaking)
-    const dependencies = new Set<string>()
-    for (const noun of description) {
-        if (!isNounOfDescription(descriptionName, noun.name)) {
-            continue
-        }
-        traverseSteps(noun.step, (step) => {
-            if (step.type === "symbol" && !isNounOfDescription(descriptionName, step.identifier)) {
-                dependencies.add(step.identifier)
-            }
-        })
-    }
-    return Array.from(dependencies)
 }
 
 export function localizeStepsSerializer(descriptionName: string, step: ParsedSteps | string): string | undefined {

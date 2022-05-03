@@ -7,8 +7,7 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
-import { AbstractParsedSteps } from "../parser"
-import { getNounIndex, traverseSteps } from "../util"
+import { computeDependencies, getNounIndex, traverseSteps } from "../util"
 import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
 import { getIndirectParentsSteps, getRelatedSelections } from "./selection"
@@ -126,11 +125,13 @@ export function renameNoun(
             }
         }
     )
+    const newGrammar = removeUnusedNouns(partial.grammar)
     return {
         hovered: undefined,
         indicesMap: {},
         selectionsList: partial.selectionsList,
-        grammar: removeUnusedNouns(partial.grammar),
+        grammar: newGrammar,
+        dependencyMap: computeDependencies(newGrammar),
     }
 }
 

@@ -12,7 +12,7 @@ import {
     ParsedSteps,
     debounceBufferTime,
     FullIndex,
-    getDescription,
+    getLocalDescription,
     HierarchicalParsedGrammarDefinition,
 } from "cgv"
 import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
@@ -286,7 +286,7 @@ function UnselectedDescription({ description }: { description: string }) {
             state.type === "gui"
                 ? state.selectedDescription == null
                     ? state.grammar
-                    : getDescription(state.grammar, description, true)
+                    : getLocalDescription(state.grammar, state.dependencyMap, description)
                 : undefined,
         shallowEqual
     )
@@ -301,7 +301,7 @@ function SelectedDescriptionResult() {
             state.type === "gui" &&
             state.selectedDescription != null &&
             state.descriptions.find((description) => description.name === state.selectedDescription)?.visible
-                ? getDescription(state.grammar, state.selectedDescription, true)
+                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
                 : undefined,
         shallowEqual
     )

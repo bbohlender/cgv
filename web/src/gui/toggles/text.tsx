@@ -1,18 +1,16 @@
-import { Dispatch, HTMLProps, SetStateAction } from "react"
+import { HTMLProps } from "react"
+import { useBaseStore } from "../../global"
 import { TextIcon } from "../../icons/text"
 
-export function TextEditorToggle({
-    setValue,
-    value,
-    className,
-    ...rest
-}: Omit<HTMLProps<HTMLDivElement>, "value"> & { value: boolean; setValue: Dispatch<SetStateAction<boolean>> }) {
+export function TextEditorToggle({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const store = useBaseStore()
+    const showTui = store((state) => state.showTui)
     return (
         <div
             {...rest}
-            onClick={() => setValue((v) => !v)}
+            onClick={() => store.getState().setShowTui(!showTui)}
             className={`${className} d-flex align-items-center justify-content-center btn ${
-                value ? "btn-primary" : "btn-secondary"
+                showTui ? "btn-primary" : "btn-secondary"
             } btn-sm `}>
             <TextIcon />
         </div>

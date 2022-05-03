@@ -25,10 +25,12 @@ import {
     getDescriptionOfNoun,
     serializeString,
     globalizeStepsSerializer,
-    getDescription,
+    getLocalDescription,
     exchangeDescription,
     getDescriptionRootStep,
     localizeStepsSerializer,
+    DependencyMap,
+    computeDependencies,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -44,6 +46,7 @@ export type BaseState = (CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiStat
         visible: boolean
     }>
     selectedDescription: string | undefined
+    showTui: boolean
 }
 
 export type CombineEmpty<T, K> = T & {
@@ -53,6 +56,7 @@ export type CombineEmpty<T, K> = T & {
 export type GuiState = {
     type: "gui"
     grammar: HierarchicalParsedGrammarDefinition
+    dependencyMap: DependencyMap
     requested: { type: string; fulfill: (value: any) => void } | undefined
     shift: boolean
     control: boolean
@@ -90,12 +94,14 @@ function createBaseStateInitial(): BaseState {
         selectionsList: [],
         hovered: undefined,
         grammar: [],
+        dependencyMap: {},
         descriptions: [],
         selectedDescription: undefined,
         interpretationDelay: 0,
         requested: undefined,
         shift: false,
         control: false,
+        showTui: false,
     }
 }
 
@@ -105,23 +111,35 @@ function createBaseStateFunctions(
     get: GetState<BaseState>
 ) {
     return {
+        setShowTui: (showTui: boolean) => {
+            set({ showTui })
+        },
         selectDescription: (name: string) => {
             const state = get()
             if (state.selectedDescription === name) {
                 return
             }
             if (state.type === "gui") {
+                const rootStep = getDescriptionRootStep(state.grammar, name)
                 set({
                     selectedDescription: name,
                     indicesMap: {},
-                    selectionsList: [],
+                    selectionsList:
+                        rootStep == null
+                            ? []
+                            : [
+                                  {
+                                      steps: rootStep,
+                                      indices: [],
+                                  },
+                              ],
                     hovered: undefined,
                 })
             } else {
                 set({
                     selectedDescription: name,
                     text: serializeString(
-                        getDescription(state.grammar, name, false),
+                        getLocalDescription(state.grammar, undefined, name),
                         localizeStepsSerializer.bind(null, name)
                     ),
                 })
@@ -132,6 +150,7 @@ function createBaseStateFunctions(
             if (descriptions.findIndex((description) => description.name === name) !== -1) {
                 return
             }
+            const newGrammar = grammar.concat(toHierarchical([{ name: `${name}@Start`, step: { type: "this" } }]))
             set({
                 descriptions: produce(get().descriptions, (draft) => {
                     draft.push({
@@ -139,7 +158,8 @@ function createBaseStateFunctions(
                         visible: true,
                     })
                 }),
-                grammar: grammar.concat(toHierarchical([{ name: `${name}@Start`, step: { type: "this" } }])),
+                grammar: newGrammar,
+                dependencyMap: computeDependencies(newGrammar),
             })
         },
         deleteDescription: (index: number) => {
@@ -180,10 +200,12 @@ function createBaseStateFunctions(
             if (state.type === type) {
                 return
             }
+            const newGrammar = toHierarchical(state.grammar)
             if (state.type === "tui" && state.correct) {
                 set({
                     type: "gui",
-                    grammar: toHierarchical(state.grammar),
+                    grammar: newGrammar,
+                    dependencyMap: computeDependencies(newGrammar),
                     indicesMap: {},
                     selectionsList: [],
                     hovered: undefined,
@@ -200,7 +222,7 @@ function createBaseStateFunctions(
                     state.selectedDescription == null
                         ? ""
                         : serializeString(
-                              getDescription(state.grammar, state.selectedDescription, false),
+                              getLocalDescription(state.grammar, undefined, state.selectedDescription),
                               localizeStepsSerializer.bind(null, state.selectedDescription)
                           ),
                 correct: true,
@@ -397,7 +419,6 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
-
             set(insert(state.indicesMap, state.selectionsList, type, stepGenerator, state.grammar))
         },
         removeStep: () => {
