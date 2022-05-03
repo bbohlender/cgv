@@ -10,6 +10,7 @@ import {
 import { replace, insert, EditorState } from "."
 import { IndicesMap, SelectionsList } from "./selection"
 import { removeUnusedNouns } from "./noun"
+import { computeDependencies } from "../util"
 
 function getNeutralStep(
     path: HierarchicalPath,
@@ -96,8 +97,14 @@ export function removeValue(
     selectionsList: SelectionsList,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
-    const { grammar: result } = insert(indicesMap, selectionsList, "after", () => ({ type: "null" }), grammar)
-    return { grammar: result, selectionsList: [], indicesMap: {}, hovered: undefined }
+    const { grammar: result, dependencyMap } = insert(
+        indicesMap,
+        selectionsList,
+        "after",
+        () => ({ type: "null" }),
+        grammar
+    )
+    return { grammar: result, dependencyMap, selectionsList: [], indicesMap: {}, hovered: undefined }
 }
 
 export function removeStep(
@@ -112,8 +119,10 @@ export function removeStep(
         (_, path, translatedPath) => getNeutralStep(path, translatedPath, operations),
         grammar
     )
+    const newGrammar = removeUnusedNouns(result)
     return {
-        grammar: removeUnusedNouns(result),
+        grammar: newGrammar,
+        dependencyMap: computeDependencies(newGrammar),
         selectionsList: [],
         indicesMap: {},
         hovered: undefined,

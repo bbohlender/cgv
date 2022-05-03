@@ -1,8 +1,10 @@
 import type { HierarchicalParsedGrammarDefinition } from ".."
+import { DependencyMap } from "../util"
 import { SelectionState } from "./selection"
 
 export type EditorState = {
     grammar: HierarchicalParsedGrammarDefinition
+    dependencyMap: DependencyMap
 } & SelectionState
 
 export * from "./pattern"

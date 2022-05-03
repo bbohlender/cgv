@@ -1,5 +1,5 @@
 import {
-    getDescription,
+    getLocalDescription,
     HierarchicalParsedSteps,
     localizeStepsSerializer,
     SelectedSteps,
@@ -14,24 +14,28 @@ import { EditIcon } from "../icons/edit"
 import { BaseState } from "../base-state"
 import { childrenSelectable } from "../gui"
 
-export function Grammar({
-    className,
-    selectedDescription,
-    ...rest
-}: HTMLProps<HTMLDivElement> & { selectedDescription: string }) {
+export function Grammar() {
     const store = useBaseStore()
+    const selectedDescription = store((state) => state.selectedDescription)
     const nouns = store(
         (state) =>
             state.type === "gui" && state.selectedDescription != null
-                ? getDescription(state.grammar, state.selectedDescription, false)
+                ? getLocalDescription(state.grammar, undefined, state.selectedDescription)
                 : undefined,
         shallowEqual
     )
+    if (selectedDescription == null) {
+        return (
+            <div className="d-flex align-items-center justify-content-center">
+                <span>Nothing Selected</span>
+            </div>
+        )
+    }
     if (nouns == null) {
         return null
     }
     return (
-        <div {...rest} className={`${className} position-relative`}>
+        <div className="position-relative">
             <div className="m-3">
                 {nouns.map(({ name, step }) => (
                     <InteractableSteps description={selectedDescription} key={name} value={step} noun={name} />

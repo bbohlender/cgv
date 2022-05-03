@@ -10,7 +10,7 @@ import {
     HierarchicalPath,
     translateSelectionsForStep,
 } from ".."
-import { HierarchicalParsedSteps } from "../util"
+import { computeDependencies, HierarchicalParsedSteps } from "../util"
 import { getSelectedStepsUpwardsPaths } from "./replace"
 import { getSelectedStepsJoinedPath, getSelectedStepsPath, IndicesMap, SelectionsList } from "./selection"
 
@@ -68,5 +68,6 @@ export function insert(
         ...partial,
         indicesMap: {},
         hovered: undefined,
+        dependencyMap: computeDependencies(partial.grammar),
     }
 }

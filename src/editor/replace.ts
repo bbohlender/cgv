@@ -2,7 +2,15 @@ import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition } fr
 import type { EditorState } from "."
 import { Draft, original, produce } from "immer"
 import { translateSelectionsForStep } from "./pattern"
-import { getAtPath, HierarchicalInfo, HierarchicalParsedSteps, setAtPath, TranslatedPath, translatePath } from "../util"
+import {
+    computeDependencies,
+    getAtPath,
+    HierarchicalInfo,
+    HierarchicalParsedSteps,
+    setAtPath,
+    TranslatedPath,
+    translatePath,
+} from "../util"
 import { IndicesMap, SelectedSteps, SelectionsList } from "./selection"
 import { findSymbolsWithIdentifier } from "./noun"
 
@@ -39,6 +47,7 @@ export function replace(
     )
     return {
         ...partial,
+        dependencyMap: computeDependencies(partial.grammar),
         indicesMap: {},
         hovered: undefined,
     }

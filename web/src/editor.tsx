@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { TextEditor, Grammar, TUI } from "./tui"
+import { TextEditor, Grammar } from "./tui"
 import { GUI } from "./gui"
 import { useBaseStore } from "./global"
 import { useBaseGlobal } from "./global"
@@ -7,11 +7,11 @@ import { Dialogs } from "./gui/dialogs"
 import { TextEditorToggle } from "./gui/toggles/text"
 import { FullscreenToggle } from "./gui/toggles/fullscreen"
 import { DescriptionList } from "./gui/description-list"
+import Graph from "./graph"
 
 export function Editor() {
     const store = useBaseStore()
     const rootRef = useRef<HTMLDivElement>(null)
-    const [showTextEditor, setShowTextEditor] = useState(false)
     useEffect(() => {
         const keyUpListener = (e: KeyboardEvent) => {
             switch (e.key) {
@@ -65,19 +65,19 @@ export function Editor() {
                     style={{ top: "1rem", right: "1rem", maxWidth: "16rem" }}
                 />
                 <div style={{ bottom: "1rem", right: "1rem" }} className="d-flex flex-row position-absolute">
-                    <TextEditorToggle className="me-2" value={showTextEditor} setValue={setShowTextEditor} />
+                    <TextEditorToggle className="me-2" />
                     <FullscreenToggle rootRef={rootRef} />
                 </div>
                 <DescriptionList className="position-absolute" style={{ top: "1rem", left: "1rem" }} />
             </Viewer>
-            {showTextEditor && (
-                <>
-                    <TUI
-                        style={{ overflowX: "hidden", overflowY: "auto" }}
-                        className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative"
-                    />
-                </>
-            )}
+
+            <div
+                style={{ overflowX: "hidden", overflowY: "auto" }}
+                className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative">
+                <TextEditor />
+                <Grammar />
+                <Graph />
+            </div>
         </div>
     )
 }

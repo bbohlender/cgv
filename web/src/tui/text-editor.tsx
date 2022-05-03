@@ -1,9 +1,9 @@
-import { HTMLProps, KeyboardEvent } from "react"
+import { KeyboardEvent } from "react"
 import { ErrorMessage } from "../error-message"
 import { useBaseStore } from "../global"
 import { EditIcon } from "../icons/edit"
 
-export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+export function TextEditor() {
     const store = useBaseStore()
     const text = store((state) => (state.type === "tui" ? state.text : undefined))
     const error = store((state) => (state.type === "tui" && !state.correct ? state.error : undefined))
@@ -13,7 +13,7 @@ export function TextEditor({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     }
 
     return (
-        <div {...rest} className={`${className} d-flex position-relative`}>
+        <div className="d-flex position-relative">
             <textarea
                 autoFocus
                 style={{ resize: "none", outline: 0, tabSize: 4 }}
