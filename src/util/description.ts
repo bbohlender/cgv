@@ -61,7 +61,7 @@ export function getLocalDescription<T>(
 }
 
 export function isNounOfDescription(descriptionName: string, nounName: string): boolean {
-    return nounName.startsWith(`${descriptionName}@`)
+    return nounName.endsWith(`@${descriptionName}`)
 }
 
 export function getDescriptionOfNoun(nounName: string): string {
@@ -69,7 +69,7 @@ export function getDescriptionOfNoun(nounName: string): string {
     if (splits.length !== 2) {
         throw new Error(`"${nounName}" expected to have exactly one "@"`)
     }
-    return splits[0]
+    return splits[1]
 }
 
 export function getDescriptionRootStep<T>(
@@ -85,28 +85,28 @@ export function localizeStepsSerializer(descriptionName: string, step: ParsedSte
         return
     }
 
-    if (name.startsWith(`${descriptionName}@`)) {
-        return name.slice(descriptionName.length + 1)
+    if (isNounOfDescription(descriptionName, name)) {
+        return name.slice(0, -descriptionName.length - 1)
     }
 }
 
 export function globalizeStepsSerializer(descriptionName: string, step: ParsedSteps | string): string | undefined {
     const name = typeof step === "string" ? step : step.type === "symbol" ? step.identifier : undefined
     if (name != null && !name.includes("@")) {
-        return `${descriptionName}@${name}`
+        return `${name}@${descriptionName}`
     }
 }
 
 export function globalizeDescriptions(description: ParsedGrammarDefinition, descriptionName: string): void {
     for (const noun of description) {
-        noun.name = `${descriptionName}@${noun.name}`
+        noun.name = `${noun.name}@${descriptionName}`
         globalizeStepsRecursive(noun.step, descriptionName)
     }
 }
 
 function globalizeStepsRecursive(step: ParsedSteps, descriptionName: string): void {
     if (step.type === "symbol" && !step.identifier.includes("@")) {
-        step.identifier = `${descriptionName}@${step.identifier}`
+        step.identifier = `${step.identifier}@${descriptionName}`
     }
     if (step.children == null) {
         return

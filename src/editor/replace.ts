@@ -11,13 +11,14 @@ import {
     TranslatedPath,
     translatePath,
 } from "../util"
-import { IndicesMap, SelectedSteps, SelectionsList } from "./selection"
+import { FullIndex, IndicesMap, SelectedSteps, SelectionsList } from "./selection"
 import { findSymbolsWithIdentifier } from "./noun"
 
 export function getSelectedStepsUpwardsPaths(
     steps: SelectedSteps,
     grammar: HierarchicalParsedGrammarDefinition
 ): Array<HierarchicalPath> {
+    //TODO: this should be recursive (what is the premise of this function and for what is it used?)
     if (typeof steps === "string") {
         const paths: Array<HierarchicalPath> = []
         for (const { step: rootStep } of grammar) {
@@ -32,14 +33,9 @@ export function getSelectedStepsUpwardsPaths(
 export function replace(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    replaceWith: (
-        draft: Draft<ParsedSteps>,
-        path: HierarchicalPath,
-        translatedPath: TranslatedPath<HierarchicalInfo>
-    ) => Draft<ParsedSteps> | void,
+    replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
-    //TODO: generic solution (together with insert) for simplification (e.g. flatten)
     const partial = produce(
         { grammar, selectionsList: [] as SelectionsList },
         ({ grammar: draft, selectionsList: newSelections }) =>
@@ -56,11 +52,7 @@ export function replace(
 export function replaceOnDraft(
     indicesMap: IndicesMap,
     selectionsList: SelectionsList,
-    replaceWith: (
-        draft: Draft<ParsedSteps>,
-        path: HierarchicalPath,
-        translatedPath: TranslatedPath<HierarchicalInfo>
-    ) => Draft<ParsedSteps> | void,
+    replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition,
     newSelectionsList?: SelectionsList
 ) {
@@ -72,21 +64,37 @@ export function replaceOnDraft(
             if (translatedPath == null) {
                 continue
             }
-
-            const currentSteps: Draft<HierarchicalParsedSteps> = getAtPath(translatedPath, path.length - 1)
-
-            const newSteps = replaceWith(currentSteps, path, translatedPath) ?? currentSteps
-            const oldSteps = original(currentSteps)!
-            const translatedSteps = translateSelectionsForStep(all, indices, "before", newSteps, oldSteps)
-
-            setAtPath(path, translatedPath, path.length - 1, translatedSteps)
-
-            const resultSteps = newSteps as HierarchicalParsedSteps
-
-            newSelectionsList?.push({
-                steps: resultSteps,
-                indices: [],
-            })
+            replaceAtPathOnDraft(all, indices, replaceWith, path, translatedPath, newSelectionsList)
         }
     }
+}
+
+export type ReplaceWith = (
+    draft: Draft<ParsedSteps>,
+    path: HierarchicalPath,
+    translatedPath: TranslatedPath<HierarchicalInfo>
+) => Draft<ParsedSteps> | undefined
+
+export function replaceAtPathOnDraft(
+    all: Array<FullIndex>,
+    indices: Array<FullIndex>,
+    replaceWith: ReplaceWith,
+    path: HierarchicalPath,
+    translatedPath: TranslatedPath<HierarchicalInfo>,
+    newSelectionsList?: SelectionsList
+) {
+    const currentSteps: Draft<HierarchicalParsedSteps> = getAtPath(translatedPath, path.length - 1)
+
+    const newSteps = replaceWith(currentSteps, path, translatedPath) ?? currentSteps
+    const oldSteps = original(currentSteps)!
+    const translatedSteps = translateSelectionsForStep(all, indices, "before", newSteps, oldSteps)
+
+    setAtPath(path, translatedPath, path.length - 1, translatedSteps)
+
+    const resultSteps = newSteps as HierarchicalParsedSteps
+
+    newSelectionsList?.push({
+        steps: resultSteps,
+        indices: [],
+    })
 }

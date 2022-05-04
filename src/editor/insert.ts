@@ -12,7 +12,7 @@ import {
 } from ".."
 import { computeDependencies, HierarchicalParsedSteps } from "../util"
 import { getSelectedStepsUpwardsPaths } from "./replace"
-import { getSelectedStepsJoinedPath, getSelectedStepsPath, IndicesMap, SelectionsList } from "./selection"
+import { getSelectedStepsPath, IndicesMap, SelectionsList } from "./selection"
 
 export function insert(
     indicesMap: IndicesMap,
@@ -21,7 +21,6 @@ export function insert(
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
-    //TODO: generic solution (together with replace) for simplification (e.g. flatten)
     const partial = produce(
         { grammar, selectionsList: [] as SelectionsList },
         ({ grammar: draft, selectionsList: newSelections }) => {

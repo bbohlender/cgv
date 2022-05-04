@@ -6,7 +6,7 @@ export function serializeString(
     customSerialize: (step: ParsedSteps | string) => string | undefined = () => undefined
 ): string {
     return grammarDefinition
-        .map(({ name, step }) => `${customSerialize(name) ?? name} -> ${serializeStepString(step)}`)
+        .map(({ name, step }) => `${customSerialize(name) ?? name} -> ${serializeStepString(step, customSerialize)}`)
         .join("\n\n")
 }
 

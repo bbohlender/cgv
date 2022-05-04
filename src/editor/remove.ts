@@ -1,62 +1,27 @@
-import {
-    HierarchicalInfo,
-    HierarchicalParsedSteps,
-    TranslatedPath,
-    ParsedSteps,
-    HierarchicalPath,
-    HierarchicalParsedGrammarDefinition,
-    Operations,
-} from ".."
-import { replace, insert, EditorState } from "."
+import { HierarchicalParsedSteps, ParsedSteps, HierarchicalParsedGrammarDefinition, Operations } from ".."
+import { EditorState } from "."
 import { IndicesMap, SelectionsList } from "./selection"
 import { removeUnusedNouns } from "./noun"
-import { computeDependencies } from "../util"
+import { computeDependencies, toHierarchical } from "../util"
+import produce from "immer"
+import { replaceOnDraft, ReplaceWith } from "./replace"
+import { AbstractParsedGrammarDefinition, AbstractParsedSteps, AbstractParsedSymbol } from "../parser"
 
 function getNeutralStep(
-    path: HierarchicalPath,
-    translatedPath: TranslatedPath<HierarchicalInfo>,
-    operations: Operations<any, any>,
-    index: number = translatedPath.length - 2
-): ParsedSteps {
-    if (index === 0) {
+    parent: HierarchicalParsedSteps | HierarchicalParsedGrammarDefinition,
+    childIndex: number | string,
+    operations: Operations<any, any>
+): ParsedSteps | undefined {
+    if (Array.isArray(parent) || typeof childIndex == "string") {
         return {
             type: "this",
-        } //we assume "this" is okay (it's probematic f.e.: "a -> 1 + b    b -> 2" to skip step "2" in "b")
+        }
     }
-    const parent = translatedPath[index] as HierarchicalParsedSteps & { children: Array<ParsedSteps> }
-    const childIndex = path[index] as number
     switch (parent.type) {
-        case "smaller":
-        case "smallerEqual":
-        case "greater":
-        case "greaterEqual":
-        case "add":
-        case "subtract":
-        case "invert":
-        case "unequal":
-        case "equal":
-            return {
-                type: "raw",
-                value: 0,
-            }
-        case "modulo":
-        case "multiply":
-        case "divide":
-            return {
-                type: "raw",
-                value: 1,
-            }
-        case "and":
-        case "or":
-        case "not":
-            return {
-                type: "raw",
-                value: false,
-            }
         case "operation": {
             const operation = operations[parent.identifier]
             if (operation == null) {
-                throw new Error(`unknown operation "${parent.identifier}"`)
+                break
             }
             const defaultParameterGenerator = operation.defaultParameters[childIndex]
             if (defaultParameterGenerator == null) {
@@ -66,45 +31,25 @@ function getNeutralStep(
             }
             return defaultParameterGenerator()
         }
-        case "setVariable":
-            return {
-                type: "this",
-            }
         case "sequential":
-            if (childIndex === 0) {
-                return getNeutralStep(path, translatedPath, operations, index - 1)
-            }
             return { type: "this" }
         case "parallel":
         case "random":
+            return {
+                type: "null",
+            }
         case "switch":
+            if (childIndex === 0) {
+                break
+            }
             return { type: "null" }
         case "if":
             if (childIndex === 0) {
-                return {
-                    type: "raw",
-                    value: true,
-                }
+                break
             }
-            return getNeutralStep(path, translatedPath, operations, index - 1)
-        default:
-            throw new Error(`unexpected parent type "${(parent as any).type}"`)
+            return { type: "null" }
     }
-}
-
-export function removeValue(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
-    grammar: HierarchicalParsedGrammarDefinition
-): EditorState {
-    const { grammar: result, dependencyMap } = insert(
-        indicesMap,
-        selectionsList,
-        "after",
-        () => ({ type: "null" }),
-        grammar
-    )
-    return { grammar: result, dependencyMap, selectionsList: [], indicesMap: {}, hovered: undefined }
+    return undefined
 }
 
 export function removeStep(
@@ -113,12 +58,12 @@ export function removeStep(
     operations: Operations<any, any>,
     grammar: HierarchicalParsedGrammarDefinition
 ): EditorState {
-    const { grammar: result } = replace(
-        indicesMap,
-        selectionsList,
-        (_, path, translatedPath) => getNeutralStep(path, translatedPath, operations),
-        grammar
-    )
+    const replaceWith: ReplaceWith = (_, path, translatedPath) =>
+        getNeutralStep(translatedPath[translatedPath.length - 2], path[path.length - 1], operations)
+    const result = produce(grammar, (draft) => {
+        replaceOnDraft(indicesMap, selectionsList, replaceWith, draft)
+        simplfyGrammarOnDraft(draft, operations)
+    })
     const newGrammar = removeUnusedNouns(result)
     return {
         grammar: newGrammar,
@@ -127,4 +72,112 @@ export function removeStep(
         indicesMap: {},
         hovered: undefined,
     }
+}
+
+function simplfyGrammarOnDraft(grammar: HierarchicalParsedGrammarDefinition, operations: Operations<any, any>): void {
+    for (const noun of grammar) {
+        noun.step = simplifyStepOnDraft(grammar, noun.step, operations)
+    }
+    toHierarchical(grammar)
+}
+
+function simplifyStepOnDraft<T>(
+    grammar: HierarchicalParsedGrammarDefinition,
+    step: AbstractParsedSteps<T>,
+    operations: Operations<any, any>
+): AbstractParsedSteps<T> {
+    if (step.children == null) {
+        return step
+    }
+    for (let i = step.children.length - 1; i >= 0; i--) {
+        if (!deleteUnnecassaryStepChildOnDraft(step, grammar, i, operations)) {
+            step.children[i] = simplifyStepOnDraft(grammar, step.children[i], operations)
+        }
+    }
+    return simplifyStepItselfOnDraft(step)
+}
+
+function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {
+    if ((step.type === "parallel" || step.type === "sequential") && step.children.length === 1) {
+        return step.children[0]
+    }
+    return step
+}
+
+function resolveSymbol<T>(
+    steps: AbstractParsedSymbol<T>,
+    grammar: AbstractParsedGrammarDefinition<T>,
+    visited = new Set<string>()
+): AbstractParsedSteps<T> | undefined {
+    if (visited.has(steps.identifier)) {
+        return undefined
+    }
+    visited.add(steps.identifier)
+    const noun = grammar.find((noun) => noun.name === steps.identifier)
+    if (noun == null) {
+        return undefined
+    }
+    if (noun.step.type === "symbol") {
+        return resolveSymbol(noun.step, grammar, visited)
+    }
+    return noun.step
+}
+
+/**
+ * @returns true if the child was deleted
+ */
+function deleteUnnecassaryStepChildOnDraft<T>(
+    parent: AbstractParsedSteps<T> & { children: Array<AbstractParsedSteps<T>> },
+    grammar: AbstractParsedGrammarDefinition<T>,
+    childIndex: number,
+    operations: Operations<any, any>
+): boolean {
+    let child: AbstractParsedSteps<T> | undefined = parent.children[childIndex]
+    if (child.type === "symbol") {
+        child = resolveSymbol(child, grammar)
+    }
+    if (child == null) {
+        return false
+    }
+    switch (parent.type) {
+        case "operation": {
+            const operation = operations[parent.identifier]
+            if (operation == null) {
+                throw new Error(`unknown operation "${parent.identifier}"`)
+            }
+            if (operation.defaultParameters[childIndex] != null) {
+                return false
+            }
+            break
+        }
+        case "sequential":
+            if (child.type !== "this") {
+                return false
+            }
+            break
+        case "parallel":
+            if (child.type !== "null") {
+                return false
+            }
+            break
+        case "random":
+            if (child.type !== "null") {
+                return false
+            }
+            parent.probabilities.splice(childIndex, 1)
+            break
+        case "switch":
+            if (childIndex === 0) {
+                return false
+            }
+            if (child.type !== "null") {
+                return false
+            }
+            parent.cases.splice(childIndex - 1, 1)
+            break
+        default:
+            return false
+    }
+    parent.children.splice(childIndex, 1)
+    return true
 }
