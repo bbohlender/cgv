@@ -6,7 +6,6 @@ import {
     renameNoun,
     replace,
     removeStep,
-    parse,
     serializeString,
     toHierarchical,
     getAtPath,
@@ -15,13 +14,10 @@ import {
     HierarchicalPath,
     translatePath,
     parseDescription,
-    globalizeDescriptions,
-    globalizeStepsSerializer,
     localizeStepsSerializer,
 } from "../src"
 import { validateHierarchical } from "./hierarchical"
 
-// TODO: simplifications
 // TODO: test selection after edit
 // TODO: test subselections (indices)
 /* TODO: recognize condition patterns
@@ -47,8 +43,7 @@ describe("editor", () => {
     it("should multi insert after at substep", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = insert(
-            {
-            },
+            {},
             [
                 { steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] },
                 { steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [] },
@@ -64,13 +59,15 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 -> 2 + 1 | this * 2 -> 2 + 1 -> this + 3`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 -> 2 + 1 | this * 2 -> 2 + 1 -> this + 3`
+        )
     })
 
     it("should insert after at substep", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = insert(
-            { },
+            {},
             [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] }],
             "after",
             () =>
@@ -83,13 +80,67 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | this * 2 -> 2 + 1 -> this + 3`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * 2 -> 2 + 1 -> this + 3`
+        )
+    })
+
+    it("should insert after with selection", () => {
+        const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
+        const { grammar } = insert(
+            {
+                "a@test,1,0": [
+                    { after: "abc", before: "abc" },
+                    { after: "xyz", before: "xyz" },
+                ],
+            },
+            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [{ after: "abc", before: "abc" }] }],
+            "after",
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * 2 -> if id() == "abc" then { 2 + 1 } else { this } -> this + 3`
+        )
+    })
+
+    it("should do nothing with no selection", () => {
+        const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
+        const { grammar } = insert(
+            {
+                "a@test,1,0": [
+                    { after: "abc", before: "abc" },
+                    { after: "xyz", before: "xyz" },
+                ],
+            },
+            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] }],
+            "after",
+            () =>
+                createDefaultStep(
+                    {
+                        type: "add",
+                    },
+                    {}
+                ),
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * 2 -> this + 3`
+        )
     })
 
     it("should insert before at noun", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = insert(
-            {  },
+            {},
             [{ steps: getLastStepInPath(["a@test"], inputGrammar), indices: [] }],
             "before",
             () =>
@@ -102,13 +153,15 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 2 + 1 -> (1 | this * 2 -> this + 3)`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 2 + 1 -> (1 | this * 2 -> this + 3)`
+        )
     })
 
     it("should insert before at substep", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = insert(
-            {  },
+            {},
             [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] }],
             "before",
             () =>
@@ -121,13 +174,15 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | 2 + 1 -> this * 2 -> this + 3`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | 2 + 1 -> this * 2 -> this + 3`
+        )
     })
 
     it("should insert parallel at substep", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = insert(
-            { },
+            {},
             [{ steps: getLastStepInPath(["a@test"], inputGrammar), indices: [] }],
             "parallel",
             () =>
@@ -140,13 +195,15 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | this * 2 -> this + 3 | 2 + 1`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * 2 -> this + 3 | 2 + 1`
+        )
     })
 
     it("should insert parallel at noun", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = insert(
-            { },
+            {},
             [{ steps: getLastStepInPath(["a@test"], inputGrammar), indices: [] }],
             "parallel",
             () =>
@@ -159,13 +216,15 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | this * 2 -> this + 3 | 2 + 1`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * 2 -> this + 3 | 2 + 1`
+        )
     })
 
     it("should replace step", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = replace(
-            { },
+            {},
             [{ steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), indices: [] }],
             () => ({
                 type: "this",
@@ -173,14 +232,41 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | this * this -> this + 3`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * this -> this + 3`
+        )
+    })
+
+    it("should replace step with selection", () => {
+        const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
+        const { grammar } = replace(
+            {
+                "a@test,1,0,1": [
+                    { after: "abc", before: "abc" },
+                    { after: "xyz", before: "xyz" },
+                ],
+            },
+            [
+                {
+                    steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar),
+                    indices: [{ after: "abc", before: "abc" }],
+                },
+            ],
+            () => ({
+                type: "this",
+            }),
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | this * if id() == "abc" then { this } else { 2 } -> this + 3`
+        )
     })
 
     it("should multi replace step", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | this * 2 -> this + 3`, "test"))
         const { grammar } = replace(
-            {
-            },
+            {},
             [
                 { steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), indices: [] },
                 { steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [] },
@@ -191,14 +277,18 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> this | this * this -> this + 3`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> this | this * this -> this + 3`
+        )
     })
 
     it("should rename noun", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`, "test"))
         const { grammar } = renameNoun({}, [{ steps: "b@test", indices: [] }], "xyz@test", inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | xyz * 2 -> this + 3\n\nxyz -> 2`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | xyz * 2 -> this + 3\n\nxyz -> 2`
+        )
     })
 
     it("should remove step at noun", () => {
@@ -213,34 +303,6 @@ describe("editor", () => {
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | this + 3`)
     })
 
-    /*it("should multi remove value at noun", () => {
-        const inputGrammar = toHierarchical(parse(`a -> 1 | 2 -> 3 | b -> this + 3\n\nb -> 2`))
-        const { grammar } = removeValue(
-            {
-                b: [],
-                "a,1,1": [],
-            },
-            [
-                { steps: getLastStepInPath(["b"], inputGrammar), indices: [] },
-                { steps: getLastStepInPath(["a", 1, 1], inputGrammar), indices: [] },
-            ],
-            inputGrammar
-        )
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1`)
-    })
-
-    it("should remove value at noun", () => {
-        const inputGrammar = toHierarchical(parse(`a -> 1 | b -> this + 3\n\nb -> 2`))
-        const { grammar } = removeValue(
-            { b: [] },
-            [{ steps: getLastStepInPath(["b"], inputGrammar), indices: [] }],
-            inputGrammar
-        )
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar)).to.equal(`a -> 1`)
-    })*/
-
     it("should remove step from parallel", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`, "test"))
         const { grammar } = removeStep(
@@ -250,13 +312,34 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> b * 2 -> this + 3\n\nb -> 2`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> b * 2 -> this + 3\n\nb -> 2`
+        )
+    })
+
+    it("should remove step with selection", () => {
+        const inputGrammar = toHierarchical(parseDescription(`a -> 1 | b * 2 -> this + 3\n\nb -> 2`, "test"))
+        const { grammar } = removeStep(
+            {
+                "a@test,0": [
+                    { after: "abc", before: "abc" },
+                    { after: "xyz", before: "xyz" },
+                ],
+            },
+            [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [{ after: "abc", before: "abc" }] }],
+            {},
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> if id() == "abc" then { null } else { 1 } | b * 2 -> this + 3\n\nb -> 2`
+        )
     })
 
     it("should remove step from sequential and simplify", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 -> drive() -> 2`, "test"))
         const { grammar } = removeStep(
-            {  },
+            {},
             [{ steps: getLastStepInPath(["a@test", 1], inputGrammar), indices: [] }],
             {},
             inputGrammar
@@ -268,8 +351,7 @@ describe("editor", () => {
     it("should multi remove step from sequential and simplify", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 -> test() -> drive() -> 2`, "test"))
         const { grammar } = removeStep(
-            {
-            },
+            {},
             [
                 { steps: getLastStepInPath(["a@test", 1], inputGrammar), indices: [] },
                 { steps: getLastStepInPath(["a@test", 2], inputGrammar), indices: [] },
@@ -290,13 +372,17 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> if this > 5 then { 22 } else { this + 2 }`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> if this > 5 then { 22 } else { this + 2 }`
+        )
     })
 
     it("should remove step from operation", () => {
-        const inputGrammar = toHierarchical(parseDescription(`a -> if this > 5 then { operation("abc", 3) } else { this + 2 }`, "test"))
+        const inputGrammar = toHierarchical(
+            parseDescription(`a -> if this > 5 then { operation("abc", 3) } else { this + 2 }`, "test")
+        )
         const { grammar } = removeStep(
-            {  },
+            {},
             [{ steps: getLastStepInPath(["a@test", 1, 1], inputGrammar), indices: [] }],
             {
                 operation: {
@@ -308,7 +394,9 @@ describe("editor", () => {
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> if this > 5 then { operation("abc") } else { this + 2 }`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> if this > 5 then { operation("abc") } else { this + 2 }`
+        )
     })
 
     it("should remove step from if by replacing in multiplication", () => {
@@ -316,12 +404,14 @@ describe("editor", () => {
             parseDescription(`a -> 1 | b * if true then { "123" } else { 3 } -> this + 3\n\nb -> 2`, "test")
         )
         const { grammar } = removeStep(
-            {  },
+            {},
             [{ steps: getLastStepInPath(["a@test", 1, 0, 1, 1], inputGrammar), indices: [] }],
             {},
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | b * if true then { null } else { 3 } -> this + 3\n\nb -> 2`)
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a -> 1 | b * if true then { null } else { 3 } -> this + 3\n\nb -> 2`
+        )
     })
 })

@@ -82,7 +82,10 @@ export function replaceAtPathOnDraft(
     path: HierarchicalPath,
     translatedPath: TranslatedPath<HierarchicalInfo>,
     newSelectionsList?: SelectionsList
-) {
+): void {
+    if(all.length > 0 && indices.length === 0) {
+        return
+    }
     const currentSteps: Draft<HierarchicalParsedSteps> = getAtPath(translatedPath, path.length - 1)
 
     const newSteps = replaceWith(currentSteps, path, translatedPath) ?? currentSteps

@@ -1,6 +1,12 @@
-import { ParsedGrammarDefinition } from ".."
-import { AbstractParsedSteps, ParsedRandom, ParsedSteps } from "../parser"
-import { serializeStepString } from "../serializer"
+import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
+
+export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
+    throw new Error("method not implemented")
+}
+
+export function unifyNested(steps: ParsedSteps): ParsedSteps {
+    throw new Error("method not implemented")
+}
 
 //TODO: keep grammar symbol names
 /*

@@ -1,4 +1,4 @@
-import { globalizeDescriptions, parse, parseDescription } from "../src"
+import { globalizeDescription, parse, parseDescription } from "../src"
 import { expect } from "chai"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
 import produce from "immer"
@@ -13,7 +13,7 @@ describe("parse grammar", () => {
     it("should parse grammars from test-data transformed with description name", () => {
         for (const { parsed, unparsed } of parsedAndUnparsedGrammarPairs) {
             expect(parseDescription(unparsed, "testName")).to.deep.equal(
-                produce(parsed, (draft) => globalizeDescriptions(draft, "testName"))
+                produce(parsed, (draft) => globalizeDescription(draft, "testName"))
             )
         }
     })

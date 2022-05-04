@@ -32,6 +32,10 @@ export function insert(
                     const joinedPath = path.join(",")
                     const all = indicesMap[joinedPath] ?? []
 
+                    if(all.length > 0 && indices.length === 0) {
+                        return
+                    }
+
                     const translatedPath = translatePath<HierarchicalInfo>(draft, path)
                     if (translatedPath == null) {
                         continue

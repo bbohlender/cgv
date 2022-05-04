@@ -1,5 +1,5 @@
 import { Grammar, Parser } from "nearley"
-import { globalizeDescriptions } from "../util"
+import { globalizeDescription } from "../util"
 import grammar from "./parser"
 
 const G = Grammar.fromCompiled(grammar)
@@ -16,7 +16,7 @@ export function parse(text: string): ParsedGrammarDefinition {
 export function parseDescription(text: string, descriptionName: string): ParsedGrammarDefinition {
     const result = parse(text)
     //transform the result
-    globalizeDescriptions(result, descriptionName)
+    globalizeDescription(result, descriptionName)
     return result
 }
 

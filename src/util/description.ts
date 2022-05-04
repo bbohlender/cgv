@@ -64,6 +64,20 @@ export function isNounOfDescription(descriptionName: string, nounName: string): 
     return nounName.endsWith(`@${descriptionName}`)
 }
 
+export function globalizeNoun(name: string, descriptionName: string): string {
+    if (name.includes("@")) {
+        return name
+    }
+    return `${name}@${descriptionName}`
+}
+
+export function localizeNoun(name: string, descriptionName: string): string {
+    if (!name.endsWith(`@${descriptionName}`)) {
+        return name
+    }
+    return name.slice(0, -descriptionName.length - 1)
+}
+
 export function getDescriptionOfNoun(nounName: string): string {
     const splits = nounName.split("@")
     if (splits.length !== 2) {
@@ -85,28 +99,26 @@ export function localizeStepsSerializer(descriptionName: string, step: ParsedSte
         return
     }
 
-    if (isNounOfDescription(descriptionName, name)) {
-        return name.slice(0, -descriptionName.length - 1)
-    }
+    return localizeNoun(name, descriptionName)
 }
 
 export function globalizeStepsSerializer(descriptionName: string, step: ParsedSteps | string): string | undefined {
     const name = typeof step === "string" ? step : step.type === "symbol" ? step.identifier : undefined
-    if (name != null && !name.includes("@")) {
-        return `${name}@${descriptionName}`
+    if (name != null) {
+        return globalizeNoun(name, descriptionName)
     }
 }
 
-export function globalizeDescriptions(description: ParsedGrammarDefinition, descriptionName: string): void {
+export function globalizeDescription(description: ParsedGrammarDefinition, descriptionName: string): void {
     for (const noun of description) {
-        noun.name = `${noun.name}@${descriptionName}`
+        noun.name = globalizeNoun(noun.name, descriptionName)
         globalizeStepsRecursive(noun.step, descriptionName)
     }
 }
 
 function globalizeStepsRecursive(step: ParsedSteps, descriptionName: string): void {
-    if (step.type === "symbol" && !step.identifier.includes("@")) {
-        step.identifier = `${step.identifier}@${descriptionName}`
+    if (step.type === "symbol") {
+        step.identifier = globalizeNoun(step.identifier, descriptionName)
     }
     if (step.children == null) {
         return
