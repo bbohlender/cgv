@@ -12,7 +12,10 @@ import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
 import { getIndirectParentsSteps, getRelatedSelections } from "./selection"
 
-export function removeUnusedNouns(grammar: HierarchicalParsedGrammarDefinition): HierarchicalParsedGrammarDefinition {
+export function removeUnusedNouns(
+    grammar: HierarchicalParsedGrammarDefinition,
+    descriptionNames: Array<string>
+): HierarchicalParsedGrammarDefinition {
     const usedNouns = new Set([grammar[0].name]) //pre add the first entry
     for (const { name: rootName, step: rootStep } of grammar) {
         traverseSteps(rootStep, (steps) => {
@@ -21,6 +24,7 @@ export function removeUnusedNouns(grammar: HierarchicalParsedGrammarDefinition):
             }
         })
     }
+    //return grammar.filter()
     return produce(grammar, (draft) => {
         for (let i = draft.length - 1; i >= 0; i--) {
             if (!usedNouns.has(draft[i].name)) {
@@ -125,13 +129,13 @@ export function renameNoun(
             }
         }
     )
-    const newGrammar = removeUnusedNouns(partial.grammar)
+    //const newGrammar = removeUnusedNouns(partial.grammar)
     return {
         hovered: undefined,
         indicesMap: {},
         selectionsList: partial.selectionsList,
-        grammar: newGrammar,
-        dependencyMap: computeDependencies(newGrammar),
+        grammar: partial.grammar,
+        dependencyMap: computeDependencies(partial.grammar),
     }
 }
 

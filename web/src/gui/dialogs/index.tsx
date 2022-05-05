@@ -1,8 +1,6 @@
 import { useBaseStoreState } from "../../global"
 import { CreateDescriptionDialog } from "./create-description"
-import { CreateNounDialog } from "./create-noun"
 import { CreateStepDialog } from "./create-step"
-import { SelectNounDialog } from "./select-noun"
 import { SetNameDialog } from "./set-name"
 
 export function Dialogs() {
@@ -25,10 +23,6 @@ export function Dialogs() {
 
 function selectDialog(type: string, fullfill: (value: any) => void) {
     switch (type) {
-        case "create-noun":
-            return <CreateNounDialog fulfill={fullfill} />
-        case "select-noun":
-            return <SelectNounDialog fulfill={fullfill} />
         case "create-step":
             return <CreateStepDialog fulfill={fullfill} />
         case "create-description":
@@ -38,5 +32,4 @@ function selectDialog(type: string, fullfill: (value: any) => void) {
     }
 }
 
-export * from "./create-noun"
 export * from "./create-step"

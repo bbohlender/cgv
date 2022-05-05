@@ -1,28 +1,27 @@
-import { createDefaultStep, getAllStepDescriptors, Operations, ParsedSteps, ParsedSymbol, StepDescriptor } from "cgv"
+import { createDefaultStep, getAllStepDescriptors, Operations, ParsedSteps, shallowEqual, StepDescriptor } from "cgv"
 import { useCallback, useMemo, useState } from "react"
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
 
-function getLabel(descriptor: StepDescriptor | { type: "symbol" }) {
+function getLabel(descriptor: StepDescriptor) {
     if (descriptor.type === "operation") {
         return descriptor.identifier
     }
     return descriptor.type
 }
 
-function getStepDescriptors(operations: Operations<any, any>) {
+type DescriptorOptions = Array<{
+    label: string
+    descriptor: StepDescriptor | { type: "symbol"; identifier: string }
+}>
+
+function getStepDescriptors(operations: Operations<any, any>): DescriptorOptions {
     return getAllStepDescriptors(operations)
         .filter(({ type }) => type != "parallel" && type != "sequential")
-        .map<{ label: string; descriptor: StepDescriptor | { type: "symbol" } }>((descriptor) => ({
+        .map<{ label: string; descriptor: StepDescriptor }>((descriptor) => ({
             descriptor,
             label: getLabel(descriptor),
         }))
-        .concat({
-            label: "symbol",
-            descriptor: {
-                type: "symbol",
-            },
-        })
 }
 
 export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void }) {
@@ -30,16 +29,24 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
     const { operations } = useBaseGlobal()
     const [filter, setFilter] = useState("")
     const stepDescriptors = useMemo(() => getStepDescriptors(operations), [operations])
+    const nouns = store((state) => state.grammar.map(({ name }) => name), shallowEqual)
     const filteredDescriptors = useMemo(
-        () => stepDescriptors.filter(({ label }) => label.toLocaleLowerCase().startsWith(filter.toLocaleLowerCase())),
-        [filter]
+        () =>
+            stepDescriptors
+                .concat(nouns.map((name) => ({ label: name, descriptor: { type: "symbol", identifier: name } })))
+                .filter(({ label }) => label.toLocaleLowerCase().startsWith(filter.toLocaleLowerCase())),
+        [filter, stepDescriptors, nouns]
     )
     const submit = useCallback(
-        (descriptor: StepDescriptor | { type: "symbol" }) => {
+        (descriptor: StepDescriptor | { type: "symbol"; identifier: string }) => {
             if (fulfill == null) {
                 return
             }
-            createStep(descriptor, store.getState().request, fulfill, operations)
+            if (descriptor.type === "symbol") {
+                fulfill(() => ({ type: "symbol", identifier: descriptor.identifier }))
+                return
+            }
+            fulfill(() => createDefaultStep(descriptor, operations))
         },
         [fulfill]
     )
@@ -66,7 +73,7 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
                 </button>
             </div>
             <div className="d-flex flex-column" style={{ overflowY: "auto" }}>
-                {filteredDescriptors.map(({ label, descriptor }, i) => (
+                {filteredDescriptors.map(({ label, descriptor }) => (
                     <div className="rounded pointer p-3 border-bottom" onClick={() => submit(descriptor)} key={label}>
                         {label}
                     </div>
@@ -74,19 +81,4 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
             </div>
         </>
     )
-}
-
-function createStep(
-    descriptor: StepDescriptor | { type: "symbol" },
-    request: (type: string, fulfill: (value: any) => void) => void,
-    response: (stepGenerator: () => ParsedSteps) => void,
-    operations: Operations<any, any>
-) {
-    if (descriptor.type === "symbol") {
-        request("select-noun", (noun) => {
-            response(() => ({ type: "symbol", identifier: noun }))
-        })
-    } else {
-        response(() => createDefaultStep(descriptor, operations))
-    }
 }

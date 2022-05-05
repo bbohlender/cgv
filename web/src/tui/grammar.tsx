@@ -20,7 +20,7 @@ export function Grammar() {
     const nouns = store(
         (state) =>
             state.type === "gui" && state.selectedDescription != null
-                ? getLocalDescription(state.grammar, undefined, state.selectedDescription)
+                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
                 : undefined,
         shallowEqual
     )

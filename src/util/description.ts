@@ -48,8 +48,8 @@ export function getLocalDescription<T>(
     dependencyMap: DependencyMap | undefined,
     localDescriptionName: string
 ): AbstractParsedGrammarDefinition<T> {
-    const localDescriptionWithoutDependencies = globalDescription.filter(
-        (noun) => getDescriptionOfNoun(noun.name) === localDescriptionName
+    const localDescriptionWithoutDependencies = globalDescription.filter((noun) =>
+        isNounOfDescription(localDescriptionName, noun.name)
     )
     if (dependencyMap == null) {
         return localDescriptionWithoutDependencies

@@ -30,6 +30,7 @@ import {
     localizeStepsSerializer,
     DependencyMap,
     computeDependencies,
+    globalizeNoun,
 } from "cgv"
 import produce, { Draft } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -149,7 +150,9 @@ function createBaseStateFunctions(
             if (descriptions.findIndex((description) => description.name === name) !== -1) {
                 return
             }
-            const newGrammar = grammar.concat(toHierarchical([{ name: `${name}@Start`, step: { type: "this" } }]))
+            const newGrammar = grammar.concat(
+                toHierarchical([{ name: globalizeNoun("Start", name), step: { type: "this" } }])
+            )
             set({
                 descriptions: produce(get().descriptions, (draft) => {
                     draft.push({
@@ -161,14 +164,12 @@ function createBaseStateFunctions(
                 dependencyMap: computeDependencies(newGrammar),
             })
         },
-        deleteDescription: (index: number) => {
-            const { descriptions } = get()
-            //TODO: delete all the nouns from the grammar (which should implicitly change the selectionsList)
-            /*set({
-                descriptions: produce(descriptions, (draft) => {
-                    draft.splice(index, 1)
-                }),
-            })*/
+        deleteDescription: (name: string) => {
+            const { descriptions, selectedDescription } = get()
+            set({
+                descriptions: descriptions.filter((description) => description.name != name),
+                selectedDescription: selectedDescription === name ? undefined : selectedDescription,
+            })
         },
         toggleDescriptionVisible: (index: number) => {
             const { descriptions } = get()

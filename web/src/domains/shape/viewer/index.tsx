@@ -151,7 +151,10 @@ function useSimpleInterpretation(
                 useViewerState.getState().setError(error.message)
             }
         )
-        return () => subscription.unsubscribe()
+        return () => {
+            ref.current?.remove(...ref.current.children)
+            subscription.unsubscribe()
+        }
     }, [store, description])
 }
 

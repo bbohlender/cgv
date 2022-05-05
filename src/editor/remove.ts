@@ -1,7 +1,6 @@
 import { HierarchicalParsedSteps, ParsedSteps, HierarchicalParsedGrammarDefinition, Operations } from ".."
 import { EditorState } from "."
 import { IndicesMap, SelectionsList } from "./selection"
-import { removeUnusedNouns } from "./noun"
 import { computeDependencies, toHierarchical } from "../util"
 import produce from "immer"
 import { replaceOnDraft, ReplaceWith } from "./replace"
@@ -63,11 +62,11 @@ export function removeStep(
     const result = produce(grammar, (draft) => {
         replaceOnDraft(indicesMap, selectionsList, replaceWith, draft)
         simplfyGrammarOnDraft(draft, operations)
+        return toHierarchical(draft)
     })
-    const newGrammar = removeUnusedNouns(result)
     return {
-        grammar: newGrammar,
-        dependencyMap: computeDependencies(newGrammar),
+        grammar: result,
+        dependencyMap: computeDependencies(result),
         selectionsList: [],
         indicesMap: {},
         hovered: undefined,
@@ -140,16 +139,6 @@ function deleteUnnecassaryStepChildOnDraft<T>(
         return false
     }
     switch (parent.type) {
-        case "operation": {
-            const operation = operations[parent.identifier]
-            if (operation == null) {
-                throw new Error(`unknown operation "${parent.identifier}"`)
-            }
-            if (operation.defaultParameters[childIndex] != null) {
-                return false
-            }
-            break
-        }
         case "sequential":
             if (child.type !== "this") {
                 return false

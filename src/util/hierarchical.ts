@@ -71,8 +71,11 @@ export function toHierarchicalSteps<T = unknown>(
 export function toHierarchical<T = unknown>(
     grammar: AbstractParsedGrammarDefinition<T>
 ): HierarchicalParsedGrammarDefinition<T> {
-    return grammar.reduce<HierarchicalParsedGrammarDefinition<T>>(
-        (prev, { name, step }) => [...prev, { name, step: toHierarchicalSteps(step, name) }],
-        []
-    )
+    if (Object.isFrozen(grammar)) {
+        return produce(grammar, (draft) => toHierarchical(draft)) as HierarchicalParsedGrammarDefinition<T>
+    }
+    for (const noun of grammar) {
+        noun.step = toHierarchicalSteps(noun.step, noun.name)
+    }
+    return grammar as HierarchicalParsedGrammarDefinition<T>
 }

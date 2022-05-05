@@ -1,9 +1,8 @@
-import { graphlib } from "dagre"
 import React, { useEffect, useState } from "react"
 import ReactFlow, { ConnectionLineType, Node, Edge } from "react-flow-renderer"
-import { updateGraph } from "./update-graph"
+import { createGraph } from "./update-graph"
 import { useBaseStore } from "../global"
-import { getLocalDescription } from "cgv"
+import { getLocalDescription, shallowEqual } from "cgv"
 
 const Graph = () => {
     const [{ nodes, edges }, setState] = useState(() => {
@@ -14,29 +13,24 @@ const Graph = () => {
     const store = useBaseStore()
 
     useEffect(() => {
-        const graph = new graphlib.Graph()
-        graph.setGraph({ rankdir: "LR" })
-        let currentNodes: Array<Node> = []
-        let currentEdges: Array<Edge> = []
         store.subscribe(
             (state) =>
                 state.type === "gui" && state.selectedDescription != null
                     ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
                     : undefined,
-            (description, prevDescription) => {
+            (description) => {
                 if (description == null) {
                     setState({ nodes: [], edges: [] })
                     return
                 }
-                const newNodes = [...currentNodes]
-                const newEdges = [...currentEdges]
-                updateGraph(newNodes, newEdges, graph, prevDescription, description)
-                currentEdges = newEdges
-                currentNodes = newNodes
-                setState({ edges: currentEdges, nodes: newNodes })
+                const newNodes: Array<Node> = []
+                const newEdges: Array<Edge> = []
+                createGraph(newNodes, newEdges, description)
+                setState({ edges: newEdges, nodes: newNodes })
             },
             {
                 fireImmediately: true,
+                equalityFn: shallowEqual,
             }
         )
     }, [])

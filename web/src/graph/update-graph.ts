@@ -2,19 +2,16 @@ import { HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps, ParsedGra
 import { graphlib, layout } from "dagre"
 import { Edge, Node, Position } from "react-flow-renderer"
 
-export function updateGraph(
+export function createGraph(
     nodes: Array<Node>,
     edges: Array<Edge>,
-    graph: graphlib.Graph,
-    prevDescription: HierarchicalParsedGrammarDefinition | undefined,
     description: HierarchicalParsedGrammarDefinition
 ): void {
-    const length = Math.max(prevDescription?.length ?? 0, description.length)
-    for (let i = 0; i < length; i++) {
-        //TODO: add node representing the noun
-        const prevNoun = prevDescription != null ? prevDescription[i] : undefined
-        const currentNoun = description[i]
-        updateGraphNode(nodes, edges, graph, prevNoun?.step, currentNoun?.step, prevNoun?.name, currentNoun?.name)
+    const graph = new graphlib.Graph()
+    graph.setGraph({ rankdir: "LR" })
+    for (const noun of description) {
+        //TODO: add node representing noun
+        updateGraphNode(nodes, edges, graph, noun.step, undefined)
     }
     layout(graph)
     for (const node of nodes) {
@@ -32,62 +29,42 @@ function updateGraphNode(
     nodes: Array<Node>,
     edges: Array<Edge>,
     graph: graphlib.Graph,
-    previousStep: HierarchicalParsedSteps | undefined,
-    currentStep: HierarchicalParsedSteps | undefined,
-    prevParentId: string | undefined,
-    currentParentId: string | undefined
+    step: HierarchicalParsedSteps,
+    parentId: string | undefined
 ): void {
-    if (previousStep == currentStep) {
+    const path = step.path.join(",")
+
+    if (parentId != null) {
+        //add
+        graph.setEdge(parentId, path, {})
+        edges.push({
+            id: edgeId(parentId, path),
+            source: parentId,
+            target: path,
+        })
+    }
+
+    nodes.push({
+        data: {
+            label: step.type, //TODO
+        },
+        id: path,
+        position: { x: 0, y: 0 },
+        connectable: false,
+        selectable: false,
+        draggable: false,
+    })
+    graph.setNode(path, {
+        width: 100,
+        height: 20,
+    })
+
+    if (step.children == null) {
         return
     }
-    const previousPath = previousStep?.path.join(",")
-    const currentPath = currentStep?.path.join(",")
 
-    if (previousPath != null && prevParentId != null) {
-        //remove
-        const id = edgeId(prevParentId, previousPath)
-        graph.removeEdge(prevParentId, previousPath)
-        graph.removeNode(previousPath)
-        const edgeIndex = edges.findIndex((edge) => edge.id === id)
-        if (edgeIndex !== -1) {
-            edges.splice(edgeIndex, 1)
-        }
-        const nodeIndex = nodes.findIndex((node) => node.id === previousPath)
-        if (nodeIndex !== -1) {
-            nodes.splice(nodeIndex, 1)
-        }
-    }
-
-    if (currentPath != null && currentParentId != null) {
-        //add
-        graph.setEdge(currentParentId, currentPath, {})
-        edges.push({
-            id: edgeId(currentParentId, currentPath),
-            source: currentParentId,
-            target: currentPath,
-        })
-        nodes.push({
-            data: {
-                label: currentStep!.type, //TODO
-            },
-            id: currentPath,
-            position: { x: 0, y: 0 },
-            connectable: false,
-            selectable: false,
-            draggable: false,
-        })
-        graph.setNode(currentPath, {
-            width: 100,
-            height: 20,
-        })
-    }
-
-    const length = Math.max(currentStep?.children?.length ?? 0, previousStep?.children?.length ?? 0)
-    for (let i = 0; i < length; i++) {
-        const prevChild = previousStep?.children == null ? undefined : previousStep.children[i]
-        const currentChild = currentStep?.children == null ? undefined : currentStep.children[i]
-
-        updateGraphNode(nodes, edges, graph, prevChild, currentChild, previousPath, currentPath)
+    for (const child of step.children) {
+        updateGraphNode(nodes, edges, graph, child, path)
     }
 }
 

@@ -28,7 +28,7 @@ export function DescriptionList({ style, className, ...rest }: HTMLProps<HTMLDiv
                 {descriptions.map((description, i) => (
                     <div
                         onClick={() => store.getState().selectDescription(description.name)}
-                        key={i}
+                        key={description.name}
                         className={`pointer py-2 ps-3 pe-2 d-flex flex-row align-items-center border-top border-1 ${
                             selectedDescription === description.name ? "bg-primary text-light" : ""
                         }`}>
@@ -37,7 +37,7 @@ export function DescriptionList({ style, className, ...rest }: HTMLProps<HTMLDiv
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
-                                store.getState().deleteDescription(i)
+                                store.getState().deleteDescription(description.name)
                             }}
                             className={`btn text-danger btn-sm`}>
                             <DeleteIcon />
