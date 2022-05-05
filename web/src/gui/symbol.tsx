@@ -1,11 +1,15 @@
-import { AbstractParsedSymbol, HierarchicalInfo } from "cgv"
+import { AbstractParsedSymbol, HierarchicalInfo, localizeNoun } from "cgv"
 import { useBaseStore } from "../global"
 import { StartLabel } from "./label"
 
 export function GUISymbolStep({ value }: { value: AbstractParsedSymbol<HierarchicalInfo> }) {
     const store = useBaseStore()
-    const nouns = store((state) => (state.type === "gui" ? state.grammar.map((noun) => noun.name) : undefined))
-    if (nouns == null) {
+    const localNouns = store((state) =>
+        state.type === "gui" && state.selectedDescription != null
+            ? state.grammar.map((noun) => localizeNoun(noun.name, state.selectedDescription!))
+            : undefined
+    )
+    if (localNouns == null) {
         return null
     }
     return (
@@ -18,9 +22,9 @@ export function GUISymbolStep({ value }: { value: AbstractParsedSymbol<Hierarchi
                     }, value)
                 }
                 className="flex-grow-1 w-auto form-select form-select-sm">
-                {nouns.map((noun) => (
-                    <option key={noun} value={noun}>
-                        {noun}
+                {localNouns.map((localNoun) => (
+                    <option key={localNoun} value={localNoun}>
+                        {localNoun}
                     </option>
                 ))}
             </select>

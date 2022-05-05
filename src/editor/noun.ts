@@ -7,31 +7,37 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
-import { computeDependencies, getNounIndex, traverseSteps } from "../util"
+import { computeDependencies, getDescriptionOfNoun, getNounIndex, traverseSteps } from "../util"
 import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
-import { getIndirectParentsSteps, getRelatedSelections } from "./selection"
+import { getIndirectParentsSteps, getRelatedSelections, getSelectedStepsPath } from "./selection"
 
 export function removeUnusedNouns(
     grammar: HierarchicalParsedGrammarDefinition,
-    descriptionNames: Array<string>
-): HierarchicalParsedGrammarDefinition {
-    const usedNouns = new Set([grammar[0].name]) //pre add the first entry
+    selectionsList: SelectionsList,
+    descriptionNames?: Array<string>
+): Pick<EditorState, "selectionsList" | "grammar"> {
+    const usedNouns = new Set<string>()
+    const foundDescriptions = new Set<string>()
     for (const { name: rootName, step: rootStep } of grammar) {
+        const descriptionName = getDescriptionOfNoun(rootName)
+        if (
+            !foundDescriptions.has(descriptionName) &&
+            (descriptionNames == null || descriptionNames.includes(descriptionName))
+        ) {
+            usedNouns.add(rootName)
+            foundDescriptions.add(descriptionName)
+        }
         traverseSteps(rootStep, (steps) => {
             if (steps.type === "symbol" && steps.identifier !== rootName) {
                 usedNouns.add(steps.identifier)
             }
         })
     }
-    //return grammar.filter()
-    return produce(grammar, (draft) => {
-        for (let i = draft.length - 1; i >= 0; i--) {
-            if (!usedNouns.has(draft[i].name)) {
-                draft.splice(i, 1)
-            }
-        }
-    })
+    return {
+        grammar: freeze(grammar.filter((noun) => usedNouns.has(noun.name))),
+        selectionsList: selectionsList.filter((selections) => usedNouns.has(getSelectedStepsPath(selections.steps)[0])),
+    }
 }
 
 /*export function removeNounOnDraft<T, A>(
@@ -129,13 +135,12 @@ export function renameNoun(
             }
         }
     )
-    //const newGrammar = removeUnusedNouns(partial.grammar)
+    const cleanedPartial = removeUnusedNouns(partial.grammar, partial.selectionsList)
     return {
         hovered: undefined,
         indicesMap: {},
-        selectionsList: partial.selectionsList,
-        grammar: partial.grammar,
-        dependencyMap: computeDependencies(partial.grammar),
+        ...cleanedPartial,
+        dependencyMap: computeDependencies(cleanedPartial.grammar),
     }
 }
 

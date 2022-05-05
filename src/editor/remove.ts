@@ -5,6 +5,7 @@ import { computeDependencies, toHierarchical } from "../util"
 import produce from "immer"
 import { replaceOnDraft, ReplaceWith } from "./replace"
 import { AbstractParsedGrammarDefinition, AbstractParsedSteps, AbstractParsedSymbol } from "../parser"
+import { removeUnusedNouns } from "./noun"
 
 function getNeutralStep(
     parent: HierarchicalParsedSteps | HierarchicalParsedGrammarDefinition,
@@ -59,15 +60,15 @@ export function removeStep(
 ): EditorState {
     const replaceWith: ReplaceWith = (_, path, translatedPath) =>
         getNeutralStep(translatedPath[translatedPath.length - 2], path[path.length - 1], operations)
-    const result = produce(grammar, (draft) => {
+    const newGrammar = produce(grammar, (draft) => {
         replaceOnDraft(indicesMap, selectionsList, replaceWith, draft)
         simplfyGrammarOnDraft(draft, operations)
         return toHierarchical(draft)
     })
+    const partial = removeUnusedNouns(newGrammar, [])
     return {
-        grammar: result,
-        dependencyMap: computeDependencies(result),
-        selectionsList: [],
+        ...partial,
+        dependencyMap: computeDependencies(partial.grammar),
         indicesMap: {},
         hovered: undefined,
     }
@@ -103,25 +104,6 @@ function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractPar
     return step
 }
 
-function resolveSymbol<T>(
-    steps: AbstractParsedSymbol<T>,
-    grammar: AbstractParsedGrammarDefinition<T>,
-    visited = new Set<string>()
-): AbstractParsedSteps<T> | undefined {
-    if (visited.has(steps.identifier)) {
-        return undefined
-    }
-    visited.add(steps.identifier)
-    const noun = grammar.find((noun) => noun.name === steps.identifier)
-    if (noun == null) {
-        return undefined
-    }
-    if (noun.step.type === "symbol") {
-        return resolveSymbol(noun.step, grammar, visited)
-    }
-    return noun.step
-}
-
 /**
  * @returns true if the child was deleted
  */
@@ -132,20 +114,17 @@ function deleteUnnecassaryStepChildOnDraft<T>(
     operations: Operations<any, any>
 ): boolean {
     let child: AbstractParsedSteps<T> | undefined = parent.children[childIndex]
-    if (child.type === "symbol") {
-        child = resolveSymbol(child, grammar)
-    }
     if (child == null) {
         return false
     }
     switch (parent.type) {
         case "sequential":
-            if (child.type !== "this") {
+            if (child.type !== "this" || parent.children.length === 1) {
                 return false
             }
             break
         case "parallel":
-            if (child.type !== "null") {
+            if (child.type !== "null" || parent.children.length === 1) {
                 return false
             }
             break

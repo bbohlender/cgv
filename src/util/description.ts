@@ -1,3 +1,4 @@
+import { freeze } from "immer"
 import { traverseSteps } from "."
 import type {
     AbstractParsedGrammarDefinition,
@@ -52,11 +53,11 @@ export function getLocalDescription<T>(
         isNounOfDescription(localDescriptionName, noun.name)
     )
     if (dependencyMap == null) {
-        return localDescriptionWithoutDependencies
+        return freeze(localDescriptionWithoutDependencies)
     }
     const dependencies = dependencyMap[localDescriptionName] ?? []
-    return localDescriptionWithoutDependencies.concat(
-        globalDescription.filter((noun) => dependencies.includes(noun.name))
+    return freeze(
+        localDescriptionWithoutDependencies.concat(globalDescription.filter((noun) => dependencies.includes(noun.name)))
     )
 }
 

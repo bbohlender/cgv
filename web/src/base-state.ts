@@ -32,7 +32,7 @@ import {
     computeDependencies,
     globalizeNoun,
 } from "cgv"
-import produce, { Draft } from "immer"
+import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { operationGuiMap } from "./domains/shape"
@@ -146,22 +146,24 @@ function createBaseStateFunctions(
             }
         },
         addDescription: (name: string) => {
-            const { descriptions, grammar } = get()
+            let { descriptions, grammar, dependencyMap } = get()
             if (descriptions.findIndex((description) => description.name === name) !== -1) {
                 return
             }
-            const newGrammar = grammar.concat(
-                toHierarchical([{ name: globalizeNoun("Start", name), step: { type: "this" } }])
-            )
+            const newNounName = globalizeNoun("Start", name)
+            if (grammar.findIndex((noun) => noun.name === newNounName) === -1) {
+                grammar = freeze(grammar.concat(toHierarchical([{ name: newNounName, step: { type: "this" } }])))
+                dependencyMap = computeDependencies(grammar)
+            }
             set({
-                descriptions: produce(get().descriptions, (draft) => {
-                    draft.push({
+                descriptions: descriptions.concat([
+                    {
                         name,
                         visible: true,
-                    })
-                }),
-                grammar: newGrammar,
-                dependencyMap: computeDependencies(newGrammar),
+                    },
+                ]),
+                grammar,
+                dependencyMap,
             })
         },
         deleteDescription: (name: string) => {
@@ -428,19 +430,12 @@ function createBaseStateFunctions(
             }
             set(removeStep(state.indicesMap, state.selectionsList, operations, state.grammar))
         },
-        renameNoun: (name: string, descriptionName: string) => {
+        renameNoun: (name: string) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            set(
-                renameNoun(
-                    state.indicesMap,
-                    state.selectionsList,
-                    globalizeStepsSerializer(descriptionName, name) ?? name,
-                    state.grammar
-                )
-            )
+            set(renameNoun(state.indicesMap, state.selectionsList, name, state.grammar))
         },
         setName: (name: string, descriptionName: string) => {
             const state = get()

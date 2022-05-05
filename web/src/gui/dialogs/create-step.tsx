@@ -10,17 +10,17 @@ function getLabel(descriptor: StepDescriptor) {
     return descriptor.type
 }
 
-type DescriptorOptions = Array<{
+type Options = Array<{
     label: string
-    descriptor: StepDescriptor | { type: "symbol"; identifier: string }
+    onSelect: () => void
 }>
 
-function getStepDescriptors(operations: Operations<any, any>): DescriptorOptions {
+function getStepOptions(operations: Operations<any, any>, onSelectStep: (value: StepDescriptor) => void): Options {
     return getAllStepDescriptors(operations)
         .filter(({ type }) => type != "parallel" && type != "sequential")
-        .map<{ label: string; descriptor: StepDescriptor }>((descriptor) => ({
-            descriptor,
+        .map((descriptor) => ({
             label: getLabel(descriptor),
+            onSelect: onSelectStep.bind(null, descriptor),
         }))
 }
 
@@ -28,36 +28,33 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
     const store = useBaseStore()
     const { operations } = useBaseGlobal()
     const [filter, setFilter] = useState("")
-    const stepDescriptors = useMemo(() => getStepDescriptors(operations), [operations])
-    const nouns = store((state) => state.grammar.map(({ name }) => name), shallowEqual)
-    const filteredDescriptors = useMemo(
-        () =>
-            stepDescriptors
-                .concat(nouns.map((name) => ({ label: name, descriptor: { type: "symbol", identifier: name } })))
-                .filter(({ label }) => label.toLocaleLowerCase().startsWith(filter.toLocaleLowerCase())),
-        [filter, stepDescriptors, nouns]
+    const stepOptions = useMemo(
+        () => getStepOptions(operations, (descriptor) => fulfill(() => createDefaultStep(descriptor, operations))),
+        [fulfill, operations]
     )
-    const submit = useCallback(
-        (descriptor: StepDescriptor | { type: "symbol"; identifier: string }) => {
-            if (fulfill == null) {
-                return
-            }
-            if (descriptor.type === "symbol") {
-                fulfill(() => ({ type: "symbol", identifier: descriptor.identifier }))
-                return
-            }
-            fulfill(() => createDefaultStep(descriptor, operations))
-        },
-        [fulfill]
+    const nouns = store((state) => state.grammar.map(({ name }) => name), shallowEqual)
+    const filteredOptions = useMemo(
+        () =>
+            stepOptions
+                .concat(
+                    nouns.map((name) => ({
+                        label: name,
+                        onSelect: () => fulfill(() => ({ type: "symbol", identifier: name })),
+                    }))
+                )
+                .concat({
+                    label: "summarize",
+                    onSelect: () => store.getState().request("summarize", fulfill),
+                })
+                .filter(({ label }) => label.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),
+        [filter, stepOptions, nouns, fulfill]
     )
     return (
         <>
             <div className="d-flex flex-row mb-3">
                 <input
                     onKeyDown={(e) =>
-                        e.key === "Enter" &&
-                        filteredDescriptors.length === 1 &&
-                        submit(filteredDescriptors[0].descriptor)
+                        e.key === "Enter" && filteredOptions.length === 1 && filteredOptions[0].onSelect()
                     }
                     autoFocus
                     type="text"
@@ -73,8 +70,8 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
                 </button>
             </div>
             <div className="d-flex flex-column" style={{ overflowY: "auto" }}>
-                {filteredDescriptors.map(({ label, descriptor }) => (
-                    <div className="rounded pointer p-3 border-bottom" onClick={() => submit(descriptor)} key={label}>
+                {filteredOptions.map(({ label, onSelect }) => (
+                    <div className="rounded pointer p-3 border-bottom" onClick={onSelect} key={label}>
                         {label}
                     </div>
                 ))}

@@ -206,7 +206,7 @@ function GUISelection({
 }
 
 function getSelectionsLabel(selections: SelectionsList[number], descriptionName: string) {
-    return typeof selections.steps === "string"
+    return typeof selections.steps === "string" || selections.steps.type === "symbol"
         ? localizeStepsSerializer(descriptionName, selections.steps)
         : selections.steps.type === "operation"
         ? selections.steps.identifier
