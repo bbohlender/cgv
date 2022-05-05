@@ -8,7 +8,6 @@ import {
     toHierarchical,
     insert,
     removeStep,
-    removeValue,
     editSelection,
     editIndices,
     EditorState,
@@ -427,13 +426,6 @@ function createBaseStateFunctions(
                 return
             }
             set(removeStep(state.indicesMap, state.selectionsList, operations, state.grammar))
-        },
-        removeValue: () => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set(removeValue(state.indicesMap, state.selectionsList, state.grammar))
         },
         renameNoun: (name: string, descriptionName: string) => {
             const state = get()

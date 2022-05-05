@@ -1,6 +1,30 @@
-import { EMPTY, lastValueFrom } from "rxjs"
-import { interprete, InterpreterOptions, Operations, toArray } from "../interpreter"
+import { FullIndex } from "../editor"
+import { Operations } from "../interpreter"
 import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
+import { HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps } from "../util"
+
+export function concretize(
+    grammar: HierarchicalParsedGrammarDefinition,
+    operations: Operations<any, any>
+): ParsedGrammarDefinition {
+    throw new Error("method not implemented")
+}
+
+export function deriveConcreteIndices(
+    grammar: HierarchicalParsedGrammarDefinition,
+    operations: Operations<any, any>
+): Map<HierarchicalParsedSteps, Array<FullIndex>> {
+    const beforeIndicesMap = new Map<ParsedSteps, Array<string>>()
+    const fullIndicesMap = new Map<ParsedSteps, Array<FullIndex>>()
+    throw new Error("method not implemented")
+    //return fullIndicesMap
+}
+
+export function concretizeDerivedIndices(
+    indexMap: Map<HierarchicalParsedSteps, Array<FullIndex>>
+): ParsedGrammarDefinition {
+    throw new Error("method not implemented")
+}
 
 /*async function concretize<T>(
     grammar: ParsedGrammarDefinition,

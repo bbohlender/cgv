@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react"
-import { TextEditor, Grammar, TUI } from "./tui"
+import { useEffect, useRef } from "react"
+import { TextEditor, Grammar } from "./tui"
 import { GUI } from "./gui"
 import { useBaseStore } from "./global"
 import { useBaseGlobal } from "./global"
