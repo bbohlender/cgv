@@ -106,7 +106,6 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
             </Canvas>
             <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
                 <MultiSelectButton className="me-2" />
-                <ParentSelectButton className="me-2" />
                 <BackgroundToggle className="me-2" />
                 <BackButton className="me-2" />
                 <SpeedSelection className="me-2" />
@@ -464,22 +463,6 @@ function MultiSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                 shift ? "btn-primary" : "btn-secondary"
             } btn-sm `}>
             <MultiSelectIcon />
-        </div>
-    )
-}
-
-function ParentSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
-    const store = useBaseStore()
-    const control = store((s) => (s.type === "gui" ? s.control : false))
-    return (
-        <div
-            {...rest}
-            onPointerDown={() => store.getState().setControl(true)}
-            onPointerUp={() => store.getState().setControl(false)}
-            className={`${className} d-flex align-items-center justify-content-center btn ${
-                control ? "btn-primary" : "btn-secondary"
-            } btn-sm `}>
-            <ArrowLeftUp />
         </div>
     )
 }

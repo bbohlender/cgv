@@ -294,8 +294,8 @@ describe("editor", () => {
     it("should remove step at noun", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | b -> this + 3\n\nb -> 2`, "test"))
         const { grammar } = removeStep(
-            { b: [] },
-            [{ steps: getLastStepInPath(["b@test"], inputGrammar), indices: [] }],
+            {},
+            [{ steps: "b@test", indices: [] }],
             {},
             inputGrammar
         )
@@ -395,7 +395,7 @@ describe("editor", () => {
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a -> if this > 5 then { operation("abc") } else { this + 2 }`
+            `a -> if this > 5 then { operation("abc", null) } else { this + 2 }`
         )
     })
 

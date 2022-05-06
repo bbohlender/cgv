@@ -13,7 +13,7 @@ export function TextEditor() {
     }
 
     return (
-        <div className="d-flex position-relative">
+        <div className="d-flex position-relative flex-grow-1">
             <textarea
                 autoFocus
                 style={{ resize: "none", outline: 0, tabSize: 4 }}

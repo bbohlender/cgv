@@ -1,5 +1,5 @@
 import { freeze } from "immer"
-import { traverseSteps } from "."
+import { filterNull, traverseSteps } from "."
 import type {
     AbstractParsedGrammarDefinition,
     AbstractParsedSteps,
@@ -9,36 +9,49 @@ import type {
 
 /**
  * map of dependencies
- * key: name of description
- * values: array of nouns from other descriptions
+ * key: global noun name
+ * values: array of global dependency nouns
  */
-export type DependencyMap = {
-    [Name in string]: Array<string> | undefined
-}
+export type DependencyMap = { [Name in string]: Array<string> }
 
 export function computeDependencies<T>(globalDescriptions: AbstractParsedGrammarDefinition<T>): DependencyMap {
-    const result: DependencyMap = {}
+    const directDependencyMap: Map<string, Array<string>> = new Map()
     for (const noun of globalDescriptions) {
-        const nounDescriptionName = getDescriptionOfNoun(noun.name)
         traverseSteps(noun.step, (step) => {
             if (step.type !== "symbol") {
                 return
             }
-            const symbolDescriptionName = getDescriptionOfNoun(step.identifier)
-            if (symbolDescriptionName === nounDescriptionName) {
-                return
-            }
-            let entry = result[nounDescriptionName]
+            let entry = directDependencyMap.get(noun.name)
             if (entry == null) {
                 entry = []
-                result[nounDescriptionName] = entry
+                directDependencyMap.set(noun.name, entry)
             }
-            if (!entry.includes(step.identifier)) {
-                entry.push(step.identifier)
-            }
+            entry.push(step.identifier)
         })
     }
+    const result: DependencyMap = {}
+    for (const [name] of directDependencyMap) {
+        result[name] = Array.from(new Set(getNestedDependencies(name, directDependencyMap)))
+    }
     return result
+}
+
+function getNestedDependencies(
+    noun: string,
+    directDependencyMap: Map<string, Array<string>>,
+    visited = new Set<string>()
+): Array<string> {
+    visited.add(noun)
+    const directDependencies = directDependencyMap.get(noun)
+    if (directDependencies == null) {
+        return []
+    }
+    return directDependencies
+        .filter((dependency) => !visited.has(dependency))
+        .reduce<Array<string>>(
+            (prev, dependency) => prev.concat(getNestedDependencies(dependency, directDependencyMap, visited)),
+            directDependencies
+        )
 }
 
 /**
@@ -55,9 +68,19 @@ export function getLocalDescription<T>(
     if (dependencyMap == null) {
         return freeze(localDescriptionWithoutDependencies)
     }
-    const dependencies = dependencyMap[localDescriptionName] ?? []
+    const nounsRealtedToLocalDescription = new Set(
+        localDescriptionWithoutDependencies.reduce<Array<string>>((prev, noun) => {
+            const dependencies = dependencyMap[noun.name]
+            if (dependencies == null) {
+                return prev
+            }
+            return prev.concat(dependencies.filter((noun) => !isNounOfDescription(localDescriptionName, noun)))
+        }, [])
+    )
     return freeze(
-        localDescriptionWithoutDependencies.concat(globalDescription.filter((noun) => dependencies.includes(noun.name)))
+        localDescriptionWithoutDependencies.concat(
+            globalDescription.filter((noun) => nounsRealtedToLocalDescription.has(noun.name))
+        )
     )
 }
 

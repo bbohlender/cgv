@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import ReactFlow, { ConnectionLineType, Node, Edge } from "react-flow-renderer"
-import { createGraph } from "./update-graph"
+import { createGraph } from "./create-graph"
 import { useBaseStore } from "../global"
 import { getLocalDescription, shallowEqual } from "cgv"
 

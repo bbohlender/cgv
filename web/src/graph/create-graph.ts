@@ -16,12 +16,13 @@ export function createGraph(
     layout(graph)
     for (const node of nodes) {
         const { x, y, width, height } = graph.node(node.id)
+        console.log(width, height)
         node.targetPosition = Position.Left
         node.sourcePosition = Position.Right
         node.position.x = x - width / 2
         node.position.y = y - height / 2
-        node.width = width
-        node.height = height
+        //node.width = width
+        //node.height = height
     }
 }
 

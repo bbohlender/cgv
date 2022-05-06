@@ -18,9 +18,6 @@ export function Editor() {
                 case "Shift":
                     store.getState().setShift(false)
                     break
-                case "Control":
-                    store.getState().setControl(false)
-                    break
             }
         }
         const keyDownListener = (e: KeyboardEvent) => {
@@ -35,9 +32,6 @@ export function Editor() {
                     break
                 case "Shift":
                     store.getState().setShift(true)
-                    break
-                case "Control":
-                    store.getState().setControl(true)
                     break
             }
         }
@@ -73,10 +67,10 @@ export function Editor() {
 
             <div
                 style={{ overflowX: "hidden", overflowY: "auto" }}
-                className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative">
+                className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative d-flex">
                 <TextEditor />
                 <Grammar />
-                <Graph />
+                {/*<Graph />*/}
             </div>
         </div>
     )

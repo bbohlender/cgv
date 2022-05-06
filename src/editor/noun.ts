@@ -7,16 +7,17 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
+import { AbstractParsedGrammarDefinition } from "../parser"
 import { computeDependencies, getDescriptionOfNoun, getNounIndex, traverseSteps } from "../util"
 import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
 import { getIndirectParentsSteps, getRelatedSelections, getSelectedStepsPath } from "./selection"
 
-export function removeUnusedNouns(
-    grammar: HierarchicalParsedGrammarDefinition,
+export function removeUnusedNouns<T>(
+    grammar: AbstractParsedGrammarDefinition<T>,
     selectionsList: SelectionsList,
     descriptionNames?: Array<string>
-): Pick<EditorState, "selectionsList" | "grammar"> {
+): { selectionsList: SelectionsList; grammar: AbstractParsedGrammarDefinition<T> } {
     const usedNouns = new Set<string>()
     const foundDescriptions = new Set<string>()
     for (const { name: rootName, step: rootStep } of grammar) {

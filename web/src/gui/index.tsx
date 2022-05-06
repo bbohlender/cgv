@@ -158,21 +158,6 @@ function GUISelection({
     return (
         <div className="d-flex flex-column">
             <label className="mb-3 mx-3">{getSelectionsLabel(selections, descriptionName)}</label>
-            {predecessors != null && predecessors.length > 0 && (
-                <div className="mb-3 mx-3 btn-group-vertical">
-                    {predecessors.map((predecessor) => (
-                        <div
-                            onClick={() => store.getState().selectRelated(selections, predecessor)}
-                            onMouseEnter={() => store.getState().onStartHover(predecessor.steps, predecessor.indices)}
-                            onMouseLeave={() => store.getState().onEndHover(predecessor.steps)}
-                            className="d-flex flex-row align-items-center btn-sm btn btn-outline-secondary"
-                            key={getSelectedStepsJoinedPath(predecessor.steps)}>
-                            <ArrowLeftUp />
-                            <span className="ms-2">{getSelectionsLabel(predecessor, descriptionName)}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
             {all != null && (
                 <MultiSelect<FullIndex>
                     selectAll={() => store.getState().select(selections.steps, undefined, "add")}
@@ -184,21 +169,6 @@ function GUISelection({
                     }}
                     values={getValues(selections, all)}
                 />
-            )}
-            {successors != null && successors.length > 0 && (
-                <div className="btn-group-vertical mx-3 mb-3">
-                    {successors.map((successor) => (
-                        <div
-                            className="d-flex flex-row align-items-center btn btn-sm btn-outline-secondary"
-                            onClick={() => store.getState().selectRelated(selections, successor)}
-                            onMouseEnter={() => store.getState().onStartHover(successor.steps, successor.indices)}
-                            onMouseLeave={() => store.getState().onEndHover(successor.steps)}
-                            key={getSelectedStepsJoinedPath(successor.steps)}>
-                            <ArrowDownRight />
-                            <span className="ms-2">{getSelectionsLabel(successor, descriptionName)}</span>
-                        </div>
-                    ))}
-                </div>
             )}
             <GUISteps descriptionName={descriptionName} value={selections.steps} indices={selections.indices} />
         </div>

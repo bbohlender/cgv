@@ -31,6 +31,7 @@ import {
     DependencyMap,
     computeDependencies,
     globalizeNoun,
+    removeUnusedNouns,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -59,7 +60,6 @@ export type GuiState = {
     dependencyMap: DependencyMap
     requested: { type: string; fulfill: (value: any) => void } | undefined
     shift: boolean
-    control: boolean
 } & EditorState
 
 export type TuiState =
@@ -100,7 +100,6 @@ function createBaseStateInitial(): BaseState {
         interpretationDelay: 0,
         requested: undefined,
         shift: false,
-        control: false,
         showTui: false,
     }
 }
@@ -167,10 +166,16 @@ function createBaseStateFunctions(
             })
         },
         deleteDescription: (name: string) => {
-            const { descriptions, selectedDescription } = get()
+            const { descriptions, selectedDescription, grammar, selectionsList } = get()
+            const newDescriptions = descriptions.filter((description) => description.name != name)
             set({
-                descriptions: descriptions.filter((description) => description.name != name),
+                descriptions: newDescriptions,
                 selectedDescription: selectedDescription === name ? undefined : selectedDescription,
+                ...removeUnusedNouns(
+                    grammar,
+                    selectionsList ?? [],
+                    newDescriptions.map((description) => description.name)
+                ),
             })
         },
         toggleDescriptionVisible: (index: number) => {
@@ -300,7 +305,7 @@ function createBaseStateFunctions(
                 }))
                 .filter((selections) => selections.indices.length > 0)
 
-            if (!state.shift && state.control && predecessorSelectionsList.length > 0) {
+            if (!state.shift && predecessorSelectionsList.length > 0) {
                 //no multi-select and already selected
                 set({
                     selectionsList: editSelectionRelated(
@@ -479,13 +484,6 @@ function createBaseStateFunctions(
                 return
             }
             set({ shift })
-        },
-        setControl: (control: boolean) => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set({ control })
         },
         setInterpretationDelay: (interpretationDelay: number) => {
             set({ interpretationDelay })

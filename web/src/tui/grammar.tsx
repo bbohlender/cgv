@@ -26,7 +26,7 @@ export function Grammar() {
     )
     if (selectedDescription == null) {
         return (
-            <div className="d-flex align-items-center justify-content-center">
+            <div className="d-flex align-items-center justify-content-center flex-grow-1">
                 <span>Nothing Selected</span>
             </div>
         )
@@ -35,7 +35,7 @@ export function Grammar() {
         return null
     }
     return (
-        <div className="position-relative">
+        <div className="position-relative flex-grow-1">
             <div className="m-3">
                 {nouns.map(({ name, step }) => (
                     <InteractableSteps description={selectedDescription} key={name} value={step} noun={name} />
