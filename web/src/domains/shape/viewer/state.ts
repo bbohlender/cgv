@@ -1,4 +1,4 @@
-import { Euler, Object3D, Vector2Tuple, Vector3Tuple } from "three"
+import { Euler, Vector3Tuple } from "three"
 import { GetState, SetState } from "zustand"
 import { CombineEmpty } from "../../../base-state"
 import create from "zustand"
@@ -44,7 +44,7 @@ export function eulerToTuple(q: Euler): Vector3Tuple {
 const euler = new Euler(0, 0, 0, "YXZ")
 const panoramaRotation: Vector3Tuple = [0, 0, 0]
 
-export const topPosition: Vector3Tuple = [0, 400, 0]
+export const topPosition: Vector3Tuple = [0, 1000, 0]
 export const topRotation = eulerToTuple(new Euler(-Math.PI / 2, 0, 0))
 
 export function createViewerStateInitial(): ViewerState {

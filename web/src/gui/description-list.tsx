@@ -4,7 +4,7 @@ import { DeleteIcon } from "../icons/delete"
 import { EyeSlashIcon } from "../icons/eye-slash"
 import { PlusIcon } from "../icons/plus"
 
-export function DescriptionList({ style, className, ...rest }: HTMLProps<HTMLDivElement>) {
+export function DescriptionList({ style, className, children, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
     const descriptions = store((state) => state.descriptions)
     const selectedDescription = store((state) => state.selectedDescription)
@@ -18,7 +18,7 @@ export function DescriptionList({ style, className, ...rest }: HTMLProps<HTMLDiv
                 <div className="flex-grow-1" />
                 <button
                     onClick={() =>
-                        store.getState().request("create-description", (name) => store.getState().addDescription(name))
+                        store.getState().request("create-description", (name) => store.getState().addDescriptions([{ name }]))
                     }
                     className={`btn text-primary btn-sm`}>
                     <PlusIcon />
@@ -54,6 +54,7 @@ export function DescriptionList({ style, className, ...rest }: HTMLProps<HTMLDiv
                     </div>
                 ))}
             </div>
+            {children}
         </div>
     )
 }

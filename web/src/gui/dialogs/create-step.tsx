@@ -3,13 +3,6 @@ import { useCallback, useMemo, useState } from "react"
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
 
-function getLabel(descriptor: StepDescriptor) {
-    if (descriptor.type === "operation") {
-        return descriptor.identifier
-    }
-    return descriptor.type
-}
-
 type Options = Array<{
     label: string
     onSelect: () => void
@@ -19,7 +12,7 @@ function getStepOptions(operations: Operations<any, any>, onSelectStep: (value: 
     return getAllStepDescriptors(operations)
         .filter(({ type }) => type != "parallel" && type != "sequential")
         .map((descriptor) => ({
-            label: getLabel(descriptor),
+            label: descriptor.type === "operation" ? descriptor.identifier : descriptor.type,
             onSelect: onSelectStep.bind(null, descriptor),
         }))
 }

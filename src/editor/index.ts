@@ -7,6 +7,7 @@ export type EditorState = {
     dependencyMap: DependencyMap
 } & SelectionState
 
+export * from "./label"
 export * from "./pattern"
 export * from "./replace"
 export * from "./insert"

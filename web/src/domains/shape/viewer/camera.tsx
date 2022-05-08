@@ -33,6 +33,13 @@ export function ViewerCamera() {
     }, [rotation, position])
 
     return (
-        <APerspectiveCamera fov={FOV} position={position} rotation-order="YXZ" rotation={rotation as any} makeDefault />
+        <APerspectiveCamera
+            fov={FOV}
+            far={100000}
+            position={position}
+            rotation-order="YXZ"
+            rotation={rotation as any}
+            makeDefault
+        />
     )
 }

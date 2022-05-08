@@ -7,16 +7,12 @@ import {
     getSuccessorSelections,
     HierarchicalInfo,
     HierarchicalParsedSteps,
-    localizeStepsSerializer,
     SelectedSteps,
     SelectionsList,
-    serializeStepString,
+    getSelectedLabel,
 } from "cgv"
 import { HTMLProps, useMemo } from "react"
-import { operationGuiMap } from "../domains/shape"
 import { useBaseGlobal, UseBaseStore, useBaseStore } from "../global"
-import { ArrowDownRight } from "../icons/arrow-down-right"
-import { ArrowLeftUp } from "../icons/arrow-left-up"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
 import { MultiSelect } from "./multi-select"
@@ -125,39 +121,12 @@ function GUISelection({
     const store = useBaseStore()
     const path = getSelectedStepsJoinedPath(selections.steps)
     const indicesMap = store((state) => (state.type === "gui" ? state.indicesMap : undefined))
-    const grammar = store((state) => (state.type === "gui" ? state.grammar : undefined))
     const all = useMemo(() => (indicesMap != null ? indicesMap[path] : undefined), [indicesMap])
-    const { operationGuiMap } = useBaseGlobal()
-    const parents = useMemo(
-        () => (grammar != null ? getIndirectParentsSteps(selections.steps, grammar) : undefined),
-        [grammar, selections]
-    )
-    const predecessors = useMemo(
-        () =>
-            indicesMap != null && parents != null
-                ? getPredecessorSelections(indicesMap, parents, selections.steps, selections.indices, undefined)
-                : undefined,
-        [selections, indicesMap, parents]
-    )
-    const successors = useMemo(
-        () =>
-            indicesMap != null && parents != null && grammar != null
-                ? getSuccessorSelections(
-                      indicesMap,
-                      parents,
-                      selections.steps,
-                      selections.indices,
-                      grammar,
-                      undefined,
-                      childrenSelectable(operationGuiMap, selections.steps)
-                  )
-                : undefined,
-        [selections, indicesMap, grammar, operationGuiMap]
-    )
 
     return (
         <div className="d-flex flex-column">
-            <label className="mb-3 mx-3">{getSelectionsLabel(selections, descriptionName)}</label>
+            <label className="mb-3 mx-3">{getSelectedLabel(selections.steps, descriptionName)}</label>
+            <GUISteps descriptionName={descriptionName} value={selections.steps} indices={selections.indices} />
             {all != null && (
                 <MultiSelect<FullIndex>
                     selectAll={() => store.getState().select(selections.steps, undefined, "add")}
@@ -170,17 +139,8 @@ function GUISelection({
                     values={getValues(selections, all)}
                 />
             )}
-            <GUISteps descriptionName={descriptionName} value={selections.steps} indices={selections.indices} />
         </div>
     )
-}
-
-function getSelectionsLabel(selections: SelectionsList[number], descriptionName: string) {
-    return typeof selections.steps === "string" || selections.steps.type === "symbol"
-        ? localizeStepsSerializer(descriptionName, selections.steps)
-        : selections.steps.type === "operation"
-        ? selections.steps.identifier
-        : selections.steps.type
 }
 
 function getValues(

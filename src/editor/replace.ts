@@ -18,7 +18,6 @@ export function getSelectedStepsUpwardsPaths(
     steps: SelectedSteps,
     grammar: HierarchicalParsedGrammarDefinition
 ): Array<HierarchicalPath> {
-    //TODO: this should be recursive (what is the premise of this function and for what is it used?)
     if (typeof steps === "string") {
         const paths: Array<HierarchicalPath> = []
         for (const { step: rootStep } of grammar) {

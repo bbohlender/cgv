@@ -1,25 +1,27 @@
 import {
     getLocalDescription,
     HierarchicalParsedSteps,
+    localizeNoun,
     localizeStepsSerializer,
     SelectedSteps,
     serializeSteps,
     serializeStepString,
     shallowEqual,
 } from "cgv"
-import { Fragment, HTMLProps, useMemo } from "react"
+import { Fragment, useMemo } from "react"
 import { useBaseGlobal } from "../global"
 import { useBaseStore } from "../global"
 import { EditIcon } from "../icons/edit"
 import { BaseState } from "../base-state"
 import { childrenSelectable } from "../gui"
+import { GraphIcon } from "../icons/graph"
 
 export function Grammar() {
     const store = useBaseStore()
     const selectedDescription = store((state) => state.selectedDescription)
-    const nouns = store(
+    const localDescription = store(
         (state) =>
-            state.type === "gui" && state.selectedDescription != null
+            state.type === "gui" && !state.graphVisualization && state.selectedDescription != null
                 ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
                 : undefined,
         shallowEqual
@@ -31,21 +33,29 @@ export function Grammar() {
             </div>
         )
     }
-    if (nouns == null) {
+    if (localDescription == null) {
         return null
     }
     return (
         <div className="position-relative flex-grow-1">
             <div className="m-3">
-                {nouns.map(({ name, step }) => (
+                {localDescription.map(({ name, step }) => (
                     <InteractableSteps description={selectedDescription} key={name} value={step} noun={name} />
                 ))}
-                <button
-                    className="d-flex align-items-center btn btn-sm btn-secondary"
+                <div
                     style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
-                    onClick={() => store.getState().setType("tui")}>
-                    <EditIcon />
-                </button>
+                    className="d-flex flex-row align-items-center">
+                    <button
+                        className="d-flex align-items-center btn btn-sm btn-secondary me-2"
+                        onClick={() => store.getState().setGraphVisualization(true)}>
+                        <GraphIcon />
+                    </button>
+                    <button
+                        className="d-flex align-items-center btn btn-sm btn-secondary"
+                        onClick={() => store.getState().setType("tui")}>
+                        <EditIcon />
+                    </button>
+                </div>
             </div>
         </div>
     )
@@ -75,7 +85,7 @@ function InteractableSteps({
         return (
             <>
                 <span className={cssClassName}>
-                    <span {...events}>{`${localizeStepsSerializer(description, noun) ?? noun} -> `}</span>
+                    <span {...events}>{`${localizeNoun(noun, description)} -> `}</span>
                     <InteractableSteps description={description} value={value} />
                 </span>
                 <br />
@@ -115,7 +125,7 @@ function NestedSteps({
     }
 }): JSX.Element {
     if (value.type === "symbol") {
-        return <span {...events}>{localizeStepsSerializer(description, value) ?? value.identifier}</span>
+        return <span {...events}>{localizeNoun(value.identifier, description)}</span>
     }
     return serializeSteps(
         value,

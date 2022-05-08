@@ -1,4 +1,4 @@
-import { Sphere, Stats, useContextBridge } from "@react-three/drei"
+import { Sphere, useContextBridge } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
 import {
     interprete,
@@ -7,7 +7,6 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
     HierarchicalPath,
-    SelectionsList,
     shallowEqual,
     ParsedSteps,
     debounceBufferTime,
@@ -15,12 +14,21 @@ import {
     getLocalDescription,
     HierarchicalParsedGrammarDefinition,
 } from "cgv"
-import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment, useMemo } from "react"
+import {
+    createPhongMaterialGenerator,
+    operations,
+    PointPrimitive,
+    Primitive,
+    applyToObject3D,
+    loadMapLayers,
+    convertLotsToSteps,
+    convertRoadsToSteps,
+} from "cgv/domains/shape"
+import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment } from "react"
 import { of, Subject, Subscription } from "rxjs"
-import { Box3, BoxBufferGeometry, Color, EdgesGeometry, Group, LineBasicMaterial, Matrix4, Vector3 } from "three"
+import { Color, Group, Matrix4 } from "three"
 import { ErrorMessage } from "../../../error-message"
-import { domainContext, useBaseStore, useBaseStoreState } from "../../../global"
+import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
 import { Background } from "./background"
 import { ViewerCamera } from "./camera"
@@ -31,7 +39,7 @@ import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
 import { SpeedSelection } from "../../../gui/speed-selection"
 import { MultiSelectIcon } from "../../../icons/multi-select"
-import { ArrowLeftUp } from "../../../icons/arrow-left-up"
+import { DescriptionList } from "../../../gui/description-list"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -81,6 +89,7 @@ const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
     const Bridge = useContextBridge(domainContext)
+    const store = useBaseStore()
 
     return (
         <div {...rest} className={`${className} overflow-hidden position-relative`}>
@@ -104,6 +113,16 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <Background />
                 </Bridge>
             </Canvas>
+            <DescriptionList className="position-absolute" style={{ top: "1rem", left: "1rem" }}>
+                <div className="p-2 border-top border-1">
+                    <div className="w-100 btn-sm btn btn-outline-secondary" onClick={() => generateLots(store)}>
+                        Generate Lots
+                    </div>
+                    <div className="w-100 btn-sm btn mt-2 btn-outline-secondary" onClick={() => generateRoads(store)}>
+                        Generate Roads
+                    </div>
+                </div>
+            </DescriptionList>
             <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
                 <MultiSelectButton className="me-2" />
                 <BackgroundToggle className="me-2" />
@@ -114,6 +133,18 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
             {children}
         </div>
     )
+}
+
+async function generateLots(store: UseBaseStore) {
+    const layers = await loadMapLayers(18, 50.1159, 8.66318) //Kettenhofweg 66
+    const newDescriptions = convertLotsToSteps(layers)
+    store.getState().addDescriptions(newDescriptions)
+}
+
+async function generateRoads(store: UseBaseStore) {
+    const layers = await loadMapLayers(18, 50.1159, 8.66318) //Kettenhofweg 66
+    const newDescriptions = convertRoadsToSteps(layers)
+    store.getState().addDescriptions(newDescriptions)
 }
 
 function ShowError() {
@@ -261,7 +292,7 @@ function UnselectedDescriptionResults() {
         (state) =>
             state.type === "gui"
                 ? state.descriptions
-                      .filter((description) => description.visible && description.name !== state.selectedDescription)
+                      .filter((description) => description.visible && description.name != state.selectedDescription)
                       .map((description) => description.name)
                 : undefined,
         shallowEqual
@@ -285,15 +316,11 @@ function UnselectedDescription({ description }: { description: string }) {
     const store = useBaseStore()
     const unselectedDescription = store(
         (state) =>
-            state.type === "gui"
-                ? state.selectedDescription == null
-                    ? state.grammar
-                    : getLocalDescription(state.grammar, state.dependencyMap, description)
-                : undefined,
+            state.type === "gui" ? getLocalDescription(state.grammar, state.dependencyMap, description) : undefined,
         shallowEqual
     )
     useSimpleInterpretation(unselectedDescription, groupRef)
-    return <group ref={groupRef} />
+    return <group onClick={() => store.getState().selectDescription(description)} ref={groupRef} />
 }
 
 function SelectedDescriptionResult() {

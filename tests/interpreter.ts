@@ -29,9 +29,6 @@ import {
 } from "rxjs"
 chai.use(chaiAsPromised)
 
-//TODO: make concretizer
-//TODO: test annotation
-
 describe("matrix datastructure", () => {
     it("should handle changes and update matrix", () => {
         let matrix: Matrix<number> = undefined

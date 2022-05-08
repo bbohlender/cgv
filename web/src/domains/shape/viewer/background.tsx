@@ -2,9 +2,10 @@ import { Plane, useTexture } from "@react-three/drei"
 import { useLoader } from "@react-three/fiber"
 import { Suspense } from "react"
 import { a } from "@react-spring/three"
-import { BackSide, SphereBufferGeometry, TextureLoader } from "three"
+import { BackSide, DoubleSide, PlaneBufferGeometry, SphereBufferGeometry, TextureLoader } from "three"
 import { panoramas } from "../global"
 import { useViewerState } from "./state"
+import { getSatelliteUrl } from "cgv/domains/shape"
 
 const geometry = new SphereBufferGeometry(500, 60, 40)
 
@@ -54,18 +55,17 @@ function TopDownView() {
     )
 }
 
+const planeGeometry = new PlaneBufferGeometry(1000, 1000)
+planeGeometry.translate(500, 500, 0)
+planeGeometry.scale(1, -1, 1)
+planeGeometry.rotateX(-Math.PI / 2)
+
 function Ground() {
-    const texture = useLoader(TextureLoader, "/cgv/map.jpg")
+    const texture = useLoader(TextureLoader, getSatelliteUrl(18, 50.1159, 8.66318)) //Kettenhofweg 66
     return (
-        <Plane
-            rotation-z={-(Math.PI * 2 * 11.5) / 360}
-            scale-y={-1}
-            rotation-x={-Math.PI / 2}
-            renderOrder={-1}
-            position={[0, 0, 0]}
-            args={[1000, 1000]}>
-            <a.meshBasicMaterial depthWrite={false} depthTest={false} map={texture} />
-        </Plane>
+        <mesh geometry={planeGeometry} renderOrder={-1} position={[0, 0, 0]}>
+            <a.meshBasicMaterial side={DoubleSide} depthWrite={false} depthTest={false} map={texture} />
+        </mesh>
     )
 }
 

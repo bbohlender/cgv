@@ -19,19 +19,27 @@ a {
     font-family: monospace;
 }
 
+.bg-hovered {
+    background-color: rgb(83, 0, 192);
+}
+
+.bg-selected {
+    background-color: rgb(154, 11, 250);
+}
+
 .hovered {
+    @extend .bg-hovered;
     border-radius: 0.3rem;
     margin: -0.3rem;
     padding: 0.3rem;
-    background-color: rgb(83, 0, 192);
     cursor: pointer;
 }
 
 .selected {
+    @extend .bg-selected;
     border-radius: 0.3rem;
     margin: -0.3rem;
     padding: 0.3rem;
-    background-color: rgb(154, 11, 250);
     cursor: pointer;
 }
 

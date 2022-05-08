@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react"
 import { TextEditor, Grammar } from "./tui"
 import { GUI } from "./gui"
-import { useBaseStore } from "./global"
+import { useBaseStore, useBaseStoreState } from "./global"
 import { useBaseGlobal } from "./global"
 import { Dialogs } from "./gui/dialogs"
 import { TextEditorToggle } from "./gui/toggles/text"
 import { FullscreenToggle } from "./gui/toggles/fullscreen"
 import { DescriptionList } from "./gui/description-list"
-import Graph from "./graph"
+import { Graph } from "./graph"
 
 export function Editor() {
     const store = useBaseStore()
@@ -62,16 +62,27 @@ export function Editor() {
                     <TextEditorToggle className="me-2" />
                     <FullscreenToggle rootRef={rootRef} />
                 </div>
-                <DescriptionList className="position-absolute" style={{ top: "1rem", left: "1rem" }} />
             </Viewer>
 
-            <div
-                style={{ overflowX: "hidden", overflowY: "auto" }}
-                className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative d-flex">
-                <TextEditor />
-                <Grammar />
-                {/*<Graph />*/}
-            </div>
+            <RightHandSide />
+        </div>
+    )
+}
+
+function RightHandSide() {
+    const Component = useBaseStoreState((state) =>
+        !state.showTui ? undefined : state.type === "tui" ? TextEditor : state.graphVisualization ? Graph : Grammar
+    )
+
+    if (Component == null) {
+        return null
+    }
+
+    return (
+        <div
+            style={{ overflowX: "hidden", overflowY: "auto" }}
+            className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative d-flex">
+            <Component />
         </div>
     )
 }

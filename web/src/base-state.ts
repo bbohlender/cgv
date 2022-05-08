@@ -32,6 +32,7 @@ import {
     computeDependencies,
     globalizeNoun,
     removeUnusedNouns,
+    isNounOfDescription,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -60,6 +61,7 @@ export type GuiState = {
     dependencyMap: DependencyMap
     requested: { type: string; fulfill: (value: any) => void } | undefined
     shift: boolean
+    graphVisualization: boolean
 } & EditorState
 
 export type TuiState =
@@ -101,6 +103,7 @@ function createBaseStateInitial(): BaseState {
         requested: undefined,
         shift: false,
         showTui: false,
+        graphVisualization: true,
     }
 }
 
@@ -119,16 +122,16 @@ function createBaseStateFunctions(
                 return
             }
             if (state.type === "gui") {
-                const rootStep = getDescriptionRootStep(state.grammar, name)
+                const rootNoun = state.grammar.find((noun) => isNounOfDescription(name, noun.name))?.name
                 set({
                     selectedDescription: name,
                     indicesMap: {},
                     selectionsList:
-                        rootStep == null
+                        rootNoun == null
                             ? []
                             : [
                                   {
-                                      steps: rootStep,
+                                      steps: rootNoun,
                                       indices: [],
                                   },
                               ],
@@ -144,23 +147,30 @@ function createBaseStateFunctions(
                 })
             }
         },
-        addDescription: (name: string) => {
+        addDescriptions: (newDescriptions: Array<{ name: string; step?: ParsedSteps }>) => {
             let { descriptions, grammar, dependencyMap } = get()
-            if (descriptions.findIndex((description) => description.name === name) !== -1) {
-                return
-            }
-            const newNounName = globalizeNoun("Start", name)
-            if (grammar.findIndex((noun) => noun.name === newNounName) === -1) {
-                grammar = freeze(grammar.concat(toHierarchical([{ name: newNounName, step: { type: "this" } }])))
-                dependencyMap = computeDependencies(grammar)
-            }
-            set({
-                descriptions: descriptions.concat([
+            for (const newDescription of newDescriptions) {
+                if (descriptions.findIndex((description) => description.name === newDescription.name) !== -1) {
+                    continue
+                }
+                const newNounName = globalizeNoun("Start", newDescription.name)
+                if (grammar.findIndex((noun) => noun.name === newNounName) === -1) {
+                    grammar = freeze(
+                        toHierarchical([{ name: newNounName, step: newDescription.step ?? { type: "this" } }]).concat(
+                            grammar as any
+                        )
+                    )
+                }
+                descriptions = [
                     {
-                        name,
+                        name: newDescription.name,
                         visible: true,
                     },
-                ]),
+                ].concat(descriptions)
+            }
+            dependencyMap = computeDependencies(grammar)
+            set({
+                descriptions,
                 grammar,
                 dependencyMap,
             })
@@ -201,6 +211,13 @@ function createBaseStateFunctions(
             } catch (error: any) {
                 set({ text, correct: false, error: error.message })
             }
+        },
+        setGraphVisualization: (graphVisualization: boolean) => {
+            const state = get()
+            if (state.type !== "gui") {
+                return
+            }
+            set({ graphVisualization })
         },
         setType: (type: "gui" | "tui") => {
             const state = get()
@@ -294,44 +311,13 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
-            const predecessorSelectionsList = state.selectionsList
-                .map((selections) => ({
-                    ...selections,
-                    indices: selections.indices.filter(
-                        (selectedIndex) =>
-                            clickedIndex.before.startsWith(selectedIndex.before) &&
-                            clickedIndex.after.startsWith(selectedIndex.after)
-                    ),
-                }))
-                .filter((selections) => selections.indices.length > 0)
-
-            if (!state.shift && predecessorSelectionsList.length > 0) {
-                //no multi-select and already selected
-                set({
-                    selectionsList: editSelectionRelated(
-                        state.indicesMap,
-                        state.selectionsList,
-                        predecessorSelectionsList,
-                        (potentialIndex) =>
-                            clickedIndex.before.startsWith(potentialIndex.before) &&
-                            clickedIndex.after.startsWith(potentialIndex.after),
-                        state.grammar,
-                        "predecessor",
-                        "replace",
-                        (steps) => childrenSelectable(operationGuiMap, steps)
-                    ),
-                })
-                return
-            }
 
             set({
                 selectionsList: editSelection(
                     state.indicesMap,
                     state.selectionsList,
-                    state.shift && predecessorSelectionsList.length > 0
-                        ? predecessorSelectionsList
-                        : [{ steps: clickedSteps, indices: [clickedIndex] }],
-                    state.shift ? (predecessorSelectionsList.length > 0 ? "remove" : "add") : "replace"
+                    [{ steps: clickedSteps, indices: [clickedIndex] }],
+                    state.shift ? "toggle" : "replace"
                 ),
             })
         },
