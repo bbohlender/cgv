@@ -6,9 +6,29 @@ export type InterpretedInfo = {
     values?: Array<Value<any, any>>
 }
 
+//TODO: negation (to minimize code)
+
+export type SelectionPattern<T, A> = {
+    getValueKey: (value: Value<T, A>) => string
+    getConditionStep: (value: Value<T, A>) => ParsedSteps
+}
+
+const idSelectionPattern: SelectionPattern<any, any> = {
+    getValueKey: (value) => value.index.join(","),
+    getConditionStep: (value) => ({
+        type: "equal",
+        children: [
+            { type: "operation", identifier: "id", children: [] },
+            {
+                type: "raw",
+                value: value.index.join(","),
+            },
+        ],
+    }),
+}
+
 export function translateSelectionsForStep(
-    allIndices: Array<FullIndex>,
-    selectedIndices: Array<FullIndex>,
+    selectedValues: Array<Value<T, A>>,
     type: "before" | "after",
     newSteps: ParsedSteps,
     oldSteps: ParsedSteps
@@ -71,7 +91,7 @@ function toAndUnequalCondition(
     return firstCondition ?? restCondition
 }
 
-function toOrEqualCondition(indices: Array<FullIndex>, type: "after" | "before"): ParsedSteps {
+function toOrEqualCondition(indices: Array<string>, type: "after" | "before"): ParsedSteps {
     if (indices.length === 0) {
         return { type: "raw", value: false }
     }
