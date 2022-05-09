@@ -54,7 +54,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     }
     return (
         <div {...rest} className={`${className} d-flex flex-column px-0 pt-3`}>
-            <div className="d-flex flex-column">
+            <div className="d-flex flex-column overflow-hidden">
                 <div className="btn-group mx-3 mb-1 d-flex">
                     <button
                         onClick={requestAdd.bind(null, store, "before")}
@@ -99,13 +99,15 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         <DeleteIcon />
                     </button>
                 </div>
-                {selectionsList.map((selections) => (
-                    <GUISelection
-                        descriptionName={descriptionName}
-                        key={getSelectedStepsJoinedPath(selections.steps)}
-                        selections={selections}
-                    />
-                ))}
+                <div className="scroll">
+                    {selectionsList.map((selections) => (
+                        <GUISelection
+                            descriptionName={descriptionName}
+                            key={getSelectedStepsJoinedPath(selections.steps)}
+                            selections={selections}
+                        />
+                    ))}
+                </div>
             </div>
         </div>
     )

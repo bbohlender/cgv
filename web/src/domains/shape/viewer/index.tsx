@@ -40,6 +40,9 @@ import { BackIcon } from "../../../icons/back"
 import { SpeedSelection } from "../../../gui/speed-selection"
 import { MultiSelectIcon } from "../../../icons/multi-select"
 import { DescriptionList } from "../../../gui/description-list"
+import { GUI } from "../../../gui"
+import { TextEditorToggle } from "../../../gui/toggles/text"
+import { FullscreenToggle } from "../../../gui/toggles/fullscreen"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -92,7 +95,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
     const store = useBaseStore()
 
     return (
-        <div {...rest} className={`${className} overflow-hidden position-relative`}>
+        <div {...rest} className={`${className} position-relative`}>
             <Canvas
                 style={{
                     touchAction: "none",
@@ -113,22 +116,45 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <Background />
                 </Bridge>
             </Canvas>
-            <DescriptionList className="position-absolute" style={{ top: "1rem", left: "1rem" }}>
-                <div className="p-2 border-top border-1">
-                    <div className="w-100 btn-sm btn btn-outline-secondary" onClick={() => generateLots(store)}>
-                        Generate Lots
-                    </div>
-                    <div className="w-100 btn-sm btn mt-2 btn-outline-secondary" onClick={() => generateRoads(store)}>
-                        Generate Roads
+            <div
+                className="d-flex flex-row justify-content-between position-absolute"
+                style={{ pointerEvents: "none", inset: 0 }}>
+                <div className="d-flex flex-column justify-content-between my-3 ms-3">
+                    <DescriptionList style={{ pointerEvents: "all" }} className="mb-3">
+                        <div className="p-2 border-top border-1">
+                            <div className="w-100 btn-sm btn btn-outline-secondary" onClick={() => generateLots(store)}>
+                                Generate Lots
+                            </div>
+                            <div
+                                className="w-100 btn-sm btn mt-2 btn-outline-secondary"
+                                onClick={() => generateRoads(store)}>
+                                Generate Roads
+                            </div>
+                        </div>
+                    </DescriptionList>
+                    <div style={{ pointerEvents: "all" }} className="d-flex flex-row">
+                        <MultiSelectButton className="me-2" />
+                        <BackgroundToggle className="me-2" />
+                        <BackButton className="me-2" />
+                        <SpeedSelection className="me-2" />
+                        <ShowError />
                     </div>
                 </div>
-            </DescriptionList>
-            <div style={{ bottom: "1rem", left: "1rem" }} className="d-flex flex-row position-absolute">
-                <MultiSelectButton className="me-2" />
-                <BackgroundToggle className="me-2" />
-                <BackButton className="me-2" />
-                <SpeedSelection className="me-2" />
-                <ShowError />
+                <div className="d-flex flex-column align-items-end m-3">
+                    <GUI
+                        className="bg-light border rounded shadow w-100 mb-3 overflow-hidden"
+                        style={{
+                            maxWidth: "16rem",
+                            pointerEvents: "all",
+                            whiteSpace: "pre",
+                        }}
+                    />
+                    <div className="flex-grow-1"></div>
+                    <div className="d-flex flex-row" style={{ pointerEvents: "all" }}>
+                        <TextEditorToggle className="me-2" />
+                        {/*<FullscreenToggle rootRef={null} />*/}
+                    </div>
+                </div>
             </div>
             {children}
         </div>

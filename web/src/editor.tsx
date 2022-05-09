@@ -11,7 +11,6 @@ import { Graph } from "./graph"
 
 export function Editor() {
     const store = useBaseStore()
-    const rootRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
         const keyUpListener = (e: KeyboardEvent) => {
             switch (e.key) {
@@ -47,22 +46,13 @@ export function Editor() {
 
     return (
         <div
-            ref={rootRef}
             className="d-flex responsive-flex-direction overflow-hidden position-absolute"
             style={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <Dialogs />
             <Viewer
                 style={{ whiteSpace: "pre-line", top: 0, left: 0, right: 0, bottom: 0 }}
-                className="flex-basis-0 flex-grow-1 bg-white">
-                <GUI
-                    className="bg-light position-absolute border rounded shadow w-100"
-                    style={{ top: "1rem", right: "1rem", maxWidth: "16rem" }}
-                />
-                <div style={{ bottom: "1rem", right: "1rem" }} className="d-flex flex-row position-absolute">
-                    <TextEditorToggle className="me-2" />
-                    <FullscreenToggle rootRef={rootRef} />
-                </div>
-            </Viewer>
+                className="flex-basis-0 flex-grow-1 bg-white"
+            />
 
             <RightHandSide />
         </div>
@@ -79,9 +69,7 @@ function RightHandSide() {
     }
 
     return (
-        <div
-            style={{ overflowX: "hidden", overflowY: "auto" }}
-            className="text-editor text-light flex-basis-0 flex-grow-1 bg-dark position-relative d-flex">
+        <div className="scroll text-editor text-light flex-basis-0 flex-grow-1 bg-dark d-flex">
             <Component />
         </div>
     )

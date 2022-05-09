@@ -1,4 +1,4 @@
-import { HTMLProps } from "react"
+import { HTMLProps, useRef } from "react"
 import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { EyeSlashIcon } from "../icons/eye-slash"
@@ -12,19 +12,21 @@ export function DescriptionList({ style, className, children, ...rest }: HTMLPro
         <div
             {...rest}
             style={{ ...style, maxWidth: 200 }}
-            className={`${className} bg-white rounded shadow w-100 overflow-hidden border d-flex flex-column`}>
-            <div className="mx-3 my-2 d-flex flex-row align-items-center">
+            className={`${className} bg-light rounded shadow w-100 overflow-hidden border d-flex flex-column`}>
+            <div className="px-3 py-2 border-bottom d-flex flex-row align-items-center">
                 <span>Descriptions</span>
                 <div className="flex-grow-1" />
                 <button
                     onClick={() =>
-                        store.getState().request("create-description", (name) => store.getState().addDescriptions([{ name }]))
+                        store
+                            .getState()
+                            .request("create-description", (name) => store.getState().addDescriptions([{ name }]))
                     }
                     className={`btn text-primary btn-sm`}>
                     <PlusIcon />
                 </button>
             </div>
-            <div className="d-flex flex-column">
+            <div className="d-flex flex-column scroll">
                 {descriptions.map((description, i) => (
                     <div
                         onClick={() => store.getState().selectDescription(description.name)}
