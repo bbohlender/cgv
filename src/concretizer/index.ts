@@ -1,4 +1,4 @@
-import { FullIndex } from "../editor"
+import { FullValue } from "../editor"
 import { Operations } from "../interpreter"
 import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
 import { HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps } from "../util"
@@ -13,15 +13,15 @@ export function concretize(
 export function deriveConcreteIndices(
     grammar: HierarchicalParsedGrammarDefinition,
     operations: Operations<any, any>
-): Map<HierarchicalParsedSteps, Array<FullIndex>> {
+): Map<HierarchicalParsedSteps, Array<FullValue>> {
     const beforeIndicesMap = new Map<ParsedSteps, Array<string>>()
-    const fullIndicesMap = new Map<ParsedSteps, Array<FullIndex>>()
+    const fullIndicesMap = new Map<ParsedSteps, Array<FullValue>>()
     throw new Error("method not implemented")
     //return fullIndicesMap
 }
 
 export function concretizeDerivedIndices(
-    indexMap: Map<HierarchicalParsedSteps, Array<FullIndex>>
+    indexMap: Map<HierarchicalParsedSteps, Array<FullValue>>
 ): ParsedGrammarDefinition {
     throw new Error("method not implemented")
 }

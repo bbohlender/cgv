@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import {
     concretizeDerivedIndices,
-    FullIndex,
+    FullValue,
     HierarchicalParsedSteps,
     parse,
     ParsedSteps,
@@ -15,7 +15,7 @@ describe("concretize grammars", () => {
     it("should capture a conrete derivation", () => {
         const description = toHierarchical(parse(`a -> 1 | 2 -> 3`))
         const indexMap = deriveConcreteIndices(description, {})
-        const expectedIndexMap: Array<[ParsedSteps, Array<FullIndex>]> = [
+        const expectedIndexMap: Array<[ParsedSteps, Array<FullValue>]> = [
             [
                 description[0].step,
                 [
@@ -33,7 +33,7 @@ describe("concretize grammars", () => {
 
     it("should concretize a conrete derivation as a description", () => {
         const description = toHierarchical(parse(`a -> { 50%: 1 50%: 2 } | 3`))
-        const indexMap: Array<[HierarchicalParsedSteps, Array<FullIndex>]> = [
+        const indexMap: Array<[HierarchicalParsedSteps, Array<FullValue>]> = [
             [
                 description[0].step,
                 [
@@ -46,13 +46,13 @@ describe("concretize grammars", () => {
             [description[0].step.children![0].children![1]!, []],
             [description[0].step.children![1]!, [{ before: "1", after: "1" }]],
         ]
-        const indices = new Map<HierarchicalParsedSteps, Array<FullIndex>>(indexMap)
+        const indices = new Map<HierarchicalParsedSteps, Array<FullValue>>(indexMap)
         expect(serializeString(concretizeDerivedIndices(indices))).to.equal(`a -> 2 | 3`)
     })
 
     it("should concretize a conrete derivation as a description with id selection", () => {
         const description = toHierarchical(parse(`a -> (1 | 2) -> { 50%: 1 50%: 2 } | 3`))
-        const indexMap: Array<[HierarchicalParsedSteps, Array<FullIndex>]> = [
+        const indexMap: Array<[HierarchicalParsedSteps, Array<FullValue>]> = [
             [
                 description[0].step,
                 [
@@ -86,7 +86,7 @@ describe("concretize grammars", () => {
             [description[0].step.children![0].children![1]!.children![1]!, [{ before: "0,1", after: "0,1" }]],
             [description[0].step.children![1]!, [{ before: "1", after: "1" }]],
         ]
-        const indices = new Map<HierarchicalParsedSteps, Array<FullIndex>>(indexMap)
+        const indices = new Map<HierarchicalParsedSteps, Array<FullValue>>(indexMap)
         expect(serializeString(concretizeDerivedIndices(indices))).to.equal(
             `a -> (1 | 2) -> if(id == "0,0") then { 1 } else { 2 } | 3`
         )

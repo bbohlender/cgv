@@ -1,5 +1,5 @@
-import produce, { current, freeze } from "immer"
-import { EditorState, IndicesMap, SelectionsList } from "."
+import produce, { freeze } from "immer"
+import { EditorState, ValueMap, SelectionsList, SelectionPattern } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -7,7 +7,7 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
-import { AbstractParsedGrammarDefinition } from "../parser"
+import { AbstractParsedGrammarDefinition, ParsedSteps } from "../parser"
 import { computeDependencies, getDescriptionOfNoun, getNounIndex, traverseSteps } from "../util"
 import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
@@ -15,9 +15,9 @@ import { getIndirectParentsSteps, getRelatedSelections, getSelectedStepsPath } f
 
 export function removeUnusedNouns<T>(
     grammar: AbstractParsedGrammarDefinition<T>,
-    selectionsList: SelectionsList,
+    selectionsList: SelectionsList<any, any>,
     descriptionNames?: Array<string>
-): { selectionsList: SelectionsList; grammar: AbstractParsedGrammarDefinition<T> } {
+): { selectionsList: SelectionsList<any, any>; grammar: AbstractParsedGrammarDefinition<T> } {
     const usedNouns = new Set<string>()
     const foundDescriptions = new Set<string>()
     for (const { name: rootName, step: rootStep } of grammar) {
@@ -41,34 +41,46 @@ export function removeUnusedNouns<T>(
     }
 }
 
-export function setName(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
+export async function setName<T, A>(
+    indicesMap: ValueMap<T, A>,
+    selectionsList: SelectionsList<T, A>,
+    patterns: Array<SelectionPattern<T, A>>,
+    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
     name: string,
     grammar: HierarchicalParsedGrammarDefinition
-): EditorState {
+): Promise<EditorState> {
     const nounIndex = getNounIndex(name, grammar)
     if (nounIndex == null) {
         grammar = produce(grammar, (draft) => {
             draft.push({ name, step: { type: "this", path: [name] } })
         })
     }
-    const state = insert(indicesMap, selectionsList, "after", () => ({ type: "symbol", identifier: name }), grammar)
+    const state = await insert(
+        indicesMap,
+        selectionsList,
+        patterns,
+        selectCondition,
+        "after",
+        () => ({ type: "symbol", identifier: name }),
+        grammar
+    )
     return {
         ...state,
-        selectionsList: [{ steps: name, indices: [] }],
+        selectionsList: [{ steps: name, values: [] }],
     }
 }
 
-export function renameNoun(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
+export async function renameNoun<T, A>(
+    indicesMap: ValueMap<T, A>,
+    selectionsList: SelectionsList<T, A>,
+    patterns: Array<SelectionPattern<T, A>>,
+    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
     newName: string,
     grammar: HierarchicalParsedGrammarDefinition
-): EditorState {
-    const partial = produce(
+): Promise<EditorState> {
+    const partial = await produce(
         { grammar, selectionsList: [] as SelectionsList },
-        ({ grammar: draft, selectionsList: newSelectionsList }) => {
+        async ({ grammar: draft, selectionsList: newSelectionsList }) => {
             for (const selections of selectionsList) {
                 if (typeof selections.steps !== "string") {
                     continue
@@ -102,12 +114,19 @@ export function renameNoun(
                         undefined
                     )
 
-                    replaceOnDraft(indicesMap, upwardSelections, () => ({ type: "symbol", identifier: newName }), draft)
+                    await replaceOnDraft(
+                        indicesMap,
+                        upwardSelections,
+                        patterns,
+                        selectCondition,
+                        () => ({ type: "symbol", identifier: newName }),
+                        draft
+                    )
                 }
 
                 newSelectionsList.push({
                     steps: newName,
-                    indices: [],
+                    values: [],
                 })
             }
         }
@@ -115,7 +134,7 @@ export function renameNoun(
     const cleanedPartial = removeUnusedNouns(partial.grammar, partial.selectionsList)
     return {
         hovered: undefined,
-        indicesMap: {},
+        valueMap: {},
         ...cleanedPartial,
         dependencyMap: computeDependencies(cleanedPartial.grammar),
     }

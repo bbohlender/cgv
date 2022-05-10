@@ -15,6 +15,10 @@ import {
     translatePath,
     parseDescription,
     localizeStepsSerializer,
+    getSelectionCondition,
+    Value,
+    ParsedSteps,
+    idSelectionPattern,
 } from "../src"
 import { validateHierarchical } from "./hierarchical"
 
@@ -292,12 +296,7 @@ describe("editor", () => {
 
     it("should remove step at noun", () => {
         const inputGrammar = toHierarchical(parseDescription(`a -> 1 | b -> this + 3\n\nb -> 2`, "test"))
-        const { grammar } = removeStep(
-            {},
-            [{ steps: "b@test", indices: [] }],
-            {},
-            inputGrammar
-        )
+        const { grammar } = removeStep({}, [{ steps: "b@test", indices: [] }], {}, inputGrammar)
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a -> 1 | this + 3`)
     })
@@ -412,5 +411,307 @@ describe("editor", () => {
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
             `a -> 1 | b * if true then { null } else { 3 } -> this + 3\n\nb -> 2`
         )
+    })
+})
+
+describe("pattern", () => {
+    it("should get undefined as selection condition as all values are selected", async () => {
+        const condition = await getSelectionCondition([], [], undefined, () => Promise.resolve(undefined))
+        expect(condition).to.be.undefined
+    })
+
+    it("should get undefined as selection condition as no pattern matched", async () => {
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getSelectionCondition(values, [values[1]], undefined, ([condition]) =>
+            Promise.resolve(condition)
+        )
+        expect(condition).to.be.undefined
+    })
+
+    it("should get undefined as selection condition as no value was selected", async () => {
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getSelectionCondition(values, [], undefined, ([condition]) =>
+            Promise.resolve(condition)
+        )
+        expect(condition).to.be.undefined
+    })
+
+    it("should get undefined as selection condition as no condition was selected", async () => {
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getSelectionCondition(values, [values[0], values[1]], undefined, ([condition]) =>
+            Promise.resolve(undefined)
+        )
+        expect(condition).to.be.undefined
+    })
+
+    it("should get id selection condition", async () => {
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getSelectionCondition(values, [values[0], values[1]], undefined, ([condition]) =>
+            Promise.resolve(condition)
+        )
+        expect(condition).to.be.deep.equal({
+            type: "equal",
+            children: [
+                {
+                    type: "operation",
+                    identifier: "id",
+                    children: [],
+                },
+                {
+                    type: "raw",
+                    value: "0",
+                },
+            ],
+        })
+    })
+
+    it("should get custom selection condition", async () => {
+        const customCondition: ParsedSteps = {
+            type: "raw",
+            value: false,
+        }
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getSelectionCondition(values, [values[1], values[2]], undefined, () =>
+            Promise.resolve(customCondition)
+        )
+        expect(condition).to.be.deep.equal(customCondition)
+    })
+
+    it("should get selection condition based on domain specific pattern", async () => {
+        const values: Array<Value<string, undefined>> = [
+            {
+                annotation: undefined,
+                index: [],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: "x",
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: "y",
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: "x",
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: "z",
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getSelectionCondition(
+            values,
+            [values[1], values[2], values[3]],
+            [
+                idSelectionPattern,
+                {
+                    getConditionKey: (value) => value.raw,
+                    getConditionStep: (value) => ({
+                        type: "equal",
+                        children: [
+                            {
+                                type: "this",
+                            },
+                            {
+                                type: "raw",
+                                value: value.raw,
+                            },
+                        ],
+                    }),
+                },
+            ],
+            ([condition]) => Promise.resolve(condition)
+        )
+        expect(condition).to.be.deep.equal({
+            type: "or",
+            children: [
+                {
+                    type: "equal",
+                    children: [
+                        {
+                            type: "this",
+                        },
+                        {
+                            type: "raw",
+                            value: "x",
+                        },
+                    ],
+                },
+                {
+                    type: "equal",
+                    children: [
+                        {
+                            type: "this",
+                        },
+                        {
+                            type: "raw",
+                            value: "z",
+                        },
+                    ],
+                },
+            ],
+        })
     })
 })

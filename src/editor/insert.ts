@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorState } from "."
+import { EditorState, SelectionPattern } from "."
 import {
     getAtPath,
     HierarchicalInfo,
@@ -8,31 +8,33 @@ import {
     ParsedSteps,
     HierarchicalParsedGrammarDefinition,
     HierarchicalPath,
-    translateSelectionsForStep,
+    getSelectionCondition,
 } from ".."
 import { computeDependencies, HierarchicalParsedSteps } from "../util"
 import { getSelectedStepsUpwardsPaths } from "./replace"
-import { getSelectedStepsPath, IndicesMap, SelectionsList } from "./selection"
+import { getSelectedStepsPath, ValueMap, SelectionsList } from "./selection"
 
-export function insert(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
+export async function insert<T, A>(
+    valueMap: ValueMap<T, A>,
+    selectionsList: SelectionsList<T, A>,
+    patterns: Array<SelectionPattern<T, A>>,
+    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
     position: "before" | "after" | "parallel",
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
-): EditorState {
-    const partial = produce(
+): Promise<EditorState> {
+    const partial = await produce(
         { grammar, selectionsList: [] as SelectionsList },
-        ({ grammar: draft, selectionsList: newSelections }) => {
+        async ({ grammar: draft, selectionsList: newSelections }) => {
             const type = position === "parallel" ? "parallel" : "sequential"
-            for (const { indices, steps } of selectionsList) {
+            for (const { values, steps } of selectionsList) {
                 const paths =
                     position === "after" ? [getSelectedStepsPath(steps)] : getSelectedStepsUpwardsPaths(steps, grammar)
                 for (const path of paths) {
                     const joinedPath = path.join(",")
-                    const all = indicesMap[joinedPath] ?? []
+                    const all = valueMap[joinedPath] ?? []
 
-                    if(all.length > 0 && indices.length === 0) {
+                    if (all.length > 0 && values.length === 0) {
                         return
                     }
 
@@ -43,13 +45,18 @@ export function insert(
 
                     const newSteps = stepGenerator(path)
                     const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
-                    const translatedSteps = translateSelectionsForStep(
-                        all,
-                        indices,
-                        position === "parallel" ? "before" : position,
-                        newSteps,
-                        oldSteps
+                    const selector = position === "parallel" ? "before" : position
+                    const selectedCondition = await getSelectionCondition(
+                        all.map((value) => value[selector]),
+                        values.map((value) => value[selector]),
+                        patterns,
+                        selectCondition
                     )
+
+                    const translatedSteps: ParsedSteps =
+                        selectedCondition == null
+                            ? newSteps
+                            : { type: "if", children: [selectedCondition, newSteps, oldSteps] }
 
                     const current = getAtPath(translatedPath, path.length - 1)
                     setAtPath(path, translatedPath, path.length - 1, {
@@ -61,7 +68,7 @@ export function insert(
 
                     newSelections.push({
                         steps: resultSteps,
-                        indices: [],
+                        values: [],
                     })
                 }
             }
@@ -69,7 +76,7 @@ export function insert(
     )
     return {
         ...partial,
-        indicesMap: {},
+        valueMap: {},
         hovered: undefined,
         dependencyMap: computeDependencies(partial.grammar),
     }

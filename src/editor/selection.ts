@@ -1,19 +1,11 @@
 import produce from "immer"
-import {
-    filterNull,
-    getAtPath,
-    getNounStep,
-    HierarchicalParsedGrammarDefinition,
-    HierarchicalParsedSteps,
-    HierarchicalPath,
-    translatePath,
-} from "../util"
-import { findSymbolsWithIdentifier } from "./noun"
+import { Value } from "../interpreter"
+import { HierarchicalParsedSteps, HierarchicalPath } from "../util"
 
-export type IndicesMap = { [Path in string]?: Array<FullIndex> }
-export type FullIndex = { after: string; before: string }
-export type SelectionsList = Array<Selections>
-export type Selections = { steps: SelectedSteps; indices: Array<FullIndex> }
+export type ValueMap<T = any, A = any> = { [Path in string]?: Array<FullValue<T, A>> }
+export type FullValue<T = any, A = any> = { after: Value<T, A>; before: Value<T, A> }
+export type SelectionsList<T = any, A = any> = Array<Selections<T, A>>
+export type Selections<T = any, A = any> = { steps: SelectedSteps; values: Array<FullValue<T, A>> }
 export type SelectedSteps = HierarchicalParsedSteps | string
 
 export function getSelectedStepsJoinedPath(steps: SelectedSteps): string {
@@ -31,33 +23,34 @@ export function compareSelectedStepsPath(s1: SelectedSteps, s2: SelectedSteps, s
     return getSelectedStepsJoinedPath(s1) === (s2PathJoined ?? getSelectedStepsJoinedPath(s2))
 }
 
-export type SelectionState = {
-    indicesMap: IndicesMap
-    selectionsList: SelectionsList
-    hovered: SelectionsList[number] | undefined
+export type SelectionState<T = any, A = any> = {
+    valueMap: ValueMap<T, A>
+    selectionsList: SelectionsList<T, A>
+    hovered: SelectionsList<T, A>[number] | undefined
 }
 
-export function editSelectionRelated(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
-    targetSelectionsList: SelectionsList,
-    filter: ((index: FullIndex) => boolean) | undefined,
+/*
+export function editSelectionRelated<T, A>(
+    valueMap: ValueMap<T, A>,
+    selectionsList: SelectionsList<T, A>,
+    targetSelectionsList: SelectionsList<T, A>,
+    filter: ((index: FullValue<T, A>) => boolean) | undefined,
     grammar: HierarchicalParsedGrammarDefinition,
     relation: "predecessor" | "successor",
     type: "replace" | "add",
     shouldIncludeChildren: (steps: SelectedSteps) => boolean
-): SelectionsList {
+): SelectionsList<T, A> {
     return produce(selectionsList, (selectionsDraft) => {
         for (const { steps, indices } of targetSelectionsList) {
             if (type === "replace") {
-                editSelectionOnDraft(indicesMap, selectionsDraft, steps, indices, "remove")
+                editSelectionOnDraft(valueMap, selectionsDraft, steps, indices, "remove")
             }
             const parents = getIndirectParentsSteps(steps, grammar)
             const related =
                 relation === "predecessor"
-                    ? getPredecessorSelections(indicesMap, parents, steps, indices, filter)
+                    ? getPredecessorSelections(valueMap, parents, steps, indices, filter)
                     : getSuccessorSelections(
-                          indicesMap,
+                          valueMap,
                           parents,
                           steps,
                           indices,
@@ -67,19 +60,19 @@ export function editSelectionRelated(
                       )
 
             for (const { steps: value, indices } of related) {
-                editSelectionOnDraft(indicesMap, selectionsDraft, value, indices, "add")
+                editSelectionOnDraft(valueMap, selectionsDraft, value, indices, "add")
             }
         }
     })
 }
 
-export function getRelatedSelections(
-    indicesMap: IndicesMap,
+export function getRelatedSelections<T, A>(
+    indicesMap: ValueMap<T, A>,
     relatedStepsList: Array<SelectedSteps>,
-    indices: Array<FullIndex>,
-    indexIsRelated: (current: FullIndex, next: FullIndex) => boolean,
-    filter: ((index: FullIndex) => boolean) | undefined
-): SelectionState["selectionsList"] {
+    indices: Array<FullValue<T, A>>,
+    indexIsRelated: (current: FullValue<T, A>, next: FullValue<T, A>) => boolean,
+    filter: ((index: FullValue<T, A>) => boolean) | undefined
+): SelectionState<T, A>["selectionsList"] {
     return relatedStepsList
         .map((relatedSteps) => {
             const path = getSelectedStepsJoinedPath(relatedSteps)
@@ -98,13 +91,13 @@ export function getRelatedSelections(
         .filter(filterNull)
 }
 
-export function getPredecessorSelections(
-    indicesMap: IndicesMap,
+export function getPredecessorSelections<T, A>(
+    indicesMap: ValueMap<T, A>,
     parents: Array<SelectedSteps>,
     steps: SelectedSteps,
-    indices: Array<FullIndex>,
-    filter: ((index: FullIndex) => boolean) | undefined
-): SelectionsList {
+    indices: Array<FullValue<T, A>>,
+    filter: ((index: FullValue<T, A>) => boolean) | undefined
+): SelectionsList<T, A> {
     const backwardSelections = getHorizontalSelections(
         indicesMap,
         parents,
@@ -135,12 +128,12 @@ export function getPredecessorSelections(
 }
 
 export function getSuccessorSelections(
-    indicesMap: IndicesMap,
+    indicesMap: ValueMap,
     parents: Array<SelectedSteps>,
     steps: SelectedSteps,
-    indices: Array<FullIndex>,
+    indices: Array<FullValue>,
     grammar: HierarchicalParsedGrammarDefinition,
-    filter: ((index: FullIndex) => boolean) | undefined,
+    filter: ((index: FullValue) => boolean) | undefined,
     includeChildren: boolean
 ): SelectionsList {
     const selections = getHorizontalSelections(
@@ -202,13 +195,13 @@ export function getIndirectParentsSteps(
 }
 
 function getHorizontalSelections(
-    indicesMap: IndicesMap,
+    indicesMap: ValueMap,
     parents: Array<SelectedSteps>,
     steps: SelectedSteps,
-    indices: Array<FullIndex>,
+    indices: Array<FullValue>,
     horizontalOffset: number,
-    isHorizontalIndex: (current: FullIndex, next: FullIndex) => boolean,
-    filter: ((index: FullIndex) => boolean) | undefined
+    isHorizontalIndex: (current: FullValue, next: FullValue) => boolean,
+    filter: ((index: FullValue) => boolean) | undefined
 ): SelectionsList {
     if (typeof steps === "string") {
         return []
@@ -224,13 +217,13 @@ function getHorizontalSelections(
 
     const horizontalSteps = parents[0].children[nextIndex]
     return getRelatedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
-}
+}*/
 
 function editSelectionOnDraft(
-    indicesMap: IndicesMap,
+    indicesMap: ValueMap,
     selectionsList: SelectionsList,
     steps: SelectedSteps,
-    indices: Array<FullIndex> | undefined,
+    indices: Array<FullValue> | undefined,
     type: "toggle" | "add" | "remove"
 ): void {
     const path = getSelectedStepsJoinedPath(steps)
@@ -246,7 +239,7 @@ function editSelectionOnDraft(
         //can only happen for replace, add, toggle
         selectionsList.push({
             steps: steps,
-            indices: indices == null ? all : indices,
+            values: indices == null ? all : indices,
         })
         return
     }
@@ -258,83 +251,86 @@ function editSelectionOnDraft(
             selectionsList.splice(selectionsIndex, 1)
         } else {
             //add
-            selections.indices = all
+            selections.values = all
         }
         return
     }
 
     for (const index of indices) {
-        const indexIndex = selections.indices.findIndex((selectedIndex) => selectedIndex.after === index.after)
+        const indexIndex = selections.values.findIndex((selectedIndex) => selectedIndex.after === index.after)
 
         if (indexIndex === -1 && (type === "toggle" || type === "add")) {
-            selections.indices.push(index)
+            selections.values.push(index)
         }
         if (indexIndex !== -1 && (type === "toggle" || type === "remove")) {
-            selections.indices.splice(indexIndex, 1)
+            selections.values.splice(indexIndex, 1)
         }
     }
 
-    if (selections.indices.length === 0) {
+    if (selections.values.length === 0) {
         selectionsList.splice(selectionsIndex, 1)
     }
 }
 
 export function editSelection(
-    indicesMap: IndicesMap,
+    valueMap: ValueMap,
     selectionsList: SelectionsList,
-    targetSelectionsList: Array<{ steps: HierarchicalParsedSteps | string; indices: Array<FullIndex> | undefined }>,
+    targetSelectionsList: Array<{
+        steps: HierarchicalParsedSteps | string
+        values: Array<FullValue> | undefined
+    }>,
     type: "replace" | "toggle" | "add" | "remove"
 ): SelectionsList {
     return produce(type === "replace" ? [] : selectionsList, (selectionsDraft) => {
-        for (const { steps, indices } of targetSelectionsList) {
-            editSelectionOnDraft(indicesMap, selectionsDraft, steps, indices, type === "replace" ? "add" : type)
+        for (const { steps, values: indices } of targetSelectionsList) {
+            editSelectionOnDraft(valueMap, selectionsDraft, steps, indices, type === "replace" ? "add" : type)
         }
     })
 }
 
 export function editIndices(
-    indicesMap: IndicesMap,
+    valueMap: ValueMap,
     selectionsList: SelectionsList,
     hovered: Selections | undefined,
-    indices: Array<{
+    values: Array<{
         steps: HierarchicalParsedSteps
-        index: FullIndex
+        value: FullValue
     }>,
     add: boolean
 ): SelectionState {
-    return produce({ hovered, indicesMap, selectionsList }, (draft) => {
-        for (const { index, steps } of indices) {
-            const { indicesMap: indicesDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
+    return produce({ hovered, valueMap, selectionsList }, (draft) => {
+        for (const { value, steps } of values) {
+            const { valueMap: valueDraft, selectionsList: selectionsDraft, hovered: hoveredDraft } = draft
 
             const path = steps.path.join(",")
             const selectionsIndex = selectionsList.findIndex(
                 (selections) => getSelectedStepsJoinedPath(selections.steps) === path
             )
             const selections = selectionsDraft[selectionsIndex]
-            let all = indicesDraft[path]
+            let all = valueDraft[path]
 
             if (!add) {
                 if (all == null) {
                     return
                 }
 
-                const indexIndex = all.findIndex((allIndex) => allIndex.after === index.after)
-                all.splice(indexIndex, 1)
+                const allValueIndex = all.findIndex((allIndex) => allIndex.after === value.after)
+                all.splice(allValueIndex, 1)
                 if (selections != null) {
-                    const indexIndex = selections.indices.findIndex(
-                        (selectedIndex) => selectedIndex.after === index.after
+                    const valueIndex = selections.values.findIndex(
+                        (selectedIndex) => selectedIndex.after === value.after
                     )
-                    selections.indices.splice(indexIndex, 1)
-                    if (selections.indices.length === 0) {
+                    selections.values.splice(valueIndex, 1)
+                    if (selections.values.length === 0) {
                         selectionsDraft.splice(selectionsIndex, 1)
                     }
                 }
                 if (hovered?.steps === steps && hoveredDraft != null) {
-                    const indexIndex = hoveredDraft.indices.findIndex(
-                        (hoveredIndex) => hoveredIndex.after === index.after
+                    const valueIndex = hoveredDraft.values.findIndex(
+                        (hoveredIndex) => hoveredIndex.after === value.after
                     )
-                    hoveredDraft.indices.splice(indexIndex, 1)
-                    if (hoveredDraft.indices.length === 0) {
+                    hoveredDraft.values.splice(valueIndex, 1)
+                    if (hoveredDraft.values.length === 0) {
                         draft.hovered = undefined
                     }
                 }
@@ -342,14 +338,14 @@ export function editIndices(
 
             if (all == null) {
                 all = []
-                indicesDraft[path] = all
+                valueDraft[path] = all
             }
 
-            if (selections != null && all.length === selections.indices.length) {
-                selections.indices.push(index)
+            if (selections != null && all.length === selections.values.length) {
+                selections.values.push(value)
             }
 
-            all.push(index)
+            all.push(value)
         }
     })
 }

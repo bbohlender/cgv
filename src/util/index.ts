@@ -1,6 +1,20 @@
 import { AbstractParsedSteps, ParsedSteps } from ".."
 import { AbstractParsedGrammarDefinition, ParsedGrammarDefinition } from "../parser"
 
+export enum HierarchicalRelation {
+    Predecessor,
+    Successor,
+    Equal,
+    None
+}
+
+export function getIndexRelation(i1: Array<number>, i2: Array<number>): HierarchicalRelation {
+    const length = Math.min(i1.length, i2.length)
+    for(let i = 0; i < length; i++) {
+        
+    }
+}
+
 export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> | undefined): boolean {
     if (array1 == null || array2 == null) {
         return false

@@ -1,10 +1,10 @@
 import { HierarchicalParsedSteps, ParsedSteps, HierarchicalParsedGrammarDefinition, Operations } from ".."
-import { EditorState } from "."
-import { IndicesMap, SelectionsList } from "./selection"
+import { EditorState, SelectionPattern } from "."
+import { ValueMap, SelectionsList } from "./selection"
 import { computeDependencies, toHierarchical } from "../util"
 import produce from "immer"
 import { replaceOnDraft, ReplaceWith } from "./replace"
-import { AbstractParsedGrammarDefinition, AbstractParsedSteps, AbstractParsedSymbol } from "../parser"
+import { AbstractParsedSteps } from "../parser"
 import { removeUnusedNouns } from "./noun"
 
 function getNeutralStep(
@@ -52,46 +52,44 @@ function getNeutralStep(
     return undefined
 }
 
-export function removeStep(
-    indicesMap: IndicesMap,
-    selectionsList: SelectionsList,
+export async function removeStep<T, A>(
+    valueMap: ValueMap<T, A>,
+    selectionsList: SelectionsList<T, A>,
+    patterns: Array<SelectionPattern<T, A>>,
+    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
     operations: Operations<any, any>,
     grammar: HierarchicalParsedGrammarDefinition
-): EditorState {
+): Promise<EditorState> {
     const replaceWith: ReplaceWith = (_, path, translatedPath) =>
         getNeutralStep(translatedPath[translatedPath.length - 2], path[path.length - 1], operations)
-    const newGrammar = produce(grammar, (draft) => {
-        replaceOnDraft(indicesMap, selectionsList, replaceWith, draft)
-        simplfyGrammarOnDraft(draft, operations)
+    const newGrammar = await produce(grammar, async (draft) => {
+        await replaceOnDraft(valueMap, selectionsList, patterns, selectCondition, replaceWith, draft)
+        simplfyGrammarOnDraft(draft)
         return toHierarchical(draft)
     })
     const partial = removeUnusedNouns(newGrammar, [])
     return {
         ...partial,
         dependencyMap: computeDependencies(partial.grammar),
-        indicesMap: {},
+        valueMap: {},
         hovered: undefined,
     }
 }
 
-function simplfyGrammarOnDraft(grammar: HierarchicalParsedGrammarDefinition, operations: Operations<any, any>): void {
+function simplfyGrammarOnDraft(grammar: HierarchicalParsedGrammarDefinition): void {
     for (const noun of grammar) {
-        noun.step = simplifyStepOnDraft(grammar, noun.step, operations)
+        noun.step = simplifyStepOnDraft(noun.step)
     }
     toHierarchical(grammar)
 }
 
-function simplifyStepOnDraft<T>(
-    grammar: HierarchicalParsedGrammarDefinition,
-    step: AbstractParsedSteps<T>,
-    operations: Operations<any, any>
-): AbstractParsedSteps<T> {
+function simplifyStepOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {
     if (step.children == null) {
         return step
     }
     for (let i = step.children.length - 1; i >= 0; i--) {
-        if (!deleteUnnecassaryStepChildOnDraft(step, grammar, i, operations)) {
-            step.children[i] = simplifyStepOnDraft(grammar, step.children[i], operations)
+        if (!deleteUnnecassaryStepChildOnDraft(step, i)) {
+            step.children[i] = simplifyStepOnDraft(step.children[i])
         }
     }
     return simplifyStepItselfOnDraft(step)
@@ -109,11 +107,9 @@ function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractPar
  */
 function deleteUnnecassaryStepChildOnDraft<T>(
     parent: AbstractParsedSteps<T> & { children: Array<AbstractParsedSteps<T>> },
-    grammar: AbstractParsedGrammarDefinition<T>,
-    childIndex: number,
-    operations: Operations<any, any>
+    childIndex: number
 ): boolean {
-    let child: AbstractParsedSteps<T> | undefined = parent.children[childIndex]
+    const child: AbstractParsedSteps<T> | undefined = parent.children[childIndex]
     if (child == null) {
         return false
     }
