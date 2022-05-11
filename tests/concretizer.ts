@@ -10,81 +10,91 @@ import {
     toHierarchical,
 } from "../src"
 import { concretize, deriveConcreteIndices } from "../src"
+import { mockValue } from "./editor"
 
 describe("concretize grammars", () => {
     it("should capture a conrete derivation", () => {
         const description = toHierarchical(parse(`a --> 1 | 2 -> 3`))
         const indexMap = deriveConcreteIndices(description, {})
+        const [v, v0, v1] = [mockValue([]), mockValue([0]), mockValue([1])]
         const expectedIndexMap: Array<[ParsedSteps, Array<FullValue>]> = [
             [
                 description[0].step,
                 [
-                    { before: "", after: "0" },
-                    { before: "", after: "1" },
+                    { before: v, after: v0 },
+                    { before: v, after: v1 },
                 ],
             ],
-            [description[0].step.children![0]!, [{ before: "0", after: "0" }]],
-            [description[0].step.children![1]!, [{ before: "1", after: "1" }]],
-            [description[0].step.children![1]!.children![0], [{ before: "1", after: "1" }]],
-            [description[0].step.children![1]!.children![1]!, [{ before: "1", after: "1" }]],
+            [description[0].step.children![0]!, [{ before: v0, after: v0 }]],
+            [description[0].step.children![1]!, [{ before: v1, after: v1 }]],
+            [description[0].step.children![1]!.children![0], [{ before: v1, after: v1 }]],
+            [description[0].step.children![1]!.children![1]!, [{ before: v1, after: v1 }]],
         ]
         expect(Array.from(indexMap.entries())).to.deep.equal(expectedIndexMap)
     })
 
     it("should concretize a conrete derivation as a description", () => {
+        const [v, v0, v1] = [mockValue([]), mockValue([0]), mockValue([1])]
         const description = toHierarchical(parse(`a --> { 50%: 1 50%: 2 } | 3`))
         const indexMap: Array<[HierarchicalParsedSteps, Array<FullValue>]> = [
             [
                 description[0].step,
                 [
-                    { before: "", after: "0" },
-                    { before: "", after: "1" },
+                    { before: v, after: v0 },
+                    { before: v, after: v1 },
                 ],
             ],
-            [description[0].step.children![0]!, [{ before: "0", after: "0" }]],
-            [description[0].step.children![0].children![0], [{ before: "0", after: "0" }]],
+            [description[0].step.children![0]!, [{ before: v0, after: v0 }]],
+            [description[0].step.children![0].children![0], [{ before: v0, after: v0 }]],
             [description[0].step.children![0].children![1]!, []],
-            [description[0].step.children![1]!, [{ before: "1", after: "1" }]],
+            [description[0].step.children![1]!, [{ before: v1, after: v1 }]],
         ]
         const indices = new Map<HierarchicalParsedSteps, Array<FullValue>>(indexMap)
         expect(serializeString(concretizeDerivedIndices(indices))).to.equal(`a -> 2 | 3`)
     })
 
     it("should concretize a conrete derivation as a description with id selection", () => {
+        const [v, v0, v00, v01, v1] = [
+            mockValue([]),
+            mockValue([0]),
+            mockValue([0, 0]),
+            mockValue([0, 1]),
+            mockValue([1]),
+        ]
         const description = toHierarchical(parse(`a --> (1 | 2) -> { 50%: 1 50%: 2 } | 3`))
         const indexMap: Array<[HierarchicalParsedSteps, Array<FullValue>]> = [
             [
                 description[0].step,
                 [
-                    { before: "", after: "0,0" },
-                    { before: "", after: "0,1" },
-                    { before: "", after: "1" },
+                    { before: v, after: v00 },
+                    { before: v, after: v01 },
+                    { before: v, after: v1 },
                 ],
             ],
             [
                 description[0].step.children![0]!,
                 [
-                    { before: "0", after: "0,0" },
-                    { before: "0", after: "0,1" },
+                    { before: v0, after: v00 },
+                    { before: v0, after: v01 },
                 ],
             ],
             [
                 description[0].step.children![0]!.children![0],
                 [
-                    { before: "0", after: "0,0" },
-                    { before: "0", after: "0,1" },
+                    { before: v0, after: v00 },
+                    { before: v0, after: v01 },
                 ],
             ],
             [
                 description[0].step.children![0]!.children![1]!,
                 [
-                    { before: "0,0", after: "0,0" },
-                    { before: "0,1", after: "0,1" },
+                    { before: v00, after: v00 },
+                    { before: v01, after: v01 },
                 ],
             ],
-            [description[0].step.children![0].children![1]!.children![0], [{ before: "0,0", after: "0,0" }]],
-            [description[0].step.children![0].children![1]!.children![1]!, [{ before: "0,1", after: "0,1" }]],
-            [description[0].step.children![1]!, [{ before: "1", after: "1" }]],
+            [description[0].step.children![0].children![1]!.children![0], [{ before: v00, after: v00 }]],
+            [description[0].step.children![0].children![1]!.children![1]!, [{ before: v01, after: v01 }]],
+            [description[0].step.children![1]!, [{ before: v1, after: v1 }]],
         ]
         const indices = new Map<HierarchicalParsedSteps, Array<FullValue>>(indexMap)
         expect(serializeString(concretizeDerivedIndices(indices))).to.equal(

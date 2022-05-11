@@ -1,6 +1,14 @@
 import produce from "immer"
 import { Value } from "../interpreter"
-import { HierarchicalParsedSteps, HierarchicalPath } from "../util"
+import {
+    filterNull,
+    getAtPath,
+    HierarchicalParsedGrammarDefinition,
+    HierarchicalParsedSteps,
+    HierarchicalPath,
+    translatePath,
+} from "../util"
+import { findSymbolsWithIdentifier } from "./noun"
 
 export type ValueMap<T = any, A = any> = { [Path in string]?: Array<FullValue<T, A>> }
 export type FullValue<T = any, A = any> = { after: Value<T, A>; before: Value<T, A> }
@@ -64,33 +72,34 @@ export function editSelectionRelated<T, A>(
             }
         }
     })
-}
+}*/
 
 export function getRelatedSelections<T, A>(
-    indicesMap: ValueMap<T, A>,
+    valueMap: ValueMap<T, A>,
     relatedStepsList: Array<SelectedSteps>,
-    indices: Array<FullValue<T, A>>,
-    indexIsRelated: (current: FullValue<T, A>, next: FullValue<T, A>) => boolean,
-    filter: ((index: FullValue<T, A>) => boolean) | undefined
+    values: Array<FullValue<T, A>>,
+    valueIsRelated: (current: FullValue<T, A>, next: FullValue<T, A>) => boolean,
+    filter: ((value: FullValue<T, A>) => boolean) | undefined
 ): SelectionState<T, A>["selectionsList"] {
     return relatedStepsList
         .map((relatedSteps) => {
             const path = getSelectedStepsJoinedPath(relatedSteps)
-            const existingIndices = indicesMap[path] ?? []
-            const forwardIndices = existingIndices.filter(
-                (existingIndex) =>
-                    indices.find(
-                        (index) => indexIsRelated(index, existingIndex) && (filter == null || filter(existingIndex))
+            const exisitingValues = valueMap[path] ?? []
+            const forwardValues = exisitingValues.filter(
+                (existingValues) =>
+                    values.find(
+                        (index) => valueIsRelated(index, existingValues) && (filter == null || filter(existingValues))
                     ) != null
             )
-            if (forwardIndices.length === 0 && existingIndices.length > 0) {
+            if (forwardValues.length === 0 && exisitingValues.length > 0) {
                 return undefined
             }
-            return { steps: relatedSteps, indices: forwardIndices }
+            return { steps: relatedSteps, values: forwardValues }
         })
         .filter(filterNull)
 }
 
+/*
 export function getPredecessorSelections<T, A>(
     indicesMap: ValueMap<T, A>,
     parents: Array<SelectedSteps>,
@@ -170,6 +179,7 @@ export function getSuccessorSelections(
     }
     return selections
 }
+*/
 
 export function getIndirectParentsSteps(
     steps: SelectedSteps,
@@ -193,6 +203,7 @@ export function getIndirectParentsSteps(
 
     return [steps.path[0]]
 }
+/*
 
 function getHorizontalSelections(
     indicesMap: ValueMap,
@@ -223,7 +234,7 @@ function editSelectionOnDraft(
     indicesMap: ValueMap,
     selectionsList: SelectionsList,
     steps: SelectedSteps,
-    indices: Array<FullValue> | undefined,
+    values: Array<FullValue> | undefined,
     type: "toggle" | "add" | "remove"
 ): void {
     const path = getSelectedStepsJoinedPath(steps)
@@ -239,14 +250,14 @@ function editSelectionOnDraft(
         //can only happen for replace, add, toggle
         selectionsList.push({
             steps: steps,
-            values: indices == null ? all : indices,
+            values: values == null ? all : values,
         })
         return
     }
 
     const selections = selectionsList[selectionsIndex]
 
-    if (indices == null) {
+    if (values == null) {
         if (type === "toggle" || type === "remove") {
             selectionsList.splice(selectionsIndex, 1)
         } else {
@@ -256,14 +267,14 @@ function editSelectionOnDraft(
         return
     }
 
-    for (const index of indices) {
-        const indexIndex = selections.values.findIndex((selectedIndex) => selectedIndex.after === index.after)
+    for (const value of values) {
+        const valueIndex = selections.values.findIndex((selectedValue) => selectedValue.after === value.after)
 
-        if (indexIndex === -1 && (type === "toggle" || type === "add")) {
-            selections.values.push(index)
+        if (valueIndex === -1 && (type === "toggle" || type === "add")) {
+            selections.values.push(value)
         }
-        if (indexIndex !== -1 && (type === "toggle" || type === "remove")) {
-            selections.values.splice(indexIndex, 1)
+        if (valueIndex !== -1 && (type === "toggle" || type === "remove")) {
+            selections.values.splice(valueIndex, 1)
         }
     }
 
@@ -314,7 +325,7 @@ export function editIndices(
                     return
                 }
 
-                const allValueIndex = all.findIndex((allIndex) => allIndex.after === value.after)
+                const allValueIndex = all.findIndex((allValues) => allValues.after === value.after)
                 all.splice(allValueIndex, 1)
                 if (selections != null) {
                     const valueIndex = selections.values.findIndex(

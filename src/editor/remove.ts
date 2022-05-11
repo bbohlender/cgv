@@ -1,5 +1,5 @@
 import { HierarchicalParsedSteps, ParsedSteps, HierarchicalParsedGrammarDefinition, Operations } from ".."
-import { EditorState, SelectionPattern } from "."
+import { ConditionSelector, EditorState, SelectionPattern } from "."
 import { ValueMap, SelectionsList } from "./selection"
 import { computeDependencies, toHierarchical } from "../util"
 import produce from "immer"
@@ -56,7 +56,7 @@ export async function removeStep<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     operations: Operations<any, any>,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {

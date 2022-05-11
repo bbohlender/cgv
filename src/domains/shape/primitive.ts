@@ -519,7 +519,7 @@ export class ObjectPrimitive extends Primitive {
             if (!(child instanceof Mesh)) {
                 continue
             }
-            ;(child.geometry as BufferGeometry).computeBoundingBox()
+            (child.geometry as BufferGeometry).computeBoundingBox()
             box3Helper.copy((child.geometry as BufferGeometry).boundingBox!)
             box3Helper.applyMatrix4(child.matrix)
             target.union(box3Helper)

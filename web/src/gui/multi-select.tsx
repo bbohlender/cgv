@@ -18,7 +18,6 @@ export function MultiSelect<T>({
     const [show, setShow] = useState(false)
     const [ref, setRef] = useState<HTMLButtonElement | null>()
     const rect = ref?.getBoundingClientRect()
-    console.log(rect)
     return (
         <div className={`${className} d-flex`}>
             <button

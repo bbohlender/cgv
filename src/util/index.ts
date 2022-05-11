@@ -5,14 +5,21 @@ export enum HierarchicalRelation {
     Predecessor,
     Successor,
     Equal,
-    None
+    None,
 }
 
 export function getIndexRelation(i1: Array<number>, i2: Array<number>): HierarchicalRelation {
     const length = Math.min(i1.length, i2.length)
-    for(let i = 0; i < length; i++) {
-        
+    for (let i = 0; i < length; i++) {
+        if (i1[i] != i2[i]) {
+            return HierarchicalRelation.None
+        }
     }
+    return i1.length < i2.length
+        ? HierarchicalRelation.Successor
+        : i1.length === i2.length
+        ? HierarchicalRelation.Equal
+        : HierarchicalRelation.Predecessor
 }
 
 export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> | undefined): boolean {

@@ -1,5 +1,5 @@
 import produce from "immer"
-import { EditorState, SelectionPattern } from "."
+import { ConditionSelector, EditorState, SelectionPattern } from "."
 import {
     getAtPath,
     HierarchicalInfo,
@@ -18,7 +18,7 @@ export async function insert<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     position: "before" | "after" | "parallel",
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition

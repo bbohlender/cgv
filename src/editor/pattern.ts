@@ -8,6 +8,8 @@ export type InterpretedInfo = {
 
 //TODO: negation (to description size)
 
+export type ConditionSelector = (conditionSteps: Array<ParsedSteps> | undefined) => Promise<ParsedSteps | undefined>
+
 export type SelectionPattern<T, A> = {
     getConditionKey: (value: Value<T, A>) => string
     getConditionStep: (value: Value<T, A>) => ParsedSteps
@@ -27,24 +29,20 @@ export const idSelectionPattern: SelectionPattern<any, any> = {
     }),
 }
 
-/** 
- * @returns undefined if all should be selected 
+/**
+ * @returns undefined if all should be selected
  */
 export async function getSelectionCondition<T, A>(
     allValues: Array<Value<T, A>>,
     selectedValues: Array<Value<T, A>>,
-    patterns: Array<SelectionPattern<T, A>> = [idSelectionPattern],
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>
+    patterns: Array<SelectionPattern<T, A>>,
+    selectCondition: ConditionSelector
 ): Promise<ParsedSteps | undefined> {
     if (selectedValues.length === allValues.length) {
         return undefined
     }
 
     const conditions = patterns.map((pattern) => toCondition(selectedValues, allValues, pattern)).filter(filterNull)
-
-    if(conditions.length === 0) {
-        return undefined
-    }
 
     return await selectCondition(conditions)
 }
@@ -79,5 +77,5 @@ function toCondition<T, A>(
 
     const subConditions = Array.from(keyMap.values()).map((value) => pattern.getConditionStep(value))
 
-    return subConditions.reduce((prev, current) => ({ type: "and", children: [prev, current] }))
+    return subConditions.reduce((prev, current) => ({ type: "or", children: [prev, current] }))
 }

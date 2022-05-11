@@ -1,5 +1,5 @@
 import produce, { freeze } from "immer"
-import { EditorState, ValueMap, SelectionsList, SelectionPattern } from "."
+import { EditorState, ValueMap, SelectionsList, SelectionPattern, ConditionSelector } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -8,7 +8,14 @@ import {
     HierarchicalInfo,
 } from ".."
 import { AbstractParsedGrammarDefinition, ParsedSteps } from "../parser"
-import { computeDependencies, getDescriptionOfNoun, getNounIndex, traverseSteps } from "../util"
+import {
+    computeDependencies,
+    getDescriptionOfNoun,
+    getIndexRelation,
+    getNounIndex,
+    HierarchicalRelation,
+    traverseSteps,
+} from "../util"
 import { insert } from "./insert"
 import { replaceOnDraft } from "./replace"
 import { getIndirectParentsSteps, getRelatedSelections, getSelectedStepsPath } from "./selection"
@@ -45,7 +52,7 @@ export async function setName<T, A>(
     indicesMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     name: string,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
@@ -74,7 +81,7 @@ export async function renameNoun<T, A>(
     indicesMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     newName: string,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
@@ -109,8 +116,10 @@ export async function renameNoun<T, A>(
                     const upwardSelections = getRelatedSelections(
                         indicesMap,
                         parents,
-                        selections.indices,
-                        (current, next) => current.before.startsWith(next.before),
+                        selections.values,
+                        (current, next) =>
+                            getIndexRelation(current.before.index, next.before.index) ===
+                            HierarchicalRelation.Predecessor,
                         undefined
                     )
 

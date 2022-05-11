@@ -19,6 +19,7 @@ import {
     Value,
     ParsedSteps,
     idSelectionPattern,
+    ConditionSelector,
 } from "../src"
 import { validateHierarchical } from "./hierarchical"
 
@@ -31,6 +32,20 @@ it("should translate selection into multiple > < != step connected with and", ()
 it("should translate selection into multiple > < != step connected with or", () => {})
 it("should translate selection into multiple > < != step connected with both: or, and", () => {})*/
 
+export function mockValue(index: Array<number>, raw?: any, annotation?: any): Value<any, any> {
+    return {
+        annotation,
+        index,
+        invalid: {
+            observable: EMPTY,
+            value: false,
+        },
+        raw,
+        symbolDepth: {},
+        variables: {},
+    }
+}
+
 function getLastStepInPath(
     path: HierarchicalPath,
     grammar: HierarchicalParsedGrammarDefinition
@@ -42,15 +57,20 @@ function getLastStepInPath(
     return getAtPath(translatedPath, path.length - 1)
 }
 
+const defaultConditionSelection: ConditionSelector = (conditions) =>
+    Promise.resolve(conditions == null ? undefined : conditions[0])
+
 describe("editor", () => {
-    it("should multi insert after at substep", () => {
+    it("should multi insert after at substep", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const { grammar } = await insert(
             {},
             [
-                { steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] },
-                { steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [] },
+                { steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] },
+                { steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] },
             ],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "after",
             () =>
                 createDefaultStep(
@@ -67,11 +87,13 @@ describe("editor", () => {
         )
     })
 
-    it("should insert after at substep", () => {
+    it("should insert after at substep", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const { grammar } = await insert(
             {},
-            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "after",
             () =>
                 createDefaultStep(
@@ -88,16 +110,24 @@ describe("editor", () => {
         )
     })
 
-    it("should insert after with selection", () => {
+    it("should insert after with selection", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const [v1, v2] = [mockValue([0, 1]), mockValue([1, 1])]
+        const { grammar } = await insert(
             {
                 "a@test,1,0": [
-                    { after: "abc", before: "abc" },
-                    { after: "xyz", before: "xyz" },
+                    { after: v1, before: v1 },
+                    { after: v2, before: v2 },
                 ],
             },
-            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [{ after: "abc", before: "abc" }] }],
+            [
+                {
+                    steps: getLastStepInPath(["a@test", 1, 0], inputGrammar),
+                    values: [{ after: v1, before: v1 }],
+                },
+            ],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "after",
             () =>
                 createDefaultStep(
@@ -110,20 +140,23 @@ describe("editor", () => {
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a --> 1 | this * 2 -> if id() == "abc" then { 2 + 1 } else { this } -> this + 3`
+            `a --> 1 | this * 2 -> if id() == "0,1" then { 2 + 1 } else { this } -> this + 3`
         )
     })
 
-    it("should do nothing with no selection", () => {
+    it("should do nothing with no selection", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const [v1, v2] = [mockValue([0, 1]), mockValue([1, 2])]
+        const { grammar } = await insert(
             {
                 "a@test,1,0": [
-                    { after: "abc", before: "abc" },
-                    { after: "xyz", before: "xyz" },
+                    { after: v1, before: v1 },
+                    { after: v2, before: v2 },
                 ],
             },
-            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "after",
             () =>
                 createDefaultStep(
@@ -140,11 +173,13 @@ describe("editor", () => {
         )
     })
 
-    it("should insert before at noun", () => {
+    it("should insert before at noun", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const { grammar } = await insert(
             {},
-            [{ steps: getLastStepInPath(["a@test"], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test"], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "before",
             () =>
                 createDefaultStep(
@@ -161,11 +196,13 @@ describe("editor", () => {
         )
     })
 
-    it("should insert before at substep", () => {
+    it("should insert before at substep", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const { grammar } = await insert(
             {},
-            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "before",
             () =>
                 createDefaultStep(
@@ -182,11 +219,13 @@ describe("editor", () => {
         )
     })
 
-    it("should insert parallel at substep", () => {
+    it("should insert parallel at substep", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const { grammar } = await insert(
             {},
-            [{ steps: getLastStepInPath(["a@test"], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test"], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "parallel",
             () =>
                 createDefaultStep(
@@ -203,11 +242,13 @@ describe("editor", () => {
         )
     })
 
-    it("should insert parallel at noun", () => {
+    it("should insert parallel at noun", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = insert(
+        const { grammar } = await insert(
             {},
-            [{ steps: getLastStepInPath(["a@test"], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test"], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             "parallel",
             () =>
                 createDefaultStep(
@@ -224,11 +265,13 @@ describe("editor", () => {
         )
     })
 
-    it("should replace step", () => {
+    it("should replace step", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = replace(
+        const { grammar } = await replace(
             {},
-            [{ steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             () => ({
                 type: "this",
             }),
@@ -240,21 +283,24 @@ describe("editor", () => {
         )
     })
 
-    it("should replace step with selection", () => {
+    it("should replace step with selection", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = replace(
+        const [v1, v2] = [mockValue([0]), mockValue([1, 1, 1])]
+        const { grammar } = await replace(
             {
                 "a@test,1,0,1": [
-                    { after: "abc", before: "abc" },
-                    { after: "xyz", before: "xyz" },
+                    { after: v1, before: v1 },
+                    { after: v2, before: v2 },
                 ],
             },
             [
                 {
                     steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar),
-                    indices: [{ after: "abc", before: "abc" }],
+                    values: [{ after: v2, before: v2 }],
                 },
             ],
+            [idSelectionPattern],
+            defaultConditionSelection,
             () => ({
                 type: "this",
             }),
@@ -262,18 +308,20 @@ describe("editor", () => {
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a --> 1 | this * if id() == "abc" then { this } else { 2 } -> this + 3`
+            `a --> 1 | this * if id() == "1,1,1" then { this } else { 2 } -> this + 3`
         )
     })
 
-    it("should multi replace step", () => {
+    it("should multi replace step", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
-        const { grammar } = replace(
+        const { grammar } = await replace(
             {},
             [
-                { steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), indices: [] },
-                { steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [] },
+                { steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), values: [] },
+                { steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] },
             ],
+            [idSelectionPattern],
+            defaultConditionSelection,
             () => ({
                 type: "this",
             }),
@@ -285,27 +333,43 @@ describe("editor", () => {
         )
     })
 
-    it("should rename noun", () => {
+    it("should rename noun", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\n\nb --> 2`, "test"))
-        const { grammar } = renameNoun({}, [{ steps: "b@test", indices: [] }], "xyz@test", inputGrammar)
+        const { grammar } = await renameNoun(
+            {},
+            [{ steps: "b@test", values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
+            "xyz@test",
+            inputGrammar
+        )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
             `a --> 1 | xyz * 2 -> this + 3\n\nxyz --> 2`
         )
     })
 
-    it("should remove step at noun", () => {
+    it("should remove step at noun", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b -> this + 3\n\nb --> 2`, "test"))
-        const { grammar } = removeStep({}, [{ steps: "b@test", indices: [] }], {}, inputGrammar)
+        const { grammar } = await removeStep(
+            {},
+            [{ steps: "b@test", values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
+            {},
+            inputGrammar
+        )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a --> 1 | this + 3`)
     })
 
-    it("should remove step from parallel", () => {
+    it("should remove step from parallel", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\n\nb --> 2`, "test"))
-        const { grammar } = removeStep(
+        const { grammar } = await removeStep(
             {},
-            [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {},
             inputGrammar
         )
@@ -315,30 +379,40 @@ describe("editor", () => {
         )
     })
 
-    it("should remove step with selection", () => {
+    it("should remove step with selection", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\n\nb --> 2`, "test"))
-        const { grammar } = removeStep(
+        const [v1, v2] = [mockValue([0]), mockValue([2, 1])]
+        const { grammar } = await removeStep(
             {
                 "a@test,0": [
-                    { after: "abc", before: "abc" },
-                    { after: "xyz", before: "xyz" },
+                    { after: v1, before: v1 },
+                    { after: v2, before: v2 },
                 ],
             },
-            [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [{ after: "abc", before: "abc" }] }],
+            [
+                {
+                    steps: getLastStepInPath(["a@test", 0], inputGrammar),
+                    values: [{ after: v1, before: v1 }],
+                },
+            ],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {},
             inputGrammar
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a --> if id() == "abc" then { null } else { 1 } | b * 2 -> this + 3\n\nb --> 2`
+            `a --> if id() == "0" then { null } else { 1 } | b * 2 -> this + 3\n\nb --> 2`
         )
     })
 
-    it("should remove step from sequential and simplify", () => {
+    it("should remove step from sequential and simplify", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 -> drive() -> 2`, "test"))
-        const { grammar } = removeStep(
+        const { grammar } = await removeStep(
             {},
-            [{ steps: getLastStepInPath(["a@test", 1], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {},
             inputGrammar
         )
@@ -346,14 +420,16 @@ describe("editor", () => {
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a --> 1 -> 2`)
     })
 
-    it("should multi remove step from sequential and simplify", () => {
+    it("should multi remove step from sequential and simplify", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 -> test() -> drive() -> 2`, "test"))
-        const { grammar } = removeStep(
+        const { grammar } = await removeStep(
             {},
             [
-                { steps: getLastStepInPath(["a@test", 1], inputGrammar), indices: [] },
-                { steps: getLastStepInPath(["a@test", 2], inputGrammar), indices: [] },
+                { steps: getLastStepInPath(["a@test", 1], inputGrammar), values: [] },
+                { steps: getLastStepInPath(["a@test", 2], inputGrammar), values: [] },
             ],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {},
             inputGrammar
         )
@@ -361,11 +437,13 @@ describe("editor", () => {
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a --> 1 -> 2`)
     })
 
-    it("should not remove step from if condition", () => {
+    it("should not remove step from if condition", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> if this > 5 then { 22 } else { this + 2 }`, "test"))
-        const { grammar } = removeStep(
+        const { grammar } = await removeStep(
             {},
-            [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {},
             inputGrammar
         )
@@ -375,13 +453,15 @@ describe("editor", () => {
         )
     })
 
-    it("should remove step from operation", () => {
+    it("should remove step from operation", async () => {
         const inputGrammar = toHierarchical(
             parseDescription(`a --> if this > 5 then { operation("abc", 3) } else { this + 2 }`, "test")
         )
-        const { grammar } = removeStep(
+        const { grammar } = await removeStep(
             {},
-            [{ steps: getLastStepInPath(["a@test", 1, 1], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1, 1], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {
                 operation: {
                     execute: () => EMPTY,
@@ -397,13 +477,15 @@ describe("editor", () => {
         )
     })
 
-    it("should remove step from if by replacing in multiplication", () => {
+    it("should remove step from if by replacing in multiplication", async () => {
         const inputGrammar = toHierarchical(
             parseDescription(`a --> 1 | b * if true then { "123" } else { 3 } -> this + 3\n\nb --> 2`, "test")
         )
-        const { grammar } = removeStep(
+        const { grammar } = await removeStep(
             {},
-            [{ steps: getLastStepInPath(["a@test", 1, 0, 1, 1], inputGrammar), indices: [] }],
+            [{ steps: getLastStepInPath(["a@test", 1, 0, 1, 1], inputGrammar), values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
             {},
             inputGrammar
         )
@@ -416,7 +498,7 @@ describe("editor", () => {
 
 describe("pattern", () => {
     it("should get undefined as selection condition as all values are selected", async () => {
-        const condition = await getSelectionCondition([], [], undefined, () => Promise.resolve(undefined))
+        const condition = await getSelectionCondition([], [], [idSelectionPattern], () => Promise.resolve(undefined))
         expect(condition).to.be.undefined
     })
 
@@ -456,8 +538,11 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(values, [values[1]], undefined, ([condition]) =>
-            Promise.resolve(condition)
+        const condition = await getSelectionCondition(
+            values,
+            [values[1]],
+            [idSelectionPattern],
+            defaultConditionSelection
         )
         expect(condition).to.be.undefined
     })
@@ -476,9 +561,7 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(values, [], undefined, ([condition]) =>
-            Promise.resolve(condition)
-        )
+        const condition = await getSelectionCondition(values, [], [idSelectionPattern], defaultConditionSelection)
         expect(condition).to.be.undefined
     })
 
@@ -507,8 +590,11 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(values, [values[0], values[1]], undefined, ([condition]) =>
-            Promise.resolve(undefined)
+        const condition = await getSelectionCondition(
+            values,
+            [values[0], values[1]],
+            [idSelectionPattern],
+            defaultConditionSelection
         )
         expect(condition).to.be.undefined
     })
@@ -560,8 +646,11 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(values, [values[0], values[1]], undefined, ([condition]) =>
-            Promise.resolve(condition)
+        const condition = await getSelectionCondition(
+            values,
+            [values[0], values[1]],
+            [idSelectionPattern],
+            defaultConditionSelection
         )
         expect(condition).to.be.deep.equal({
             type: "equal",
@@ -607,8 +696,19 @@ describe("pattern", () => {
                 symbolDepth: {},
                 variables: {},
             },
+            {
+                annotation: undefined,
+                index: [2],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
         ]
-        const condition = await getSelectionCondition(values, [values[1], values[2]], undefined, () =>
+        const condition = await getSelectionCondition(values, [values[1], values[2]], [idSelectionPattern], () =>
             Promise.resolve(customCondition)
         )
         expect(condition).to.be.deep.equal(customCondition)
@@ -663,7 +763,7 @@ describe("pattern", () => {
         ]
         const condition = await getSelectionCondition(
             values,
-            [values[1], values[2], values[3]],
+            [values[0], values[2], values[3]],
             [
                 idSelectionPattern,
                 {
@@ -682,7 +782,7 @@ describe("pattern", () => {
                     }),
                 },
             ],
-            ([condition]) => Promise.resolve(condition)
+            defaultConditionSelection
         )
         expect(condition).to.be.deep.equal({
             type: "or",

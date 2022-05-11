@@ -1,7 +1,7 @@
 import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition } from ".."
 import type { EditorState } from "."
 import { Draft, freeze, original, produce } from "immer"
-import { getSelectionCondition, SelectionPattern } from "./pattern"
+import { ConditionSelector, getSelectionCondition, SelectionPattern } from "./pattern"
 import {
     computeDependencies,
     getAtPath,
@@ -34,7 +34,7 @@ export async function replace<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
@@ -55,7 +55,7 @@ export async function replaceOnDraft<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition,
     newSelectionsList?: SelectionsList
@@ -92,7 +92,7 @@ export async function replaceAtPathOnDraft<T, A>(
     all: Array<Value<T, A>>,
     selected: Array<Value<T, A>>,
     patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: (conditionSteps: Array<ParsedSteps>) => Promise<ParsedSteps | undefined>,
+    selectCondition: ConditionSelector,
     replaceWith: ReplaceWith,
     path: HierarchicalPath,
     translatedPath: TranslatedPath<HierarchicalInfo>,
