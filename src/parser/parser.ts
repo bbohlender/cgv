@@ -5,8 +5,9 @@
 function id(d: any[]): any { return d[0]; }
 declare var ws: any;
 declare var identifier: any;
-declare var arrow: any;
+declare var longArrow: any;
 declare var parallel: any;
+declare var arrow: any;
 declare var or: any;
 declare var and: any;
 declare var not: any;
@@ -54,6 +55,7 @@ const lexer = moo.compile({
     switchSymbol: /switch/,
     caseSymbol: /case/,
     arrow: /->/,
+    longArrow: /-->/,
     openBracket: /\(/,
     closedBracket: /\)/,
     openCurlyBracket: /{/,
@@ -121,7 +123,7 @@ const grammar: Grammar = {
     {"name": "GrammarDefinition", "symbols": ["ws", "GrammarDefinition$ebnf$1", "RuleDefinition", "ws"], "postprocess": ([,rules,rule]) => { if(rules.find(({ name }: { name: string }) => name === rule.name) != null) { throw new Error(`rule "${identifier}" is already defined`) } else { return [...rules, rule] } }},
     {"name": "GrammarDefinition", "symbols": ["ws"], "postprocess": () => []},
     {"name": "RuleDefinitions", "symbols": ["RuleDefinition", (lexer.has("ws") ? {type: "ws"} : ws)], "postprocess": ([rule]) => rule},
-    {"name": "RuleDefinition", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("arrow") ? {type: "arrow"} : arrow), "ws", "Steps"], "postprocess": ([{ value },,,,step]) => ({ name: value, step })},
+    {"name": "RuleDefinition", "symbols": [(lexer.has("identifier") ? {type: "identifier"} : identifier), "ws", (lexer.has("longArrow") ? {type: "longArrow"} : longArrow), "ws", "Steps"], "postprocess": ([{ value },,,,step]) => ({ name: value, step })},
     {"name": "Steps", "symbols": ["ParallelSteps"], "postprocess": ([steps]) => steps},
     {"name": "ParallelSteps$ebnf$1", "symbols": ["ParallelStep"]},
     {"name": "ParallelSteps$ebnf$1", "symbols": ["ParallelSteps$ebnf$1", "ParallelStep"], "postprocess": (d) => d[0].concat([d[1]])},
