@@ -72,7 +72,7 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                 },
             },
         ],
-        unparsed: `a -> -this + 1 * 3 > 2 && false -> 2 | 2`,
+        unparsed: `a --> -this + 1 * 3 > 2 && false -> 2 | 2`,
     },
     {
         parsed: [
@@ -161,7 +161,7 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                 },
             },
         ],
-        unparsed: `a -> this.x = 11 -> this % 2 -> switch 2 {
+        unparsed: `a --> this.x = 11 -> this % 2 -> switch 2 {
             case 0: if this == 0 then { this } else { this * 2 }
             case 3: this.x -> return
         }`,
@@ -195,6 +195,6 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                 },
             },
         ],
-        unparsed: `a -> { 40%: 1 60%: 2 * 3 }`,
+        unparsed: `a --> { 40%: 1 60%: 2 * 3 }`,
     },
 ]

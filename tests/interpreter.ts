@@ -168,7 +168,7 @@ describe("interprete grammar", () => {
     it("should interprete sequential execution", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 10 -> this * 10 -> this + 1`), {}, {}),
+            interprete(parse(`a --> 10 -> this * 10 -> this + 1`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -178,7 +178,7 @@ describe("interprete grammar", () => {
     it("should interprete parallel execution", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 2 * 3 | 2 -> 4 * 2`), {}, {}),
+            interprete(parse(`a --> 1 | 2 * 3 | 2 -> 4 * 2`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -189,7 +189,7 @@ describe("interprete grammar", () => {
         const result = of(1).pipe(
             toValue(),
             interprete(
-                parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`),
+                parse(`a --> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`),
                 {
                     op1: {
                         execute: simpleExecution((num: number, str: any) => of<any>([`${str ?? ""}${num * num}`])),
@@ -209,7 +209,7 @@ describe("interprete grammar", () => {
         const result = of(22).pipe(
             toValue(),
             interprete(
-                parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`),
+                parse(`a --> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`),
                 {
                     op1: {
                         execute: simpleExecution((current: number, num: number, str: any) =>
@@ -230,7 +230,7 @@ describe("interprete grammar", () => {
     it("should interprete grammars with recursion (that eventually terminate)", async () => {
         const result = of(4).pipe(
             toValue(),
-            interprete(parse(`a -> if this == 0 then { 0 } else { 1 | this - 1 -> a }`), {}, {}),
+            interprete(parse(`a --> if this == 0 then { 0 } else { 1 | this - 1 -> a }`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -240,7 +240,7 @@ describe("interprete grammar", () => {
     it("should not throw an error caused by recursion since a return is used before the recursion", async () => {
         const result = of(22).pipe(
             toValue(),
-            interprete(parse(`a -> return -> a`), {}, {}),
+            interprete(parse(`a --> return -> a`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -252,10 +252,10 @@ describe("interprete grammar", () => {
             toValue(),
             interprete(
                 parse(
-                    `   a -> 2 -> switch this { case 2: b case 3: c }
-                        b -> if true then { this * 10 -> c } else { c }
-                        c -> (20 * d | d) -> return -> 100
-                        d -> this / 2 -> this * 2`
+                    `   a --> 2 -> switch this { case 2: b case 3: c }
+                        b --> if true then { this * 10 -> c } else { c }
+                        c --> (20 * d | d) -> return -> 100
+                        d --> this / 2 -> this * 2`
                 ),
                 {},
                 {}
@@ -281,10 +281,10 @@ describe("interprete grammar", () => {
             toValue(),
             interprete(
                 parse(
-                    `   a -> c | b
-                        b -> if this == 1 then { this * 10 -> c } else { c }
-                        c -> (20 * d | d) -> return -> 100
-                        d -> this / 2 -> this * 2`
+                    `   a --> c | b
+                        b --> if this == 1 then { this * 10 -> c } else { c }
+                        c --> (20 * d | d) -> return -> 100
+                        d --> this / 2 -> this * 2`
                 ),
                 {},
                 {}
@@ -315,10 +315,10 @@ describe("interprete grammar", () => {
             toValue(),
             interprete(
                 parse(
-                    `   a -> 2 -> switch this { case 2: b case 3: c }
-                        b -> if true then { this * 10 -> c } else { c }
-                        c -> (20 * d | d) -> return -> 100
-                        d -> this / 2 -> this * 2`
+                    `   a --> 2 -> switch this { case 2: b case 3: c }
+                        b --> if true then { this * 10 -> c } else { c }
+                        c --> (20 * d | d) -> return -> 100
+                        d --> this / 2 -> this * 2`
                 ),
                 {},
                 {
@@ -348,8 +348,8 @@ describe("interprete grammar", () => {
             annotation: undefined,
         }).pipe(
             interprete(
-                parse(` a -> this.x * b | 2 + this.x
-                        b -> 3 + 2`),
+                parse(` a --> this.x * b | 2 + this.x
+                        b --> 3 + 2`),
                 {},
                 {}
             ),
@@ -383,7 +383,7 @@ describe("interprete grammar", () => {
         const result = of(1).pipe(
             toValue(),
             interprete(
-                parse(`a -> 1 | 10 -> a | 2`),
+                parse(`a --> 1 | 10 -> a | 2`),
                 {},
                 {
                     maxSymbolDepth: 50,
@@ -401,7 +401,7 @@ describe("interprete grammar", () => {
         const result = of(1).pipe(
             toValue(),
             interprete(
-                parse(`a -> a`),
+                parse(`a --> a`),
                 {},
                 {
                     maxSymbolDepth: 50,
@@ -418,7 +418,7 @@ describe("interprete grammar", () => {
     it("should throw an error when using unknown symbol", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 10 -> b | 2`), {}, {}),
+            interprete(parse(`a --> 1 | 10 -> b | 2`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -428,7 +428,7 @@ describe("interprete grammar", () => {
     it("should throw an error when using unknown operator", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 10 -> drive() | 2`), {}, {}),
+            interprete(parse(`a --> 1 | 10 -> drive() | 2`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )

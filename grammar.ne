@@ -12,6 +12,7 @@ const lexer = moo.compile({
     switchSymbol: /switch/,
     caseSymbol: /case/,
     arrow: /->/,
+    longArrow: /-->/,
     openBracket: /\(/,
     closedBracket: /\)/,
     openCurlyBracket: /{/,
@@ -51,7 +52,7 @@ GrammarDefinition       ->  ws RuleDefinition ws                                
 
 RuleDefinitions         ->  RuleDefinition %ws                                              {% ([rule]) => rule %}
 
-RuleDefinition          ->  %identifier ws %arrow ws Steps                                  {% ([{ value },,,,step]) => ({ name: value, step }) %}
+RuleDefinition          ->  %identifier ws %longArrow ws Steps                                  {% ([{ value },,,,step]) => ({ name: value, step }) %}
 
 Steps                   ->  ParallelSteps                                                   {% ([steps]) => steps %}
 

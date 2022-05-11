@@ -56,7 +56,7 @@ describe("hierarchical steps", () => {
 
 describe("description", () => {
     it("should compute dependencies", () => {
-        const globalDescription = parse("a@1 -> b@2 | a@1 | 1 -> 2\nb@2 -> 33\nc@2 -> k@3")
+        const globalDescription = parse("a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> 33\nc@2 --> k@3")
         const dependencies = computeDependencies(globalDescription)
         expect(dependencies).to.deep.equal({
             "a@1": ["b@2", "a@1"],
@@ -65,7 +65,7 @@ describe("description", () => {
     })
 
     it("should compute nested dendencies", () => {
-        const globalDescription = parse("a@1 -> b@2 | a@1 | 1 -> 2\nb@2 -> k@4 | m@3\nm@3 -> 1\nc@3 -> k@4\nk@4 -> 22")
+        const globalDescription = parse("a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> k@4 | m@3\nm@3 --> 1\nc@3 --> k@4\nk@4 --> 22")
         const dependencies = computeDependencies(globalDescription)
         expect(dependencies).to.deep.equal({
             "a@1": ["b@2", "a@1", "k@4", "m@3"],
@@ -75,20 +75,20 @@ describe("description", () => {
     })
 
     it("should compute description including dependencies", () => {
-        const globalDescription = parseDescription("a -> b@2 | a | 1 -> 2\nb@2 -> 33\nc@2 -> k@3", "1")
+        const globalDescription = parseDescription("a --> b@2 | a | 1 -> 2\nb@2 --> 33\nc@2 --> k@3", "1")
         const dependencies = computeDependencies(globalDescription)
         const localDescription = getLocalDescription(globalDescription, dependencies, "1")
         expect(serializeString(localDescription, localizeStepsSerializer.bind(null, "1"))).to.equal(
-            "a -> b@2 | a | 1 -> 2\n\nb@2 -> 33"
+            "a --> b@2 | a | 1 -> 2\n\nb@2 --> 33"
         )
     })
 
     it("should compute description including nested dependencies", () => {
-        const globalDescription = parseDescription("a -> b@2 | a | 1 -> 2\nb@2 -> k@4\nc@3 -> k@4\nk@4 -> 22", "1")
+        const globalDescription = parseDescription("a --> b@2 | a | 1 -> 2\nb@2 --> k@4\nc@3 --> k@4\nk@4 --> 22", "1")
         const dependencies = computeDependencies(globalDescription)
         const localDescription = getLocalDescription(globalDescription, dependencies, "1")
         expect(serializeString(localDescription, localizeStepsSerializer.bind(null, "1"))).to.equal(
-            "a -> b@2 | a | 1 -> 2\n\nb@2 -> k@4\n\nk@4 -> 22"
+            "a --> b@2 | a | 1 -> 2\n\nb@2 --> k@4\n\nk@4 --> 22"
         )
     })
 })

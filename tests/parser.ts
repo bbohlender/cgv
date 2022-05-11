@@ -20,22 +20,22 @@ describe("parse grammar", () => {
 
     it("should efficiently parse big grammar", () => {
         expect(() =>
-            parse(`Start -> face(
+            parse(`Start --> face(
             point2(10,90),
             point2(-30,0),
             point2(80,10),
             point2(60,60)
         ) -> Lot
         
-        Lot -> color("#333343") -> extrude(60) -> toFaces() -> (select(0, 4) -> Wall | select(4, 5) -> Roof)
+        Lot --> color("#333343") -> extrude(60) -> toFaces() -> (select(0, 4) -> Wall | select(4, 5) -> Roof)
         
-        Wall -> split("z", 20) -> Floor
+        Wall --> split("z", 20) -> Floor
         
-        Roof -> color("#881111")
+        Roof --> color("#881111")
         
-        Floor -> split("x", 20) -> WindowFrame
+        Floor --> split("x", 20) -> WindowFrame
         
-        WindowFrame -> if size("x") >= 20
+        WindowFrame --> if size("x") >= 20
             then {
                 multiSplit("x", 5, 10) -> switch index() {
                     case 0: this
@@ -51,7 +51,7 @@ describe("parse grammar", () => {
                 this
             }
         
-        Window -> color("#EEEEEE")`)
+        Window --> color("#EEEEEE")`)
         ).to.not.throw()
     }).timeout(500)
 })

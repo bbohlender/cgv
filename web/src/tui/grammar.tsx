@@ -85,7 +85,7 @@ function InteractableSteps({
         return (
             <>
                 <span className={cssClassName}>
-                    <span {...events}>{`${localizeNoun(noun, description)} -> `}</span>
+                    <span {...events}>{`${localizeNoun(noun, description)} --> `}</span>
                     <InteractableSteps description={description} value={value} />
                 </span>
                 <br />
