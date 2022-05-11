@@ -15,6 +15,23 @@ function setValueOnAxis(vector: Vector3, axis: Axis, value: number): void {
     vector[axis] = value
 }
 
+export function getDirection(matrix: Matrix4): "north" | "east" | "west" | "south" | "up" | "down" {
+    quaternionHelper.setFromRotationMatrix(matrix)
+    vectorHelper.set(0, 1, 0)
+    vectorHelper.applyQuaternion(quaternionHelper)
+    const x = Math.abs(vectorHelper.x)
+    const y = Math.abs(vectorHelper.y)
+    const z = Math.abs(vectorHelper.z)
+    const max = Math.max(x, y, z)
+    if (x === max) {
+        return vectorHelper.x < 0 ? "west" : "east"
+    }
+    if (y === max) {
+        return vectorHelper.y < 0 ? "down" : "up"
+    }
+    return vectorHelper.z < 0 ? "south" : "north"
+}
+
 const vectorHelper = new Vector3()
 
 const boundingBox = new Box3()

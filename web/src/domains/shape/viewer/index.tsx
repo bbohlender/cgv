@@ -10,9 +10,11 @@ import {
     shallowEqual,
     ParsedSteps,
     debounceBufferTime,
-    FullIndex,
     getLocalDescription,
     HierarchicalParsedGrammarDefinition,
+    FullValue,
+    getIndexRelation,
+    HierarchicalRelation,
 } from "cgv"
 import {
     createPhongMaterialGenerator,
@@ -25,7 +27,7 @@ import {
     convertRoadsToSteps,
 } from "cgv/domains/shape"
 import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment } from "react"
-import { of, Subject, Subscription } from "rxjs"
+import { of, Subject, Subscription, tap } from "rxjs"
 import { Color, Group, Matrix4 } from "three"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
@@ -42,7 +44,7 @@ import { MultiSelectIcon } from "../../../icons/multi-select"
 import { DescriptionList } from "../../../gui/description-list"
 import { GUI } from "../../../gui"
 import { TextEditorToggle } from "../../../gui/toggles/text"
-import { FullscreenToggle } from "../../../gui/toggles/fullscreen"
+import { Any } from "@react-spring/types"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -111,7 +113,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
                     <SelectedDescriptionResult />
                     <UnselectedDescriptionResults />
-                    <SelectedPrimitives />
+                    <HighlightPrimitives />
                     <Panoramas />
                     <Background />
                 </Bridge>
@@ -226,9 +228,9 @@ function useInterpretation(
 
         let subscription: Subscription | undefined
 
-        const beforeIndicesMap = new Map<ParsedSteps, Array<string>>()
+        const beforeValuesMap = new Map<ParsedSteps, Array<Value<Primitive, Annotation>>>()
 
-        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; index: FullIndex }>()
+        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; value: FullValue }>()
 
         const unsubscribeAfterStep = afterStepSubject
             .pipe(debounceBufferTime(300))
@@ -241,28 +243,29 @@ function useInterpretation(
                         delay: store.getState().interpretationDelay,
                         //TODO: we need a possibility to know when a value is removed
                         annotateAfterStep: (value, steps) => {
-                            const afterIndex = value.index.join(",")
-
-                            const beforeIndices = beforeIndicesMap.get(steps)
-                            const beforeIndex = beforeIndices?.find((beforeIndex) => afterIndex.startsWith(beforeIndex))
-                            if (beforeIndex != null) {
+                            const beforeValues = beforeValuesMap.get(steps)
+                            const beforeValue = beforeValues?.find((possibleBeforeValue) => {
+                                const relation = getIndexRelation(value.index, possibleBeforeValue.index)
+                                return (
+                                    relation === HierarchicalRelation.Predecessor ||
+                                    relation === HierarchicalRelation.Equal
+                                )
+                            })
+                            if (beforeValue != null) {
                                 afterStepSubject.next({
                                     steps,
-                                    index: { after: afterIndex, before: beforeIndex },
+                                    value: { after: value, before: beforeValue },
                                 })
-                            }
-                            if (value.raw instanceof Primitive) {
-                                useViewerState.getState().addPrimitive(afterIndex, value.raw)
                             }
                             return getAnnotationAfterStep(value, steps)
                         },
                         annotateBeforeStep: (value, steps) => {
-                            let beforeIndices = beforeIndicesMap.get(steps)
-                            if (beforeIndices == null) {
-                                beforeIndices = []
-                                beforeIndicesMap.set(steps, beforeIndices)
+                            let beforeValues = beforeValuesMap.get(steps)
+                            if (beforeValues == null) {
+                                beforeValues = []
+                                beforeValuesMap.set(steps, beforeValues)
                             }
-                            beforeIndices.push(value.index.join(","))
+                            beforeValues.push(value)
                             return getAnnotationBeforeStep(value, steps)
                         },
                     })
@@ -271,17 +274,21 @@ function useInterpretation(
                 (value) => {
                     const child = value.raw.getObject()
                     if (value.annotation != null) {
-                        const afterIndex = value.index.join(",")
-                        const beforeIndices = beforeIndicesMap.get(value.annotation)
-                        const beforeIndex = beforeIndices?.find((beforeIndex) => afterIndex.startsWith(beforeIndex))
-                        if (beforeIndex != null) {
-                            const index: FullIndex = {
-                                after: afterIndex,
-                                before: beforeIndex,
+                        const beforeValues = beforeValuesMap.get(value.annotation)
+                        const beforeValue = beforeValues?.find((possibleBeforeValue) => {
+                            const relation = getIndexRelation(value.index, possibleBeforeValue.index)
+                            return (
+                                relation === HierarchicalRelation.Predecessor || relation === HierarchicalRelation.Equal
+                            )
+                        })
+                        if (beforeValue != null) {
+                            const fullValue: FullValue = {
+                                after: value,
+                                before: beforeValue,
                             }
                             child.traverse((o) => {
                                 o.userData.steps = value.annotation
-                                o.userData.index = index
+                                o.userData.value = fullValue
                             })
                         }
                     }
@@ -305,7 +312,6 @@ function useInterpretation(
         }
         return () => {
             ref.current?.remove(...ref.current.children)
-            useViewerState.getState().clearPrimitives()
             subscription?.unsubscribe()
             unsubscribeAfterStep?.unsubscribe()
         }
@@ -375,18 +381,18 @@ function SelectedDescriptionResult() {
                 }
                 const object = e.intersections[0].object
                 const steps = object.userData.steps
-                const index = object.userData.index
-                if (steps == null || index == null) {
+                const value = object.userData.value
+                if (steps == null || value == null) {
                     return
                 }
-                store.getState().onStartHover(steps, [index])
+                store.getState().onStartHover(steps, [value])
             }}
             onPointerOut={(e) => {
                 e.stopPropagation()
                 const object = e.object
                 const steps = object.userData.steps
-                const index = object.userData.index
-                if (steps == null || index == null) {
+                const value = object.userData.value
+                if (steps == null || value == null) {
                     return
                 }
                 store.getState().onEndHover(steps)
@@ -402,11 +408,11 @@ function SelectedDescriptionResult() {
                 }
                 const object = e.intersections[0].object
                 const steps = object.userData.steps
-                const index = object.userData.index
-                if (steps == null || index == null) {
+                const value = object.userData.value
+                if (steps == null || value == null) {
                     return
                 }
-                store.getState().selectResult(steps, index)
+                store.getState().selectResult(steps, value)
             }}
         />
     )
@@ -431,53 +437,31 @@ function Panoramas() {
     )
 }
 
-function SelectedPrimitives() {
+function HighlightPrimitives() {
     const store = useBaseStore()
-    const [primitives, setPrimitives] = useState<Array<Primitive>>([])
-    useEffect(() => {
-        let selectionsAfterIndices: Array<string> | undefined
-        let hoveredAfterIndices: Array<string> | undefined
-        let primitiveMap: PrimitiveMap | undefined
-        const updatePrimitives = () => {
-            if (selectionsAfterIndices == null || primitiveMap == null) {
-                return
-            }
-            const current = getHighlightedPrimitives(hoveredAfterIndices, selectionsAfterIndices, primitiveMap)
-            startTransition(() => setPrimitives((prev) => (shallowEqual(prev, current) ? prev : current)))
-        }
-        const unsubscribeSelectionsList = store.subscribe(
-            (state) => (state.type === "gui" ? state.selectionsList : undefined),
-            (list) => {
-                selectionsAfterIndices = list?.reduce<Array<string>>(
-                    (prev, selections) => prev.concat(selections.indices.map((index) => index.after)),
-                    []
-                )
-                updatePrimitives()
-            },
-            { fireImmediately: true }
-        )
-        const unsubscribeHovered = store.subscribe(
-            (state) => (state.type === "gui" ? state.hovered : undefined),
-            (h) => {
-                hoveredAfterIndices = h?.indices.map((index) => index.after)
-                updatePrimitives()
-            },
-            { fireImmediately: true }
-        )
-        const unsubscribeMap = useViewerState.subscribe(
-            (state) => state.primitiveMap,
-            (map) => {
-                primitiveMap = map
-                updatePrimitives()
-            },
-            { fireImmediately: true }
-        )
-        return () => {
-            unsubscribeSelectionsList()
-            unsubscribeMap()
-            unsubscribeHovered()
-        }
-    }, [store])
+
+    const primitives = store(
+        (state) =>
+            state.type === "gui"
+                ? Array.from(
+                      new Set(
+                          state.selectionsList
+                              .reduce<Array<Primitive>>(
+                                  (prev, selections) => prev.concat(selections.values.map((value) => value.after.raw)),
+                                  []
+                              )
+                              .concat(state.hovered?.values.map((value) => value.after.raw) ?? [])
+                              .filter((raw) => raw instanceof Primitive)
+                      )
+                  )
+                : undefined,
+        shallowEqual
+    )
+
+    if (primitives == null) {
+        return null
+    }
+
     return (
         <>
             {primitives.map((primitive) => (
@@ -533,20 +517,4 @@ function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             <BackIcon />
         </div>
     )
-}
-
-function getHighlightedPrimitives(
-    hoveredAfterIndices: Array<string> | undefined,
-    selectionsAfterIndices: Array<string> | undefined,
-    primitiveMap: PrimitiveMap | undefined
-): Array<Primitive> {
-    if (selectionsAfterIndices == null || primitiveMap == null) {
-        return []
-    }
-    const highlightAfterIndicies =
-        hoveredAfterIndices == null
-            ? selectionsAfterIndices
-            : Array.from(new Set(selectionsAfterIndices.concat(hoveredAfterIndices)))
-    const map = primitiveMap
-    return highlightAfterIndicies.map((afterIndex) => map[afterIndex]).filter((value) => value != null)
 }

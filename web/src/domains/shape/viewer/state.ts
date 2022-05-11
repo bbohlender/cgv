@@ -24,7 +24,6 @@ export type PanoramaViewerState = {
 
 export type ResultViewerState = {
     error: string | undefined
-    primitiveMap: PrimitiveMap
 }
 
 export type PrimitiveMap = { [Key in string]: Primitive }
@@ -52,7 +51,6 @@ export function createViewerStateInitial(): ViewerState {
         viewType: "2d",
         position: topPosition,
         error: undefined,
-        primitiveMap: {},
         showBackground: false,
     }
 }
@@ -111,23 +109,6 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         },
         setError: (error: string | undefined) => {
             set({ error })
-        },
-        addPrimitive: (index: string, primitive: Primitive) => {
-            set({
-                primitiveMap: produce(get().primitiveMap, (draft) => {
-                    draft[index] = primitive
-                }),
-            })
-        },
-        removePrimitive: (index: string) => {
-            set({
-                primitiveMap: produce(get().primitiveMap, (draft) => {
-                    delete draft[index]
-                }),
-            })
-        },
-        clearPrimitives: () => {
-            set({ primitiveMap: {} })
         },
         toggleBackground: () => {
             set({ showBackground: !get().showBackground })

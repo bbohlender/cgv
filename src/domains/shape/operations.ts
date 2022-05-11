@@ -18,7 +18,7 @@ import { ObjectPrimitive } from "./primitive"
 import { GLTFLoader } from "three-stdlib/loaders/GLTFLoader"
 import { DRACOLoader } from "three-stdlib/loaders/DRACOLoader"
 import { computeGableRoof } from "./roof"
-import { createGraph, expandGraph, YAXIS } from "./primitive-utils"
+import { createGraph, expandGraph, getDirection, YAXIS } from "./primitive-utils"
 
 function computeGraphExpand(
     instance: Primitive,
@@ -170,6 +170,10 @@ function computeMultiSplit(instance: Primitive, axis: Axis, ...distances: Array<
     return of(splits)
 }
 
+function computeDirection(instance: Primitive): Observable<Array<any>> {
+    return of([getDirection(instance.matrix)])
+}
+
 export const operations: Operations<any, any> = {
     ...defaultOperations,
     translate: {
@@ -304,6 +308,11 @@ export const operations: Operations<any, any> = {
     },
     gableRoof: {
         execute: simpleExecution<any, unknown>(computeGableRoof),
+        includeThis: true,
+        defaultParameters: [],
+    },
+    direction: {
+        execute: simpleExecution<any, unknown>(computeDirection),
         includeThis: true,
         defaultParameters: [],
     },

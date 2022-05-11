@@ -11,8 +11,7 @@ import {
     editSelection,
     editIndices,
     EditorState,
-    editSelectionRelated,
-    FullIndex,
+    FullValue,
     SelectionsList,
     getRelatedSelections,
     compareSelectedStepsPath,
@@ -26,20 +25,21 @@ import {
     globalizeStepsSerializer,
     getLocalDescription,
     exchangeDescription,
-    getDescriptionRootStep,
     localizeStepsSerializer,
     DependencyMap,
     computeDependencies,
     globalizeNoun,
     removeUnusedNouns,
     isNounOfDescription,
+    SelectionPattern,
+    ConditionSelector,
+    getIndexRelation,
+    HierarchicalRelation,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
-import { operationGuiMap } from "./domains/shape"
 import { UseBaseStore } from "./global"
-import { childrenSelectable } from "./gui"
 
 export type BaseState = (CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>) & {
     interpretationDelay: number
@@ -59,7 +59,7 @@ export type GuiState = {
     type: "gui"
     grammar: HierarchicalParsedGrammarDefinition
     dependencyMap: DependencyMap
-    requested: { type: string; fulfill: (value: any) => void } | undefined
+    requested: { type: string; data?: any; fulfill: (value: any) => void } | undefined
     shift: boolean
     graphVisualization: boolean
 } & EditorState
@@ -83,16 +83,18 @@ export type TuiIncorrectState = {
     grammar: ParsedGrammarDefinition
 }
 
-export function createBaseState(operations: Operations<any, any>) {
+export function createBaseState(operations: Operations<any, any>, patterns: Array<SelectionPattern<any, any>>) {
     return create(
-        subscribeWithSelector(combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations)))
+        subscribeWithSelector(
+            combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations, patterns))
+        )
     ) as UseBaseStore
 }
 
 function createBaseStateInitial(): BaseState {
     return {
         type: "gui",
-        indicesMap: {},
+        valueMap: {},
         selectionsList: [],
         hovered: undefined,
         grammar: [],
@@ -109,9 +111,32 @@ function createBaseStateInitial(): BaseState {
 
 function createBaseStateFunctions(
     operations: Operations<any, any>,
+    patterns: Array<SelectionPattern<any, any>>,
     set: SetState<BaseState>,
     get: GetState<BaseState>
 ) {
+    const request = (type: string, fulfill: (value: any) => void, data?: any) => {
+        const state = get()
+        if (state.type != "gui") {
+            return
+        }
+        set({
+            requested: {
+                type,
+                data,
+                fulfill: (value) => {
+                    const currentRequested = get().requested
+                    fulfill(value)
+                    const state = get()
+                    if (state.type === "gui" && state.requested === currentRequested) {
+                        set({ requested: undefined })
+                    }
+                },
+            },
+        })
+    }
+    const selectCondition: ConditionSelector = (conditions) =>
+        new Promise((resolve) => request("select-condition", resolve, conditions))
     return {
         setShowTui: (showTui: boolean) => {
             set({ showTui })
@@ -125,14 +150,14 @@ function createBaseStateFunctions(
                 const rootNoun = state.grammar.find((noun) => isNounOfDescription(name, noun.name))?.name
                 set({
                     selectedDescription: name,
-                    indicesMap: {},
+                    valueMap: {},
                     selectionsList:
                         rootNoun == null
                             ? []
                             : [
                                   {
                                       steps: rootNoun,
-                                      indices: [],
+                                      values: [],
                                   },
                               ],
                     hovered: undefined,
@@ -230,7 +255,7 @@ function createBaseStateFunctions(
                     type: "gui",
                     grammar: newGrammar,
                     dependencyMap: computeDependencies(newGrammar),
-                    indicesMap: {},
+                    valueMap: {},
                     selectionsList: [],
                     hovered: undefined,
                     requested: undefined,
@@ -252,19 +277,19 @@ function createBaseStateFunctions(
                 correct: true,
             })
         },
-        onStartHover: (steps: SelectedSteps, indices: Array<FullIndex> | undefined) => {
+        onStartHover: (steps: SelectedSteps, values: Array<FullValue> | undefined) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            indices = indices ?? state.indicesMap[getSelectedStepsJoinedPath(steps)] ?? []
+            values = values ?? state.valueMap[getSelectedStepsJoinedPath(steps)] ?? []
             /*if (state.hovered?.steps === steps && shallowEqual(state.hovered.indices, indices)) {
                 return
             }*/
             set({
                 hovered: {
                     steps,
-                    indices,
+                    values,
                 },
             })
         },
@@ -279,9 +304,9 @@ function createBaseStateFunctions(
             })
         },
         editIndices: (
-            indices: Array<{
+            values: Array<{
                 steps: HierarchicalParsedSteps
-                index: FullIndex
+                value: FullValue
             }>,
             add: boolean
         ) => {
@@ -289,9 +314,9 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
-            set(editIndices(state.indicesMap, state.selectionsList, state.hovered, indices, add))
+            set(editIndices(state.valueMap, state.selectionsList, state.hovered, values, add))
         },
-        select: (steps: SelectedSteps, index?: FullIndex, type?: "replace" | "add" | "remove" | "toggle") => {
+        select: (steps: SelectedSteps, value?: FullValue, type?: "replace" | "add" | "remove" | "toggle") => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -299,14 +324,14 @@ function createBaseStateFunctions(
             type = type ?? (state.shift ? "add" : "replace")
             set({
                 selectionsList: editSelection(
-                    state.indicesMap,
+                    state.valueMap,
                     state.selectionsList,
-                    [{ steps, indices: index == null ? undefined : [index] }],
+                    [{ steps, values: value == null ? undefined : [value] }],
                     type
                 ),
             })
         },
-        selectResult: (clickedSteps: HierarchicalParsedSteps, clickedIndex: FullIndex) => {
+        selectResult: (clickedSteps: HierarchicalParsedSteps, clickedValue: FullValue) => {
             const state = get()
             if (state.type != "gui") {
                 return
@@ -314,27 +339,32 @@ function createBaseStateFunctions(
 
             set({
                 selectionsList: editSelection(
-                    state.indicesMap,
+                    state.valueMap,
                     state.selectionsList,
-                    [{ steps: clickedSteps, indices: [clickedIndex] }],
+                    [{ steps: clickedSteps, values: [clickedValue] }],
                     state.shift ? "toggle" : "replace"
                 ),
             })
         },
-        selectChildren: (steps: SelectedSteps, indices: Array<FullIndex>, child: HierarchicalParsedSteps) => {
+        selectChildren: (steps: SelectedSteps, values: Array<FullValue>, child: HierarchicalParsedSteps) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
             set({
                 selectionsList: editSelection(
-                    state.indicesMap,
-                    editSelection(state.indicesMap, state.selectionsList, [{ steps, indices }], "remove"),
+                    state.valueMap,
+                    editSelection(state.valueMap, state.selectionsList, [{ steps, values }], "remove"),
                     getRelatedSelections(
-                        state.indicesMap,
+                        state.valueMap,
                         [child],
-                        indices,
-                        (current, next) => next.before.startsWith(current.before),
+                        values,
+                        (current, next) => {
+                            const relation = getIndexRelation(next.before.index, current.before.index)
+                            return (
+                                relation === HierarchicalRelation.Successor || relation === HierarchicalRelation.Equal
+                            )
+                        },
                         undefined
                     ),
                     "add"
@@ -348,8 +378,8 @@ function createBaseStateFunctions(
             }
             set({
                 selectionsList: editSelection(
-                    state.indicesMap,
-                    editSelection(state.indicesMap, state.selectionsList, [currentSelections], "remove"),
+                    state.valueMap,
+                    editSelection(state.valueMap, state.selectionsList, [currentSelections], "remove"),
                     [relatedSelections],
                     "add"
                 ),
@@ -373,24 +403,7 @@ function createBaseStateFunctions(
             }
             set({ selectionsList: [] })
         },
-        request: (type: string, fulfill: (value: any) => void) => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set({
-                requested: {
-                    type,
-                    fulfill: (value) => {
-                        fulfill(value)
-                        const state = get()
-                        if (state.type === "gui" && state.requested != null) {
-                            set({ ...state, requested: undefined })
-                        }
-                    },
-                },
-            })
-        },
+        request,
         cancelRequest: () => {
             const state = get()
             if (state.type != "gui") {
@@ -407,42 +420,63 @@ function createBaseStateFunctions(
                 grammar: [...state.grammar, [name]: toHierarchicalSteps({ type: "this" }, name) },
             })
         },*/
-        insert: (type: "before" | "after" | "parallel", stepGenerator: () => ParsedSteps) => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set(insert(state.indicesMap, state.selectionsList, type, stepGenerator, state.grammar))
-        },
-        removeStep: () => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set(removeStep(state.indicesMap, state.selectionsList, operations, state.grammar))
-        },
-        renameNoun: (name: string) => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set(renameNoun(state.indicesMap, state.selectionsList, name, state.grammar))
-        },
-        setName: (name: string, descriptionName: string) => {
+        insert: async (type: "before" | "after" | "parallel", stepGenerator: () => ParsedSteps) => {
             const state = get()
             if (state.type != "gui") {
                 return
             }
             set(
-                setName(
-                    state.indicesMap,
+                await insert(
+                    state.valueMap,
                     state.selectionsList,
+                    patterns,
+                    selectCondition,
+                    type,
+                    stepGenerator,
+                    state.grammar
+                )
+            )
+        },
+        removeStep: async () => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set(
+                await removeStep(
+                    state.valueMap,
+                    state.selectionsList,
+                    patterns,
+                    selectCondition,
+                    operations,
+                    state.grammar
+                )
+            )
+        },
+        renameNoun: async (name: string) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set(await renameNoun(state.valueMap, state.selectionsList, patterns, selectCondition, name, state.grammar))
+        },
+        setName: async (name: string, descriptionName: string) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set(
+                await setName(
+                    state.valueMap,
+                    state.selectionsList,
+                    patterns,
+                    selectCondition,
                     globalizeStepsSerializer(descriptionName, name) ?? name,
                     state.grammar
                 )
             )
         },
-        replace: <Type extends ParsedSteps["type"]>(
+        replace: async <Type extends ParsedSteps["type"]>(
             replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void,
             steps?: SelectedSteps
         ) => {
@@ -452,13 +486,15 @@ function createBaseStateFunctions(
             }
             const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
             set(
-                replace(
-                    state.indicesMap,
+                await replace(
+                    state.valueMap,
                     steps == null
                         ? state.selectionsList
                         : state.selectionsList.filter((selections) =>
                               compareSelectedStepsPath(selections.steps, steps, joinedPath)
                           ),
+                    patterns,
+                    selectCondition,
                     replaceWith as any,
                     state.grammar
                 )

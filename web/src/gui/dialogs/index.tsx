@@ -1,6 +1,7 @@
 import { useBaseStoreState } from "../../global"
 import { CreateDescriptionDialog } from "./create-description"
 import { CreateStepDialog } from "./create-step"
+import { SelectionConditionDialog } from "./select-condition"
 import { SetNameDialog } from "./set-name"
 import { SummarizeDialog } from "./summarize"
 
@@ -16,13 +17,13 @@ export function Dialogs() {
             <div
                 style={{ maxWidth: "40rem", margin: "0 auto" }}
                 className="rounded overflow-hidden shadow d-flex flex-column m-3 p-3 w-100 bg-light">
-                {selectDialog(requested.type, requested.fulfill)}
+                {selectDialog(requested.data, requested.type, requested.fulfill)}
             </div>
         </div>
     )
 }
 
-function selectDialog(type: string, fulfill: (value: any) => void) {
+function selectDialog(data: any, type: string, fulfill: (value: any) => void) {
     switch (type) {
         case "summarize":
             return <SummarizeDialog fulfill={fulfill} />
@@ -32,5 +33,7 @@ function selectDialog(type: string, fulfill: (value: any) => void) {
             return <CreateDescriptionDialog fulfill={fulfill} />
         case "set-name":
             return <SetNameDialog fulfill={fulfill} />
+        case "select-condition":
+            return <SelectionConditionDialog data={data} fulfill={fulfill} />
     }
 }

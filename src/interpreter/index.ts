@@ -169,12 +169,7 @@ function interpreteStep<T, A, I>(
         const { delay: time, annotateAfterStep, annotateBeforeStep } = context
         const nextOperations: Array<MonoTypeOperatorFunction<Value<T, A>>> = [filterInvalid]
         if (annotateAfterStep != null) {
-            nextOperations.push(
-                map((value) => ({
-                    ...value,
-                    annotation: annotateAfterStep(value, step),
-                }))
-            )
+            nextOperations.push(tap((value) => (value.annotation = annotateAfterStep(value, step))))
         }
         if (next != null && time != null) {
             nextOperations.push(delay(time))

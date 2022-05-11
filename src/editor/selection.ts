@@ -3,9 +3,11 @@ import { Value } from "../interpreter"
 import {
     filterNull,
     getAtPath,
+    getIndexRelation,
     HierarchicalParsedGrammarDefinition,
     HierarchicalParsedSteps,
     HierarchicalPath,
+    HierarchicalRelation,
     translatePath,
 } from "../util"
 import { findSymbolsWithIdentifier } from "./noun"
@@ -268,7 +270,10 @@ function editSelectionOnDraft(
     }
 
     for (const value of values) {
-        const valueIndex = selections.values.findIndex((selectedValue) => selectedValue.after === value.after)
+        const valueIndex = selections.values.findIndex(
+            (selectedValue) =>
+                getIndexRelation(selectedValue.after.index, value.after.index) === HierarchicalRelation.Equal
+        )
 
         if (valueIndex === -1 && (type === "toggle" || type === "add")) {
             selections.values.push(value)
@@ -325,11 +330,16 @@ export function editIndices(
                     return
                 }
 
-                const allValueIndex = all.findIndex((allValues) => allValues.after === value.after)
+                const allValueIndex = all.findIndex(
+                    (allValue) =>
+                        getIndexRelation(allValue.after.index, value.after.index) === HierarchicalRelation.Equal
+                )
                 all.splice(allValueIndex, 1)
                 if (selections != null) {
                     const valueIndex = selections.values.findIndex(
-                        (selectedIndex) => selectedIndex.after === value.after
+                        (selectedValue) =>
+                            getIndexRelation(selectedValue.after.index, value.after.index) ===
+                            HierarchicalRelation.Equal
                     )
                     selections.values.splice(valueIndex, 1)
                     if (selections.values.length === 0) {
@@ -338,7 +348,8 @@ export function editIndices(
                 }
                 if (hovered?.steps === steps && hoveredDraft != null) {
                     const valueIndex = hoveredDraft.values.findIndex(
-                        (hoveredIndex) => hoveredIndex.after === value.after
+                        (hoveredValue) =>
+                            getIndexRelation(hoveredValue.after.index, value.after.index) === HierarchicalRelation.Equal
                     )
                     hoveredDraft.values.splice(valueIndex, 1)
                     if (hoveredDraft.values.length === 0) {

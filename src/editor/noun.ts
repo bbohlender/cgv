@@ -117,9 +117,12 @@ export async function renameNoun<T, A>(
                         indicesMap,
                         parents,
                         selections.values,
-                        (current, next) =>
-                            getIndexRelation(current.before.index, next.before.index) ===
-                            HierarchicalRelation.Predecessor,
+                        (current, next) => {
+                            const relation = getIndexRelation(current.before.index, next.before.index)
+                            return (
+                                relation === HierarchicalRelation.Predecessor || relation === HierarchicalRelation.Equal
+                            )
+                        },
                         undefined
                     )
 

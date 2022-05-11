@@ -1,32 +1,32 @@
-import { AbstractParsedOperation, FullIndex, HierarchicalInfo, serializeStepString } from "cgv"
+import { AbstractParsedOperation, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
 import { useBaseGlobal, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 
 export function GUIOperation({
-    value,
-    indices,
+    step,
+    values,
 }: {
-    value: AbstractParsedOperation<HierarchicalInfo>
-    indices: Array<FullIndex>
+    step: AbstractParsedOperation<HierarchicalInfo>
+    values: Array<FullValue>
 }) {
     const { operationGuiMap, operations } = useBaseGlobal()
 
-    const OperationGUI = operationGuiMap[value.identifier]
+    const OperationGUI = operationGuiMap[step.identifier]
     if (OperationGUI != null) {
-        return <OperationGUI value={value} />
+        return <OperationGUI value={step} />
     }
-    if (operations[value.identifier]?.defaultParameters != undefined) {
-        return <GeneralGUIOperation value={value} indices={indices} />
+    if (operations[step.identifier]?.defaultParameters != undefined) {
+        return <GeneralGUIOperation value={step} values={values} />
     }
     return null
 }
 
 function GeneralGUIOperation({
     value,
-    indices,
+    values,
 }: {
     value: AbstractParsedOperation<HierarchicalInfo>
-    indices: Array<FullIndex>
+    values: Array<FullValue>
 }) {
     const store = useBaseStore()
     return (
@@ -36,7 +36,7 @@ function GeneralGUIOperation({
                     <div
                         className="flex-grow-1 p-3 pointer"
                         onClick={
-                            (e) => store.getState().selectChildren(value, indices, child)
+                            (e) => store.getState().selectChildren(value, values, child)
                             //TODO: use selectRelation
                         }>
                         {

@@ -1,18 +1,17 @@
 import {
     AbstractParsedOperation,
-    FullIndex,
-    getIndirectParentsSteps,
-    getPredecessorSelections,
     getSelectedStepsJoinedPath,
-    getSuccessorSelections,
     HierarchicalInfo,
     HierarchicalParsedSteps,
     SelectedSteps,
     SelectionsList,
     getSelectedLabel,
+    FullValue,
+    getIndexRelation,
+    HierarchicalRelation,
 } from "cgv"
 import { HTMLProps, useMemo } from "react"
-import { useBaseGlobal, UseBaseStore, useBaseStore } from "../global"
+import { UseBaseStore, useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
 import { MultiSelect } from "./multi-select"
@@ -122,19 +121,19 @@ function GUISelection({
 }) {
     const store = useBaseStore()
     const path = getSelectedStepsJoinedPath(selections.steps)
-    const indicesMap = store((state) => (state.type === "gui" ? state.indicesMap : undefined))
+    const indicesMap = store((state) => (state.type === "gui" ? state.valueMap : undefined))
     const all = useMemo(() => (indicesMap != null ? indicesMap[path] : undefined), [indicesMap])
 
     return (
         <div className="d-flex flex-column">
             <label className="mb-3 mx-3">{getSelectedLabel(selections.steps, descriptionName)}</label>
-            <GUISteps descriptionName={descriptionName} value={selections.steps} indices={selections.indices} />
+            <GUISteps descriptionName={descriptionName} step={selections.steps} values={selections.values} />
             {all != null && (
-                <MultiSelect<FullIndex>
+                <MultiSelect<FullValue>
                     selectAll={() => store.getState().select(selections.steps, undefined, "add")}
                     unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
                     className="mb-3 mx-3"
-                    label={`${selections.indices.length}/${all.length} selected`}
+                    label={`${selections.values.length}/${all.length} selected`}
                     onChange={(index, selected) => {
                         store.getState().select(selections.steps, index, selected ? "add" : "remove")
                     }}
@@ -147,38 +146,41 @@ function GUISelection({
 
 function getValues(
     selection: SelectionsList[number],
-    all: Array<FullIndex>
-): Array<[label: string, selected: boolean, value: FullIndex]> {
-    return all.map((index) => [
-        `${index.before} -> ${index.after}`,
-        selection.indices.find((selectedIndex) => selectedIndex.after === index.after) != null,
-        index,
+    all: Array<FullValue>
+): Array<[label: string, selected: boolean, value: FullValue]> {
+    return all.map((value) => [
+        `${value.before.index.join(",")} -> ${value.after.index.join(",")}`,
+        selection.values.find(
+            (selectedValue) =>
+                getIndexRelation(selectedValue.after.index, value.after.index) === HierarchicalRelation.Equal
+        ) != null,
+        value,
     ])
 }
 
 function GUISteps({
-    value,
-    indices,
+    step,
+    values,
     descriptionName,
 }: {
     descriptionName: string
-    value: HierarchicalParsedSteps | string
-    indices: Array<FullIndex>
+    step: HierarchicalParsedSteps | string
+    values: Array<FullValue>
 }): JSX.Element | null {
-    if (typeof value === "string") {
-        return <GUINounStep descriptionName={descriptionName} value={value} />
+    if (typeof step === "string") {
+        return <GUINounStep descriptionName={descriptionName} value={step} />
     }
-    switch (value.type) {
+    switch (step.type) {
         case "raw":
-            return <GUIRawStep value={value} />
+            return <GUIRawStep step={step} />
         case "symbol":
-            return <GUISymbolStep value={value} />
+            return <GUISymbolStep step={step} />
         case "operation":
-            return <GUIOperation value={value} indices={indices} />
+            return <GUIOperation step={step} values={values} />
         case "random":
-            return <GUIRandomStep value={value} indices={indices} />
+            return <GUIRandomStep step={step} values={values} />
         case "switch":
-            return <GUISwitchStep value={value} indices={indices} />
+            return <GUISwitchStep step={step} values={values} />
         default:
             return null
     }
