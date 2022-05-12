@@ -157,7 +157,9 @@ export function exchangeDescription(
     localDescription: ParsedGrammarDefinition,
     localDescriptionName: string
 ): ParsedGrammarDefinition {
-    return globalDescription
-        .filter((noun) => !isNounOfDescription(localDescriptionName, noun.name))
-        .concat(localDescription)
+    return freeze(
+        globalDescription
+            .filter((noun) => !isNounOfDescription(localDescriptionName, noun.name))
+            .concat(localDescription)
+    )
 }

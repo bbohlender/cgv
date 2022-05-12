@@ -1,4 +1,12 @@
-import { createDefaultStep, getAllStepDescriptors, Operations, ParsedSteps, shallowEqual, StepDescriptor } from "cgv"
+import {
+    createDefaultStep,
+    getAllStepDescriptors,
+    localizeNoun,
+    Operations,
+    ParsedSteps,
+    shallowEqual,
+    StepDescriptor,
+} from "cgv"
 import { useCallback, useMemo, useState } from "react"
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
@@ -25,14 +33,23 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
         () => getStepOptions(operations, (descriptor) => fulfill(() => createDefaultStep(descriptor, operations))),
         [fulfill, operations]
     )
-    const nouns = store((state) => state.grammar.map(({ name }) => name), shallowEqual)
+    const nouns = store(
+        (state) =>
+            state.selectedDescription == null
+                ? []
+                : state.grammar.map(({ name }) => ({
+                      globalName: name,
+                      localName: localizeNoun(name, state.selectedDescription!),
+                  })),
+        shallowEqual
+    )
     const filteredOptions = useMemo(
         () =>
             stepOptions
                 .concat(
-                    nouns.map((name) => ({
-                        label: name,
-                        onSelect: () => fulfill(() => ({ type: "symbol", identifier: name })),
+                    nouns.map(({ globalName, localName }) => ({
+                        label: localName,
+                        onSelect: () => fulfill(() => ({ type: "symbol", identifier: globalName })),
                     }))
                 )
                 .concat({

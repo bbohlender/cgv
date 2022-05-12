@@ -411,15 +411,6 @@ function createBaseStateFunctions(
             }
             set({ requested: undefined })
         },
-        /*createNoun: (name: string) => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            set({
-                grammar: [...state.grammar, [name]: toHierarchicalSteps({ type: "this" }, name) },
-            })
-        },*/
         insert: async (type: "before" | "after" | "parallel", stepGenerator: () => ParsedSteps) => {
             const state = get()
             if (state.type != "gui") {
