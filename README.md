@@ -269,7 +269,7 @@ Lot --> color("#333343") -> extrude(60) -> toFaces() -> if index() < 4 then { Wa
 
 Wall --> split("z", 20) -> Floor
 
-Roof --> color("#881111") -> extrude(30) -> gableRoof()
+Roof --> color("#881111") -> extrude(30) -> gableRoof(90)
 
 Floor --> split("x", 20) -> WindowFrame
 

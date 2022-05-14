@@ -309,7 +309,12 @@ export const operations: Operations<any, any> = {
     gableRoof: {
         execute: simpleExecution<any, unknown>(computeGableRoof),
         includeThis: true,
-        defaultParameters: [],
+        defaultParameters: [
+            () => ({
+                type: "raw",
+                value: 0,
+            }),
+        ],
     },
     direction: {
         execute: simpleExecution<any, unknown>(computeDirection),

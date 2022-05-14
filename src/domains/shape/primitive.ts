@@ -12,6 +12,7 @@ import {
     Material,
     Matrix4,
     Mesh,
+    MeshBasicMaterial,
     MeshPhongMaterial,
     Object3D,
     Path,
@@ -114,6 +115,7 @@ export abstract class Primitive {
     abstract components(type: "points" | "lines" | "faces"): Array<Primitive>
     protected abstract computeObject3D(): Object3D
     abstract getBoundingBox(target: Box3): void
+    abstract getVertecies(): Array<Vector3>
     protected abstract computeGeometry(): BufferGeometry | undefined
     protected abstract computeOutline(): Object3D
 }
@@ -140,6 +142,10 @@ export class PointPrimitive extends Primitive {
         target.max.set(0, 0, 0)
     }
 
+    getVertecies(): Vector3[] {
+        return [new Vector3()]
+    }
+
     extrude(by: number): Primitive {
         return new LinePrimitive(this.matrix, by, this.materialGenerator)
     }
@@ -159,7 +165,16 @@ export class PointPrimitive extends Primitive {
     }
 
     protected computeOutline(): Object3D<Event> {
-        return this.getObject()
+        const point = new Points(
+            new BufferGeometry().setFromPoints([new Vector3()]),
+            new PointsMaterial({
+                color: 0,
+                transparent: true,
+                depthTest: false,
+            })
+        )
+        point.renderOrder = 1000
+        return setupObject3D(point, this.matrix)
     }
 
     clone(): Primitive {
@@ -212,6 +227,10 @@ export class LinePrimitive extends Primitive {
         public materialGenerator: (type: ObjectType) => Material
     ) {
         super()
+    }
+
+    getVertecies(): Vector3[] {
+        return [new Vector3(), new Vector3(this.length, 0, 0)]
     }
 
     static fromPoints(
@@ -267,7 +286,16 @@ export class LinePrimitive extends Primitive {
     }
 
     protected computeOutline(): Object3D<Event> {
-        return this.getObject()
+        const line = new Line(
+            new BufferGeometry().setFromPoints([new Vector3(), new Vector3(this.length, 0, 0)]),
+            new LineBasicMaterial({
+                color: 0,
+                transparent: true,
+                depthTest: false,
+            })
+        )
+        line.renderOrder = 1000
+        return setupObject3D(line, this.matrix)
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
@@ -308,6 +336,10 @@ export class FacePrimitive extends Primitive {
 
     protected changeMatrix(matrix: Matrix4): Primitive {
         return new FacePrimitive(matrix, this.shape, this.materialGenerator)
+    }
+
+    getVertecies(): Vector3[] {
+        return this.shape.getPoints().map(({ x, y }) => new Vector3(x, 0, y))
     }
 
     constructor(
@@ -414,6 +446,7 @@ export class FacePrimitive extends Primitive {
         const outerPath = this.pathToOutline(this.shape.extractPoints(5).shape)
         const innerPaths = this.shape.holes.map((path) => this.pathToOutline(path.getPoints(5)))
         const result = setupObject3D(new Object3D(), this.matrix)
+        result.renderOrder = 1000
         result.add(outerPath, ...innerPaths)
         return result
     }
@@ -425,7 +458,14 @@ export class FacePrimitive extends Primitive {
         path.push(path[0])
         const geometry = new BufferGeometry().setFromPoints(path)
         swapYZ(geometry)
-        return new Line(geometry)
+        return new Line(
+            geometry,
+            new MeshBasicMaterial({
+                color: 0,
+                transparent: true,
+                depthTest: false,
+            })
+        )
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
@@ -489,6 +529,10 @@ export class ObjectPrimitive extends Primitive {
         return this
     }
 
+    getVertecies(): Vector3[] {
+        throw new Error("Method not implemented.")
+    }
+
     protected changeMatrix(matrix: Matrix4): Primitive {
         return new ObjectPrimitive(matrix, this.object)
     }
@@ -519,7 +563,7 @@ export class ObjectPrimitive extends Primitive {
             if (!(child instanceof Mesh)) {
                 continue
             }
-            (child.geometry as BufferGeometry).computeBoundingBox()
+            ;(child.geometry as BufferGeometry).computeBoundingBox()
             box3Helper.copy((child.geometry as BufferGeometry).boundingBox!)
             box3Helper.applyMatrix4(child.matrix)
             target.union(box3Helper)
@@ -532,7 +576,16 @@ export class ObjectPrimitive extends Primitive {
         const matrix = new Matrix4().makeTranslation(helperVector.x, helperVector.y, helperVector.z)
         box3Helper.getSize(helperVector)
         matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
-        return setupObject3D(new LineSegments(outlineGeometry), matrix)
+        const lines = new LineSegments(
+            outlineGeometry,
+            new LineBasicMaterial({
+                transparent: true,
+                depthTest: false,
+                color: 1,
+            })
+        )
+        lines.renderOrder = 1000
+        return setupObject3D(lines, matrix)
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
@@ -575,6 +628,10 @@ export class GeometryPrimitive extends Primitive {
         return setupObject3D(new Mesh(this.getGeometry(), this.materialGenerator(ObjectType.Mesh)), this.matrix)
     }
 
+    getVertecies(): Vector3[] {
+        throw new Error("Method not implemented.")
+    }
+
     getBoundingBox(target: Box3): void {
         target.copy(this.geometry.boundingBox!)
     }
@@ -588,7 +645,16 @@ export class GeometryPrimitive extends Primitive {
         outlineGeometry.scale(helperVector.x, helperVector.y, helperVector.z)
         this.geometry.boundingBox!.getCenter(helperVector)
         outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
-        return setupObject3D(new LineSegments(outlineGeometry), this.matrix)
+        const lines = new LineSegments(
+            outlineGeometry,
+            new LineBasicMaterial({
+                transparent: true,
+                depthTest: false,
+                color: 1,
+            })
+        )
+        lines.renderOrder = 1000
+        return setupObject3D(lines, this.matrix)
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
@@ -631,6 +697,14 @@ export class CombinedPrimitive extends Primitive {
         super()
     }
 
+    getVertecies(): Vector3[] {
+        return this.primitives.reduce<Array<Vector3>>(
+            (prev, primitive) =>
+                prev.concat(primitive.getVertecies().map((vertex) => vertex.applyMatrix4(primitive.matrix))),
+            []
+        )
+    }
+
     extrude(by: number): Primitive {
         return new CombinedPrimitive(
             this.matrix,
@@ -670,6 +744,7 @@ export class CombinedPrimitive extends Primitive {
     protected computeOutline(): Object3D {
         const object = setupObject3D(new Object3D(), this.matrix)
         this.primitives.forEach((primitive) => object.add(primitive.getOutline()))
+        object.renderOrder = 1000
         return object
     }
     getSize(dimension: number): number {

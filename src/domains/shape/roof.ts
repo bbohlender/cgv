@@ -1,6 +1,6 @@
 import { Observable, of } from "rxjs"
-import { Box3, ExtrudeGeometry, Shape, Vector2, Vector3 } from "three"
-import { makeTranslationMatrix } from "./math"
+import { Box3, ExtrudeGeometry, Matrix4, Shape, Vector2, Vector3 } from "three"
+import { makeRotationMatrix, makeTranslationMatrix } from "./math"
 import { GeometryPrimitive, Primitive } from "./primitive"
 
 class PrismGeometry extends ExtrudeGeometry {
@@ -17,15 +17,18 @@ const vectorHelper = new Vector3()
 
 export function computeGableRoof(
     instance: Primitive,
+    rotation?: number,
     width?: number,
     height?: number,
     depth?: number
 ): Observable<Array<Primitive>> {
-    instance.getBoundingBox(box3Helper)
-    const matrix = instance.matrix
-        .clone()
-        .multiply(makeTranslationMatrix(box3Helper.min.x, box3Helper.min.y, box3Helper.min.z))
+    const yRotation = rotation == null ? 0 : (Math.PI * rotation) / 180
+    const matrix = makeRotationMatrix(0, -yRotation, 0)
+    box3Helper.setFromPoints(instance.getVertecies().map((vertex) => vertex.applyMatrix4(matrix)))
     box3Helper.getSize(vectorHelper)
     const geometry = new PrismGeometry(width ?? vectorHelper.x, height ?? vectorHelper.y, depth ?? vectorHelper.z)
-    return of([new GeometryPrimitive(matrix, geometry, instance.materialGenerator)])
+    geometry.translate(box3Helper.min.x, box3Helper.min.y, box3Helper.min.z)
+    geometry.computeBoundingBox()
+    geometry.rotateY(yRotation)
+    return of([new GeometryPrimitive(instance.matrix, geometry, instance.materialGenerator)])
 }
