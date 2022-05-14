@@ -161,10 +161,7 @@ export const parsedAndUnparsedGrammarPairs: Array<{
                 },
             },
         ],
-        unparsed: `a --> this.x = 11 -> this % 2 -> switch 2 {
-            case 0: if this == 0 then { this } else { this * 2 }
-            case 3: this.x -> return
-        }`,
+        unparsed: `a --> this.x = 11 -> this % 2 -> switch 2 { case 0: if this == 0 then { this } else { this * 2 } case 3: this.x -> return }`,
     },
     {
         parsed: [

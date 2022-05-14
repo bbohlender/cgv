@@ -1,4 +1,4 @@
-import { freeze } from "immer"
+import produce, { freeze } from "immer"
 import { filterNull, traverseSteps } from "."
 import type {
     AbstractParsedGrammarDefinition,
@@ -6,6 +6,12 @@ import type {
     ParsedGrammarDefinition,
     ParsedSteps,
 } from "../parser"
+import {
+    HierarchicalParsedGrammarDefinition,
+    HierarchicalParsedSteps,
+    HierarchicalPath,
+    toHierarchicalSteps,
+} from "./hierarchical"
 
 /**
  * map of dependencies
@@ -88,19 +94,73 @@ export function isNounOfDescription(descriptionName: string, nounName: string): 
     return nounName.endsWith(`@${descriptionName}`)
 }
 
-export function globalizeNoun(name: string, descriptionName: string): string {
+export function globalizeNoun(name: string, descriptionName: string | undefined): string {
+    if (descriptionName == null) {
+        throw new Error(`unable to globalize noun with undefined description name`)
+    }
     if (name.includes("@")) {
         return name
     }
     return `${name}@${descriptionName}`
 }
 
-export function localizeNoun(name: string, descriptionName: string): string {
+export function localizeNoun(name: string, descriptionName: string | undefined): string {
+    descriptionName = descriptionName ?? getDescriptionOfNoun(name)
     if (!name.endsWith(`@${descriptionName}`)) {
         return name
     }
     return name.slice(0, -descriptionName.length - 1)
 }
+
+function transformStep(
+    transformFn: (name: string, descriptionName: string | undefined) => string,
+    step: ParsedSteps,
+    descriptionName: string | undefined,
+    ...basePath: HierarchicalPath
+): HierarchicalParsedSteps {
+    return produce(step, (draft) => {
+        transformStepOnDraft(draft, descriptionName, transformFn)
+        return toHierarchicalSteps(draft, ...basePath)
+    }) as HierarchicalParsedSteps
+}
+function transformStepOnDraft(
+    step: ParsedSteps,
+    descriptionName: string | undefined,
+    transformFn: (name: string, descriptionName: string | undefined) => string
+): void {
+    if (step.type === "symbol") {
+        step.identifier = transformFn(step.identifier, descriptionName)
+        return
+    }
+    if (step.children == null) {
+        return
+    }
+    for (const child of step.children) {
+        transformStepOnDraft(child, descriptionName, transformFn)
+    }
+}
+
+export const globalizeStep = transformStep.bind(null, globalizeNoun)
+export const localizeStep = transformStep.bind(null, localizeNoun)
+
+function transformDescription<T>(
+    transformFn: (name: string, descriptionName: string | undefined) => string,
+    description: ParsedGrammarDefinition,
+    descriptionName: string | undefined
+): HierarchicalParsedGrammarDefinition {
+    return freeze(
+        description.map((noun) => {
+            const name = transformFn(noun.name, descriptionName)
+            return {
+                name,
+                step: transformStep(transformFn, noun.step, descriptionName, name),
+            }
+        })
+    )
+}
+
+export const globalizeDescription = transformDescription.bind(null, globalizeNoun)
+export const localizeDescription = transformDescription.bind(null, localizeNoun)
 
 export function getDescriptionOfNoun(nounName: string): string {
     const splits = nounName.split("@")
@@ -130,25 +190,6 @@ export function globalizeStepsSerializer(descriptionName: string, step: ParsedSt
     const name = typeof step === "string" ? step : step.type === "symbol" ? step.identifier : undefined
     if (name != null) {
         return globalizeNoun(name, descriptionName)
-    }
-}
-
-export function globalizeDescription(description: ParsedGrammarDefinition, descriptionName: string): void {
-    for (const noun of description) {
-        noun.name = globalizeNoun(noun.name, descriptionName)
-        globalizeStepsRecursive(noun.step, descriptionName)
-    }
-}
-
-function globalizeStepsRecursive(step: ParsedSteps, descriptionName: string): void {
-    if (step.type === "symbol") {
-        step.identifier = globalizeNoun(step.identifier, descriptionName)
-    }
-    if (step.children == null) {
-        return
-    }
-    for (const child of step.children) {
-        globalizeStepsRecursive(child, descriptionName)
     }
 }
 

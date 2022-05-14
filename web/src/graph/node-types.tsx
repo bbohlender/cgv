@@ -3,12 +3,95 @@ import {
     getStepLabel,
     HierarchicalParsedGrammarDefinition,
     HierarchicalParsedSteps,
+    localizeStepsSerializer,
+    ParsedSteps,
     SelectedSteps,
+    serializeStepString,
 } from "cgv"
 import { Handle, NodeProps, NodeTypes, Position } from "react-flow-renderer"
 import { BaseState } from "../base-state"
-import { useBaseStore, useBaseStoreState } from "../global"
+import { useBaseStoreState } from "../global"
 import { childrenSelectable, OperationGUIMap } from "../gui"
+import { nodeHeight, nodeWidth } from "./create-graph"
+
+export type EdgeInfo = {
+    source: HierarchicalParsedSteps | string
+    target: HierarchicalParsedSteps
+    label: string | undefined
+    isMain: boolean
+    index: number | undefined
+}
+
+function getEdgeInfo(
+    source: HierarchicalParsedSteps | string,
+    target: HierarchicalParsedSteps,
+    targetIndex: number
+): EdgeInfo {
+    if (typeof source === "string") {
+        return {
+            source,
+            isMain: true,
+            index: 0,
+            label: undefined,
+            target,
+        }
+    }
+    switch (source.type) {
+        case "random":
+            return {
+                source,
+                label: `${(source.probabilities[targetIndex!] * 100).toFixed()}%`,
+                isMain: true,
+                index: targetIndex!,
+                target,
+            }
+        case "if":
+            if (targetIndex == 0) {
+                throw new Error(`no connection info for if condition`)
+            }
+            return {
+                source,
+                label: targetIndex === 1 ? "then" : "else",
+                isMain: true,
+                index: targetIndex! - 1,
+                target,
+            }
+        case "switch":
+            if (targetIndex == 0) {
+                throw new Error(`no connection info for switch condition`)
+            }
+            return {
+                source,
+                label: `case ${source.cases[targetIndex! - 1]}`,
+                isMain: true,
+                index: targetIndex!,
+                target,
+            }
+        default:
+            return {
+                source,
+                label: undefined,
+                isMain: false,
+                index: targetIndex,
+                target,
+            }
+    }
+}
+
+export function getEdgeInfos(step: HierarchicalParsedSteps, operationGuiMap: OperationGUIMap): Array<EdgeInfo> {
+    switch (step.type) {
+        case "switch":
+        case "if":
+            return step.children.slice(1).map((child, i) => getEdgeInfo(step, child, i + 1))
+        default:
+            return childrenSelectable(operationGuiMap, step)
+                ? step.children?.map((child, i) => getEdgeInfo(step, child, i)) ?? []
+                : []
+    }
+}
+
+const paddingValue = 16
+const fontSize = 24
 
 export const nodeTypes: NodeTypes = {
     step: StepNodeType,
@@ -16,33 +99,30 @@ export const nodeTypes: NodeTypes = {
 }
 
 export function StepNodeType({
-    data: { step, descriptionName, operationGuiMap },
-}: NodeProps<{ step: HierarchicalParsedSteps; descriptionName: string; operationGuiMap: OperationGUIMap }>) {
-    const cssClassName = useBaseStoreState(state => computeCssClassName(step, state))
-    const children = step.children != null && childrenSelectable(operationGuiMap, step) ? step.children : undefined
+    data: { step, content, connections },
+}: NodeProps<{
+    step: HierarchicalParsedSteps
+    content: string
+    connections: Array<any>
+}>) {
+    const cssClassName = useBaseStoreState((state) => computeCssClassName(step, state))
     return (
         <div
-            style={{ paddingBottom: `${0.25 + 1 * (children?.length ?? 0)}rem` }}
-            className={`${cssClassName} text-light position-relative px-3 pt-1 border rounded d-flex flex-row align-items-center`}>
+            style={{ width: nodeWidth, height: nodeHeight, overflow: "hidden" }}
+            className={`${cssClassName} align-items-center justify-content-center p-2 text-light position-relative border rounded d-flex flex-row align-items-center`}>
             <Handle
                 type="target"
-                style={{ position: "absolute", top: "calc(0.25rem + 16px)" }}
+                style={{ position: "absolute", top: paddingValue + fontSize / 2 }}
                 position={Position.Left}
             />
 
-            {getStepLabel(step, descriptionName)}
+            <span>{content}</span>
 
-            <Handle
-                type="source"
-                style={{ position: "absolute", top: "calc(0.25rem + 16px)" }}
-                position={Position.Right}
-                id="next"
-            />
-            {children?.map((_, i) => (
+            {connections.map((_, i) => (
                 <Handle
                     style={{
                         position: "absolute",
-                        bottom: `${(children.length - i - 1) * 1 + 0.5}rem`,
+                        bottom: (connections.length - i - 1) * paddingValue,
                         top: "unset",
                     }}
                     type="source"
@@ -55,15 +135,20 @@ export function StepNodeType({
 }
 
 export function NounNodeType({
-    data: { noun, descriptionName },
-}: NodeProps<{ noun: HierarchicalParsedGrammarDefinition[number]; descriptionName: string }>) {
-    const cssClassName = useBaseStoreState(state => computeCssClassName(noun.name, state))
+    data: { content, noun },
+}: NodeProps<{
+    width: number
+    height: number
+    content: string
+    noun: HierarchicalParsedGrammarDefinition[number]
+}>) {
+    const cssClassName = useBaseStoreState((state) => computeCssClassName(noun.name, state))
     return (
         <div
-            className={`${cssClassName} text-light position-relative px-3 py-1 border rounded d-flex flex-row align-items-center`}>
-            {getNounLabel(noun.name, descriptionName)}
-
-            <Handle type="source" id="next" position={Position.Right} />
+            style={{ padding: paddingValue, width: nodeWidth, height: nodeHeight, overflow: "hidden" }}
+            className={`${cssClassName} align-items-center justify-content-center text-light position-relative border rounded scroll d-flex flex-row align-items-center`}>
+            <span style={{ fontSize }}>{content}</span>
+            <Handle type="source" id="0" position={Position.Right} />
         </div>
     )
 }

@@ -147,8 +147,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                         className="bg-light border rounded shadow w-100 mb-3 overflow-hidden"
                         style={{
                             maxWidth: "16rem",
-                            pointerEvents: "all",
-                            whiteSpace: "pre",
+                            pointerEvents: "all"
                         }}
                     />
                     <div className="flex-grow-1"></div>

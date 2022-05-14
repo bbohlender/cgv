@@ -1,3 +1,4 @@
+import { v3 } from "murmurhash"
 import {
     delay,
     EMPTY,
@@ -118,6 +119,7 @@ export type Value<T, A> = {
 }
 
 export type InterpreterOptions<T, A, I> = Readonly<{
+    seed?: number
     delay?: number
     maxSymbolDepth?: number
     annotateBeforeStep?: (value: Value<T, A>, step: AbstractParsedSteps<I>) => A
@@ -478,6 +480,8 @@ function interpreteThis<T, A>(next: MonoTypeOperatorFunction<Value<T, A>>): Mono
     return next
 }
 
+const _32bit_max_int = Math.pow(2, 32)
+
 function interpreteRandom<T, A, I>(
     step: ParsedRandom,
     context: InterpretionContext<T, A, I>,
@@ -486,8 +490,8 @@ function interpreteRandom<T, A, I>(
     const options = step.children.map((child) => interpreteStep(child, context, next))
     return (input) =>
         input.pipe(
-            groupBy(() => {
-                const rand = Math.random()
+            groupBy((value) => {
+                const rand = v3(value.index.join(","), context.seed) / _32bit_max_int
                 let sum = 0
                 for (let i = 0; i < step.probabilities.length; i++) {
                     sum += step.probabilities[i]

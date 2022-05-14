@@ -1,4 +1,4 @@
-import produce, { freeze } from "immer"
+import produce, { freeze, original } from "immer"
 import { EditorState, ValueMap, SelectionsList, SelectionPattern, ConditionSelector } from "."
 import {
     toHierarchicalSteps,
@@ -7,13 +7,18 @@ import {
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
-import { AbstractParsedGrammarDefinition, ParsedSteps } from "../parser"
+import { AbstractParsedGrammarDefinition, ParsedGrammarDefinition, ParsedSteps } from "../parser"
 import {
     computeDependencies,
+    DependencyMap,
     getDescriptionOfNoun,
     getIndexRelation,
     getNounIndex,
+    globalizeDescription,
+    globalizeNoun,
     HierarchicalRelation,
+    localizeDescription,
+    localizeNoun,
     traverseSteps,
 } from "../util"
 import { insert } from "./insert"
@@ -75,6 +80,60 @@ export async function setName<T, A>(
         ...state,
         selectionsList: [{ steps: name, values: [] }],
     }
+}
+
+export function copyNoun(
+    globalDescription: ParsedGrammarDefinition,
+    localNounName: string,
+    fromDescriptionName: string,
+    toDescriptionName: string,
+    added = new Set<string>()
+): HierarchicalParsedGrammarDefinition {
+    const oldGlobalNounName = globalizeNoun(localNounName, fromDescriptionName)
+    const newGlobalNounName = globalizeNoun(localNounName, toDescriptionName)
+    const noun = globalDescription.find((noun) => noun.name === oldGlobalNounName)
+    if (noun == null) {
+        throw new Error(`unknown noun "${oldGlobalNounName}"`)
+    }
+    const missingDependencies: Array<{ localNounName: string; descriptionName: string }> = []
+    const newStep = produce(noun.step, (draft) => {
+        traverseSteps(draft, (step) => {
+            if (step.type === "symbol") {
+                const descriptionName = getDescriptionOfNoun(step.identifier)
+                if (descriptionName == toDescriptionName) {
+                    return
+                }
+                const localNounName = localizeNoun(step.identifier, descriptionName)
+                const newGlobalNounName = globalizeNoun(localNounName, toDescriptionName)
+                step.identifier = newGlobalNounName
+                if (
+                    globalDescription.find((noun) => noun.name === newGlobalNounName) == null && //checks if the noun already exisits in the destination description
+                    !added.has(localNounName) //to prevent endless loops in recursive descriptions
+                ) {
+                    missingDependencies.push({
+                        localNounName: localNounName,
+                        descriptionName: descriptionName,
+                    })
+                }
+            }
+        })
+        return toHierarchicalSteps(draft, newGlobalNounName)
+    }) as HierarchicalParsedSteps
+
+    added.add(localNounName)
+
+    const copiedNoun: HierarchicalParsedGrammarDefinition[number] = {
+        name: newGlobalNounName,
+        step: newStep,
+    }
+
+    return freeze(
+        missingDependencies.reduce<HierarchicalParsedGrammarDefinition>(
+            (prev, { descriptionName, localNounName }) =>
+                prev.concat(copyNoun(globalDescription, localNounName, descriptionName, toDescriptionName, added)),
+            [copiedNoun]
+        )
+    )
 }
 
 export async function renameNoun<T, A>(

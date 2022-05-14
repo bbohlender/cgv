@@ -1,6 +1,9 @@
 import {
     computeDependencies,
     getLocalDescription,
+    globalizeDescription,
+    globalizeStepsSerializer,
+    localizeDescription,
     localizeStepsSerializer,
     parse,
     parseDescription,
@@ -65,7 +68,9 @@ describe("description", () => {
     })
 
     it("should compute nested dendencies", () => {
-        const globalDescription = parse("a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> k@4 | m@3\nm@3 --> 1\nc@3 --> k@4\nk@4 --> 22")
+        const globalDescription = parse(
+            "a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> k@4 | m@3\nm@3 --> 1\nc@3 --> k@4\nk@4 --> 22"
+        )
         const dependencies = computeDependencies(globalDescription)
         expect(dependencies).to.deep.equal({
             "a@1": ["b@2", "a@1", "k@4", "m@3"],
@@ -90,5 +95,19 @@ describe("description", () => {
         expect(serializeString(localDescription, localizeStepsSerializer.bind(null, "1"))).to.equal(
             "a --> b@2 | a | 1 -> 2\n\nb@2 --> k@4\n\nk@4 --> 22"
         )
+    })
+
+    it("should globalize description", () => {
+        for (const { parsed, unparsed } of parsedAndUnparsedGrammarPairs) {
+            expect(
+                serializeString(globalizeDescription(parsed, "abc"), localizeStepsSerializer.bind(null, "abc"))
+            ).to.deep.equal(unparsed)
+        }
+    })
+
+    it("should localize description", () => {
+        for (const { parsed, unparsed } of parsedAndUnparsedGrammarPairs) {
+            expect(localizeDescription(parseDescription(unparsed, "abc"), "abc")).to.deep.equal(parsed)
+        }
     })
 })

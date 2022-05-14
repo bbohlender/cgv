@@ -34,6 +34,7 @@
     "dependencies": {
         "immer": "^9.0.12",
         "moo": "^0.5.1",
+        "murmurhash": "^2.0.0",
         "pbf": "^3.2.1",
         "rxjs": "^7.5.5",
         "three": "^0.139.2",

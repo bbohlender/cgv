@@ -298,7 +298,6 @@ describe("interprete grammar", () => {
 
         expect(results.length).to.be.greaterThan(10)
 
-
         let resultsIndex = 0
         for (let i = 0; i < expected.length; i++) {
             if (shallowEqual(expected[i], results[resultsIndex])) {
@@ -433,6 +432,28 @@ describe("interprete grammar", () => {
             map((values) => values.map(({ raw }) => raw))
         )
         await expect(lastValueFrom(result)).to.be.eventually.rejectedWith(`unknown operation "drive"`)
+    })
+
+    it("should should interprete random based on seed", async () => {
+        const seeds = [4, 8, 3, 50, 50]
+        const description = parse(`a --> { 25%: 1 25%: 2 25%: 3 25%: 4 }`)
+        const results: Array<number> = []
+
+        for (const seed of seeds) {
+            results.push(
+                (
+                    await lastValueFrom(
+                        of(1).pipe(
+                            toValue(),
+                            interprete(description, {}, { seed }),
+                            toArray(),
+                            map((values) => values.map(({ raw }) => raw))
+                        )
+                    )
+                )[0]
+            )
+        }
+        expect(results).to.deep.equal([1, 2, 3, 4, 4])
     })
 
     //TODO: test attribute changes

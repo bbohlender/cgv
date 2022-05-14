@@ -16,8 +16,7 @@ export function parse(text: string): ParsedGrammarDefinition {
 export function parseDescription(text: string, descriptionName: string): ParsedGrammarDefinition {
     const result = parse(text)
     //transform the result
-    globalizeDescription(result, descriptionName)
-    return result
+    return globalizeDescription(result, descriptionName)
 }
 
 export type ParsedGrammarDefinition = AbstractParsedGrammarDefinition<unknown>

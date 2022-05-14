@@ -20,6 +20,9 @@ import {
     ParsedSteps,
     idSelectionPattern,
     ConditionSelector,
+    copyNoun,
+    parse,
+    computeDependencies,
 } from "../src"
 import { validateHierarchical } from "./hierarchical"
 
@@ -333,36 +336,6 @@ describe("editor", () => {
         )
     })
 
-    it("should rename noun", async () => {
-        const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\n\nb --> 2`, "test"))
-        const { grammar } = await renameNoun(
-            {},
-            [{ steps: "b@test", values: [] }],
-            [idSelectionPattern],
-            defaultConditionSelection,
-            "xyz@test",
-            inputGrammar
-        )
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a --> 1 | xyz * 2 -> this + 3\n\nxyz --> 2`
-        )
-    })
-
-    it("should remove step at noun", async () => {
-        const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b -> this + 3\n\nb --> 2`, "test"))
-        const { grammar } = await removeStep(
-            {},
-            [{ steps: "b@test", values: [] }],
-            [idSelectionPattern],
-            defaultConditionSelection,
-            {},
-            inputGrammar
-        )
-        expect(() => validateHierarchical(grammar)).to.not.throw()
-        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a --> 1 | this + 3`)
-    })
-
     it("should remove step from parallel", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\n\nb --> 2`, "test"))
         const { grammar } = await removeStep(
@@ -492,6 +465,56 @@ describe("editor", () => {
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
             `a --> 1 | b * if true then { null } else { 3 } -> this + 3\n\nb --> 2`
+        )
+    })
+
+    it("should remove step at noun", async () => {
+        const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b -> this + 3\n\nb --> 2`, "test"))
+        const { grammar } = await removeStep(
+            {},
+            [{ steps: "b@test", values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
+            {},
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(`a --> 1 | this + 3`)
+    })
+})
+
+describe("noun", () => {
+    it("should rename noun", async () => {
+        const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\n\nb --> 2`, "test"))
+        const { grammar } = await renameNoun(
+            {},
+            [{ steps: "b@test", values: [] }],
+            [idSelectionPattern],
+            defaultConditionSelection,
+            "xyz@test",
+            inputGrammar
+        )
+        expect(() => validateHierarchical(grammar)).to.not.throw()
+        expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
+            `a --> 1 | xyz * 2 -> this + 3\n\nxyz --> 2`
+        )
+    })
+
+    it("should copy noun", () => {
+        const globalDescription = parse(
+            `a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> k@4 | m@3\nm@3 --> c@3\nc@3 --> k@4\nk@4 --> 22`
+        )
+        expect(serializeString(globalDescription.concat(copyNoun(globalDescription, "b", "2", "3")))).to.equal(
+            `a@1 --> b@2 | a@1 | 1 -> 2\n\nb@2 --> k@4 | m@3\n\nm@3 --> c@3\n\nc@3 --> k@4\n\nk@4 --> 22\n\nb@3 --> k@3 | m@3\n\nk@3 --> 22`
+        )
+    })
+    
+    it("should copy noun with recursive references", () => {
+        const globalDescription = parse(
+            `a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> k@4 | m@3\nm@3 --> c@3\nc@3 --> k@4\nk@4 --> b@2`
+        )
+        expect(serializeString(globalDescription.concat(copyNoun(globalDescription, "b", "2", "3")))).to.equal(
+            `a@1 --> b@2 | a@1 | 1 -> 2\n\nb@2 --> k@4 | m@3\n\nm@3 --> c@3\n\nc@3 --> k@4\n\nk@4 --> b@2\n\nb@3 --> k@3 | m@3\n\nk@3 --> b@3`
         )
     })
 })

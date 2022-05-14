@@ -35,6 +35,10 @@ import {
     ConditionSelector,
     getIndexRelation,
     HierarchicalRelation,
+    AbstractParsedGrammarDefinition,
+    localizeNoun,
+    toHierarchicalSteps,
+    copyNoun,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -171,6 +175,34 @@ function createBaseStateFunctions(
                     ),
                 })
             }
+        },
+        copyNoun: async (step: HierarchicalParsedSteps, globalNounName: string) => {
+            const state = get()
+            if (state.type !== "gui" || state.selectedDescription == null) {
+                return
+            }
+            const currentDescriptionName = getDescriptionOfNoun(globalNounName)
+            const localNounName = localizeNoun(globalNounName, currentDescriptionName)
+            const copiedNouns = copyNoun(
+                state.grammar,
+                localNounName,
+                currentDescriptionName,
+                state.selectedDescription
+            )
+
+            const joinedPath = getSelectedStepsJoinedPath(step)
+            set(
+                await replace(
+                    state.valueMap,
+                    state.selectionsList.filter((selections) =>
+                        compareSelectedStepsPath(selections.steps, step, joinedPath)
+                    ),
+                    patterns,
+                    selectCondition,
+                    () => ({ type: "symbol", identifier: globalizeNoun(localNounName, state.selectedDescription) }),
+                    state.grammar.concat(copiedNouns)
+                )
+            )
         },
         addDescriptions: (newDescriptions: Array<{ name: string; step?: ParsedSteps }>) => {
             let { descriptions, grammar, dependencyMap } = get()

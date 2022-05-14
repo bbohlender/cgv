@@ -14,6 +14,7 @@ import { HTMLProps, useMemo } from "react"
 import { UseBaseStore, useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
+import { GUIIfStep } from "./if"
 import { MultiSelect } from "./multi-select"
 import { GUINounStep } from "./noun"
 import { GUIOperation } from "./operation"
@@ -54,7 +55,11 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     return (
         <div {...rest} className={`${className} d-flex flex-column px-0 pt-3`}>
             <div className="d-flex flex-column overflow-hidden">
-                <div className="btn-group mx-3 mb-1 d-flex">
+                <div
+                    style={{
+                        whiteSpace: "pre",
+                    }}
+                    className="btn-group mx-3 mb-1 d-flex">
                     <button
                         onClick={requestAdd.bind(null, store, "before")}
                         className="btn btn-sm btn-outline-success flex-grow-1 flex-basis-0">
@@ -72,7 +77,11 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                     </button>
                 </div>
 
-                <div className="btn-group mx-3 mb-1 d-flex">
+                <div
+                    style={{
+                        whiteSpace: "pre",
+                    }}
+                    className="btn-group mx-3 mb-1 d-flex">
                     <button
                         onClick={requestReplace.bind(null, store)}
                         className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
@@ -84,7 +93,11 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         Set-Name
                     </button>
                 </div>
-                <div className="btn-group mx-3 mb-3 d-flex">
+                <div
+                    style={{
+                        whiteSpace: "pre",
+                    }}
+                    className="btn-group mx-3 mb-3 d-flex">
                     <button
                         onClick={() => {
                             store.getState().unselectAll()
@@ -181,6 +194,8 @@ function GUISteps({
             return <GUIRandomStep step={step} values={values} />
         case "switch":
             return <GUISwitchStep step={step} values={values} />
+        case "if":
+            return <GUIIfStep step={step} values={values} />
         default:
             return null
     }

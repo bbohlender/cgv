@@ -12,9 +12,7 @@ describe("parse grammar", () => {
 
     it("should parse grammars from test-data transformed with description name", () => {
         for (const { parsed, unparsed } of parsedAndUnparsedGrammarPairs) {
-            expect(parseDescription(unparsed, "testName")).to.deep.equal(
-                produce(parsed, (draft) => globalizeDescription(draft, "testName"))
-            )
+            expect(parseDescription(unparsed, "testName")).to.deep.equal(globalizeDescription(parsed, "testName"))
         }
     })
 
