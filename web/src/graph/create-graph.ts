@@ -1,8 +1,13 @@
-import { getNounLabel, getStepLabel, HierarchicalParsedGrammarDefinition, HierarchicalParsedSteps } from "cgv"
+import {
+    getNounLabel,
+    getStepLabel,
+    HierarchicalParsedGrammarDefinition,
+    HierarchicalParsedSteps,
+    ParsedSteps,
+} from "cgv"
 import { graphlib, layout } from "dagre"
 import { Edge, Node, Position } from "react-flow-renderer"
-import { OperationGUIMap } from "../gui"
-import { EdgeInfo, getEdgeInfos } from "./node-types"
+import { childrenSelectable, OperationGUIMap } from "../gui"
 
 export function createGraph(
     allNodes: Array<Node>,
@@ -14,41 +19,14 @@ export function createGraph(
     const graph = new graphlib.Graph()
     graph.setGraph({ rankdir: "LR" })
     for (const noun of description) {
-        const id = `noun-${noun.name}`
         const content = getNounLabel(noun.name, descriptionName)
-        allNodes.push({
-            data: { noun, content },
-            type: "noun",
-            id,
-            position: { x: 0, y: 0 },
-            connectable: false,
-            selectable: false,
-            draggable: false,
-        })
-        graph.setNode(id, {
-            width: nodeWidth + edgeSpace,
-            height: nodeHeight + edgeSpace,
-        })
-        createGraphNode(
-            0,
-            allNodes,
-            allEdges,
-            graph,
-            noun.step,
-            descriptionName,
-            [
-                {
-                    index: 0,
-                    isMain: true,
-                    label: undefined,
-                    source: noun.name,
-                    target: noun.step,
-                },
-            ],
-            operationGuiMap
-        )
+        addNode(noun.name, "noun", { content }, allNodes, graph)
+
+        const connections = getConnections(noun, operationGuiMap, undefined)
+        addConnections(connections, allEdges, graph)
+
+        createGraphNode(allNodes, allEdges, graph, noun.step, descriptionName, operationGuiMap, undefined)
     }
-    console.log(allNodes, allEdges)
     layout(graph)
     for (const node of allNodes) {
         const { x, y, width, height } = graph.node(node.id)
@@ -59,6 +37,7 @@ export function createGraph(
         //node.width = width
         //node.height = height
     }
+    console.log(allNodes, allEdges)
 }
 
 const edgeSpace = 30
@@ -66,78 +45,84 @@ export const nodeWidth = 140
 export const nodeHeight = 50
 
 function createGraphNode(
-    indexOffset: number,
     allNodes: Array<Node>,
     allEdges: Array<Edge>,
     graph: graphlib.Graph,
     step: HierarchicalParsedSteps,
     descriptionName: string,
-    incommingEdges: Array<EdgeInfo>,
-    operationGuiMap: OperationGUIMap
-): Array<EdgeInfo> {
+    operationGuiMap: OperationGUIMap,
+    nextNode: HierarchicalParsedSteps | undefined
+): void {
     if (step.type === "sequential") {
         for (let i = 0; i < step.children.length; i++) {
-            const sequentialStep = step.children[i]
-            if (i > 0) {
-                for (const outgoingEdge of incommingEdges) {
-                    
-                }
-            }
-            incommingEdges = createGraphNode(
-                i > 0 ? 1 : 0,
+            createGraphNode(
                 allNodes,
                 allEdges,
                 graph,
-                sequentialStep,
+                step.children[i],
                 descriptionName,
-                incommingEdges,
-                operationGuiMap
+                operationGuiMap,
+                step.children[i + 1] ?? nextNode
             )
         }
-        return incommingEdges
+        return
     }
 
     if (step.type === "parallel") {
-        return step.children.reduce<Array<EdgeInfo>>(
-            (result, child) =>
-                result.concat(
-                    createGraphNode(
-                        0,
-                        allNodes,
-                        allEdges,
-                        graph,
-                        child,
-                        descriptionName,
-                        incommingEdges,
-                        operationGuiMap
-                    )
-                ),
-            []
-        )
+        for (const child of step.children) {
+            createGraphNode(allNodes, allEdges, graph, child, descriptionName, operationGuiMap, nextNode)
+        }
+        return
     }
 
-    const id = step.path.join(",")
-
-    for (const { index, isMain, label, source } of incommingEdges) {
-        const parentId = typeof source === "string" ? `noun-${source}` : source.path.join(",")
-        graph.setEdge(parentId, id, {})
-        allEdges.push({
-            id: getEdgeId(parentId, id),
-            sourceHandle: (index! + indexOffset).toString(),
-            source: parentId,
-            target: id,
-            label,
-            animated: true,
-            style: isMain ? { stroke: "#88f", strokeWidth: 4 } : { stroke: "#999", strokeWidth: 2 },
-        })
-    }
+    const connections = getConnections(step, operationGuiMap, nextNode)
 
     const content = getStepLabel(step, descriptionName)
-    const outEdges = getEdgeInfos(step, operationGuiMap)
+    const hasParameters = connections.find(({ isMain }) => !isMain) != null
+    addNode(step, "step", { content, hasParameters }, allNodes, graph)
 
+    addConnections(connections, allEdges, graph)
+
+    if (step.children == null) {
+        return
+    }
+
+    const conditional = isConditional(step)
+
+    for (let i = 0; i < step.children.length; i++) {
+        if (!followChild(step, i, operationGuiMap)) {
+            continue
+        }
+        createGraphNode(
+            allNodes,
+            allEdges,
+            graph,
+            step.children[i],
+            descriptionName,
+            operationGuiMap,
+            conditional ? nextNode : undefined
+        )
+    }
+}
+
+type Connection = {
+    source: HierarchicalParsedSteps | string
+    target: HierarchicalParsedSteps
+    label: string | undefined
+    isMain: boolean
+}
+
+function addNode(
+    value: string | HierarchicalParsedSteps,
+    type: "step" | "noun",
+    data: { content: string; hasParameters?: boolean },
+    allNodes: Array<Node>,
+    graph: graphlib.Graph
+): void {
+    const id = getNodeId(value)
     allNodes.push({
-        data: { step, content, connections: outEdges },
-        type: "step",
+        data: { ...data, value },
+        type,
         id,
         position: { x: 0, y: 0 },
         connectable: false,
@@ -146,27 +131,149 @@ function createGraphNode(
     })
 
     graph.setNode(id, { width: nodeWidth + edgeSpace, height: nodeHeight + edgeSpace })
+}
 
-    return outEdges
-        .reduce<Array<EdgeInfo>>(
-            (result, info) =>
-                result.concat(
-                    createGraphNode(
-                        0,
-                        allNodes,
-                        allEdges,
-                        graph,
-                        info.target,
-                        descriptionName,
-                        incommingEdges,
-                        operationGuiMap
-                    )
-                ),
+function addConnections(connections: Array<Connection>, allEdges: Array<Edge>, graph: graphlib.Graph): void {
+    for (const { isMain, label, source, target } of connections) {
+        const sourceId = getNodeId(source)
+        const targetId = getNodeId(target)
+        graph.setEdge(sourceId, targetId, {})
+        allEdges.push({
+            id: getEdgeId(sourceId, targetId),
+            sourceHandle: isMain ? "main" : "parameter",
+            source: sourceId,
+            target: targetId,
+            label,
+            animated: true,
+            style: isMain ? { stroke: "#88f", strokeWidth: 4 } : { stroke: "#999", strokeWidth: 2 },
+        })
+    }
+}
+
+function followChild(parent: HierarchicalParsedSteps, index: number, operationGuiMap: OperationGUIMap): boolean {
+    switch (parent.type) {
+        case "switch":
+        case "if":
+            return index > 0
+        case "operation":
+            return childrenSelectable(operationGuiMap, parent)
+        default:
+            return true
+    }
+}
+
+/**
+ * @returns children that should be displayed in the graph
+ */
+function getConnections(
+    step: HierarchicalParsedSteps | HierarchicalParsedGrammarDefinition[number],
+    operationGuiMap: OperationGUIMap,
+    nextNode: HierarchicalParsedSteps | undefined
+): Array<Connection> {
+    if ("name" in step) {
+        return resolveRealStep(step.step).map((realStep) => ({
+            isMain: true,
+            label: undefined,
+            source: step.name,
+            target: realStep,
+        }))
+    }
+    const nextNodeConnections: Array<Connection> =
+        nextNode == null
+            ? []
+            : resolveRealStep(nextNode).map((nextStep) => ({
+                  isMain: true,
+                  label: undefined,
+                  source: step,
+                  target: nextStep,
+              }))
+    switch (step.type) {
+        case "random":
+            return step.children.reduce<Array<Connection>>(
+                (prev, child, i) =>
+                    prev.concat(
+                        resolveRealStep(child).map((child) => ({
+                            source: step,
+                            label: `${(step.probabilities[i] * 100).toFixed()}%`,
+                            isMain: true,
+                            target: child,
+                        }))
+                    ),
+                []
+            )
+        case "if":
+            return resolveRealStep(step.children[1])
+                .map((child) => ({
+                    source: step,
+                    label: `then`,
+                    isMain: true,
+                    target: child,
+                }))
+                .concat(
+                    resolveRealStep(step.children[2]).map((child) => ({
+                        source: step,
+                        label: `else`,
+                        isMain: true,
+                        target: child,
+                    }))
+                )
+        case "switch":
+            return step.children.slice(1).reduce<Array<Connection>>(
+                (prev, child, i) =>
+                    prev.concat(
+                        resolveRealStep(child).map((child) => ({
+                            source: step,
+                            label: `case ${step.cases[i]}`,
+                            isMain: true,
+                            target: child,
+                        }))
+                    ),
+                []
+            )
+        default: {
+            const children =
+                step.type !== "operation" || childrenSelectable(operationGuiMap, step) ? step.children : undefined
+            return children != null
+                ? nextNodeConnections.concat(
+                      children.reduce<Array<Connection>>(
+                          (prev, child) =>
+                              prev.concat(
+                                  resolveRealStep(child).map((child) => ({
+                                      isMain: false,
+                                      label: undefined,
+                                      source: step,
+                                      target: child,
+                                  }))
+                              ),
+                          []
+                      )
+                  )
+                : nextNodeConnections
+        }
+    }
+}
+
+function resolveRealStep(step: HierarchicalParsedSteps): Array<HierarchicalParsedSteps> {
+    if (step.type === "parallel") {
+        return step.children.reduce<Array<HierarchicalParsedSteps>>(
+            (prev, child) => prev.concat(resolveRealStep(child)),
             []
         )
-        .filter(({ isMain }) => isMain)
+    }
+    if (step.type === "sequential") {
+        return resolveRealStep(step.children[0])
+    }
+    return [step]
 }
 
 function getEdgeId(sourceId: string, targetId: string): string {
     return `${sourceId}-${targetId}`
+}
+
+function getNodeId(step: string | HierarchicalParsedSteps): string {
+    return typeof step === "string" ? `noun-${step}` : `step-${step.path.join(",")}`
+}
+
+function isConditional(step: HierarchicalParsedSteps): boolean {
+    return step.type === "random" || step.type === "if" || step.type === "switch"
 }

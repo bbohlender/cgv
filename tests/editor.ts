@@ -147,6 +147,50 @@ describe("editor", () => {
         )
     })
 
+    it("should insert after and simplify", async () => {
+        const inputGrammar = toHierarchical(parse("a --> 1 -> 2"))
+        const v0 = mockValue([])
+        const { grammar } = await insert(
+            {
+                "a,1": [{ after: v0, before: v0 }],
+            },
+            [
+                {
+                    steps: getLastStepInPath(["a", 1], inputGrammar),
+                    values: [{ after: v0, before: v0 }],
+                },
+            ],
+            [],
+            defaultConditionSelection,
+            "after",
+            () => ({ type: "raw", value: 3 }),
+            inputGrammar
+        )
+        expect(grammar).to.deep.equal(toHierarchical(parse("a --> 1 -> 2 -> 3")))
+    })
+
+    it("should insert parallel and simplify", async () => {
+        const inputGrammar = toHierarchical(parse("a --> 1 | 2"))
+        const v0 = mockValue([])
+        const { grammar } = await insert(
+            {
+                "a,1": [{ after: v0, before: v0 }],
+            },
+            [
+                {
+                    steps: getLastStepInPath(["a", 1], inputGrammar),
+                    values: [{ after: v0, before: v0 }],
+                },
+            ],
+            [],
+            defaultConditionSelection,
+            "parallel",
+            () => ({ type: "raw", value: 3 }),
+            inputGrammar
+        )
+        expect(grammar).to.deep.equal(toHierarchical(parse("a --> 1 | 2 | 3")))
+    })
+
     it("should do nothing with no selection", async () => {
         const inputGrammar = toHierarchical(parseDescription(`a --> 1 | this * 2 -> this + 3`, "test"))
         const [v1, v2] = [mockValue([0, 1]), mockValue([1, 2])]
@@ -508,7 +552,7 @@ describe("noun", () => {
             `a@1 --> b@2 | a@1 | 1 -> 2\n\nb@2 --> k@4 | m@3\n\nm@3 --> c@3\n\nc@3 --> k@4\n\nk@4 --> 22\n\nb@3 --> k@3 | m@3\n\nk@3 --> 22`
         )
     })
-    
+
     it("should copy noun with recursive references", () => {
         const globalDescription = parse(
             `a@1 --> b@2 | a@1 | 1 -> 2\nb@2 --> k@4 | m@3\nm@3 --> c@3\nc@3 --> k@4\nk@4 --> b@2`

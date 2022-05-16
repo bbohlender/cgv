@@ -55,31 +55,15 @@ export function Graph() {
                 style={{ zIndex: 0 }}
                 nodes={nodes}
                 edges={edges}
-                onNodeClick={(
-                    e,
-                    node: Node<
-                        | { step: HierarchicalParsedSteps; node?: undefined }
-                        | { noun: HierarchicalParsedGrammarDefinition[number]; step?: undefined }
-                    >
-                ) =>
-                    store
-                        .getState()
-                        .select(node.data.step ?? node.data.noun.name, undefined, e.shiftKey ? "add" : "replace")
+                onNodeClick={(e, node: Node<{ value: HierarchicalParsedSteps | string }>) =>
+                    store.getState().select(node.data.value, undefined, e.shiftKey ? "add" : "replace")
                 }
-                onNodeMouseEnter={(
-                    _,
-                    node: Node<
-                        | { step: HierarchicalParsedSteps; node?: undefined }
-                        | { noun: HierarchicalParsedGrammarDefinition[number]; step?: undefined }
-                    >
-                ) => store.getState().onStartHover(node.data.step ?? node.data.noun.name, undefined)}
-                onNodeMouseLeave={(
-                    _,
-                    node: Node<
-                        | { step: HierarchicalParsedSteps; node?: undefined }
-                        | { noun: HierarchicalParsedGrammarDefinition[number]; step?: undefined }
-                    >
-                ) => store.getState().onEndHover(node.data.step ?? node.data.noun.name)}
+                onNodeMouseEnter={(_, node: Node<{ value: HierarchicalParsedSteps | string }>) =>
+                    store.getState().onStartHover(node.data.value, undefined)
+                }
+                onNodeMouseLeave={(_, node: Node<{ value: HierarchicalParsedSteps | string }>) =>
+                    store.getState().onEndHover(node.data.value)
+                }
                 connectionLineType={ConnectionLineType.SmoothStep}
             />
             <div

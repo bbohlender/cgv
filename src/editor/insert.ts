@@ -10,7 +10,7 @@ import {
     HierarchicalPath,
     getSelectionCondition,
 } from ".."
-import { computeDependencies, HierarchicalParsedSteps } from "../util"
+import { computeDependencies, HierarchicalParsedSteps, toHierarchical, toHierarchicalSteps } from "../util"
 import { getSelectedStepsUpwardsPaths } from "./replace"
 import { getSelectedStepsPath, ValueMap, SelectionsList } from "./selection"
 
@@ -59,10 +59,21 @@ export async function insert<T, A>(
                             : { type: "if", children: [selectedCondition, newSteps, oldSteps] }
 
                     const current = getAtPath(translatedPath, path.length - 1)
-                    setAtPath(path, translatedPath, path.length - 1, {
-                        type,
-                        children: position === "before" ? [translatedSteps, current] : [current, translatedSteps],
-                    })
+                    const parent: ParsedSteps | undefined =
+                        path.length > 1 ? getAtPath(translatedPath, path.length - 2) : undefined
+                    if (parent?.type === type) {
+                        let index = path[path.length - 1] as number
+                        if (position !== "before") {
+                            index += 1
+                        }
+                        parent.children.splice(index, 0, translatedSteps)
+                        toHierarchicalSteps(parent, ...(path.slice(0, -1) as HierarchicalPath))
+                    } else {
+                        setAtPath(path, translatedPath, path.length - 1, {
+                            type,
+                            children: position === "before" ? [translatedSteps, current] : [current, translatedSteps],
+                        })
+                    }
 
                     const resultSteps = newSteps as HierarchicalParsedSteps
 

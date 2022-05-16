@@ -36,7 +36,7 @@ export function GUISymbolStep({ step }: { step: AbstractParsedSymbol<Hierarchica
                     ))}
                 </select>
             </StartLabel>
-            {selectedNoun != null && !isNounOfDescription(selectedNoun, selectedDescription) && (
+            {selectedNoun != null && selectedNoun.includes("@") && (
                 <div
                     className="mb-3 mx-3 btn btn-outline-secondary"
                     onClick={() => store.getState().copyNoun(step, selectedNoun)}>
