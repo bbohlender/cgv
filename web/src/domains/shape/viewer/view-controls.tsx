@@ -10,7 +10,7 @@ export function ViewControls() {
             onWheel: ({ first, xy: [, y], previous: [, lastY], event }) => {
                 event.preventDefault()
                 if (!first) {
-                    useViewerState.getState().zoom(1 + (y - lastY) * 0.002)
+                    useViewerState.getState().pinch(1 + (y - lastY) * 0.002)
                 }
             },
             onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons, event }) => {
@@ -26,7 +26,7 @@ export function ViewControls() {
                 }
                 const [lastDistance, lastOrigin] = memo
                 if (lastDistance != null) {
-                    useViewerState.getState().zoom(lastDistance / distance)
+                    useViewerState.getState().pinch(lastDistance / distance)
                 }
                 if (origin != null && lastOrigin != null) {
                     const [x, z] = origin

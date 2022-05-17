@@ -5,7 +5,6 @@ import create from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { panoramas } from "../global"
 import { Primitive } from "cgv/domains/shape"
-import produce from "immer"
 
 export const FOV = 60
 
@@ -13,7 +12,12 @@ const FOVinRadians = (FOV / 180) * Math.PI
 
 export type TopDownViewerState = {
     viewType: "2d"
-    position: Vector3Tuple
+} & Position
+
+export type Position = {
+    lat: number
+    lon: number
+    height: number
 }
 
 export type PanoramaViewerState = {
@@ -43,30 +47,38 @@ export function eulerToTuple(q: Euler): Vector3Tuple {
 const euler = new Euler(0, 0, 0, "YXZ")
 const panoramaRotation: Vector3Tuple = [0, 0, 0]
 
-export const topPosition: Vector3Tuple = [0, 1000, 0]
 export const topRotation = eulerToTuple(new Euler(-Math.PI / 2, 0, 0))
 
 export function createViewerStateInitial(): ViewerState {
     return {
         viewType: "2d",
-        position: topPosition,
+        lat: 0,
+        lon: 0,
+        height: DEFAULT_CAMERA_HEIGHT,
         error: undefined,
         showBackground: false,
     }
 }
 
+const MIN_CAMERA_HEIGHT = 0.0001
+const DEFAULT_CAMERA_HEIGHT = 0.001
+const MAX_CAMERA_HEIGHT = 0.002
+
 export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetState<ViewerState>) {
     return {
+        setPosition: (lat: number, lon: number) => {
+            set({
+                lat,
+                lon,
+            })
+        },
         drag: (x: number, y: number) => {
             const state = get()
             if (state.viewType == "2d") {
-                const fovSizeOnGround = 2 * Math.tan(FOVinRadians / 2) * state.position[1]
+                const fovSizeOnGround = 2 * Math.tan(FOVinRadians / 2) * state.height
                 set({
-                    position: [
-                        state.position[0] - x * fovSizeOnGround,
-                        state.position[1],
-                        state.position[2] - y * fovSizeOnGround,
-                    ],
+                    lon: state.lon - x * fovSizeOnGround,
+                    lat: state.lat - y * fovSizeOnGround,
                 })
             } else {
                 euler.set(...state.rotation)
@@ -77,13 +89,13 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
                 })
             }
         },
-        zoom: (by: number) => {
+        pinch: (by: number) => {
             const state = get()
             if (state.viewType != "2d") {
                 return
             }
             set({
-                position: [state.position[0], Math.max(state.position[1] * by, 0.01), state.position[2]],
+                height: Math.min(Math.max(state.height * by, MIN_CAMERA_HEIGHT), MAX_CAMERA_HEIGHT),
             })
         },
         changeView: (state: PanoramaViewerState | TopDownViewerState) => set(state),
@@ -92,10 +104,12 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
             if (state.viewType != "3d") {
                 return
             }
-            const [x, , z] = calculatePosition(state)
+            const { lat, lon } = getPosition(state)
             set({
                 viewType: "2d",
-                position: [x, 400, z],
+                lon,
+                lat,
+                height: DEFAULT_CAMERA_HEIGHT,
             })
         },
         changePanoramaView: (panoramaIndex: number) => {
@@ -124,11 +138,11 @@ export const useViewerState = create(
     )
 )
 
-export function calculatePosition(state: ViewerState): Vector3Tuple {
+export function getPosition(state: ViewerState): Position {
     if (state.viewType === "2d") {
-        return state.position
+        return state
     }
-    return panoramas[state.panoramaIndex].position
+    return panoramas[state.panoramaIndex]
 }
 
 export function calculateRotation(state: ViewerState): Vector3Tuple {

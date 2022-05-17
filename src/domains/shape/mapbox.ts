@@ -3,20 +3,52 @@ import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
 import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, LinePrimitive, Primitive } from "."
 
 //https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
-function lon2tile(lon: number, zoom: number) {
+export function lon2tile(lon: number, zoom: number) {
     return Math.floor(((lon + 180) / 360) * Math.pow(2, zoom))
 }
-function lat2tile(lat: number, zoom: number) {
+export function lat2tile(lat: number, zoom: number) {
     return Math.floor(
         ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
             Math.pow(2, zoom)
     )
 }
+export function tile2lon(x: number, zoom: number) {
+    return (x / Math.pow(2, zoom)) * 360 - 180
+}
+export function tile2lat(y: number, zoom: number) {
+    const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, zoom)
+    return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
+}
+export function tileSizeMeters(y: number, zoom: number, tilePixelSize = 256): number {
+    const lat = tile2lat(y, zoom)
+    return ((156543.03 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom)) * tilePixelSize
+}
+/*
+export function gpsToMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+    // generally used geo measurement function
+    var R = 6378.137 // Radius of earth in KM
+    var dLat = (lat2 * Math.PI) / 180 - (lat1 * Math.PI) / 180
+    var dLon = (lon2 * Math.PI) / 180 - (lon1 * Math.PI) / 180
+    var a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    var d = R * c
+    return d * 1000 // meters
+}
 
-//https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/17/68690/44386.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
+export function tileSizeMeters(x: number, y: number, zoom: number): { width: number; height: number } {
+    const startLon = tile2lon(x, zoom)
+    const startLat = tile2lat(y, zoom)
+    const nextLon = tile2lon(x + 1, zoom)
+    const nextLat = tile2lat(y + 1, zoom)
+    return {
+        width: gpsToMeters(startLat, startLon, startLat, nextLon),
+        height: gpsToMeters(startLat, startLon, nextLat, startLon),
+    }
+}*/
 
-//@ts-ignore
-import { VectorTile } from "vector-tile"
+import { VectorTile, VectorTileLayer } from "@mapbox/vector-tile"
 import Protobuf from "pbf"
 import { MaterialGenerator } from "./primitive"
 import { ParsedSteps } from "../../parser"
@@ -28,40 +60,44 @@ export type Layers = {
     }>
 }
 
-export async function loadMap(materialGenerator: MaterialGenerator) {
-    const layers = await loadMapLayers(18, 50.1159, 8.66318) //Kettenhofweg 66
+export async function loadMap(
+    x: number,
+    y: number,
+    zoom: number,
+    materialGenerator: MaterialGenerator,
+    tilePixelSize = 256
+) {
+    const layers = await loadMapLayers(x, y, zoom, tilePixelSize)
     const roads = getRoads(layers, materialGenerator)
     const buildings = getBuildings(layers, materialGenerator)
     return [roads, buildings]
 }
 
-export function getSatelliteUrl(zoom: number, lat: number, lon: number): string {
-    return `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${lon2tile(lon, zoom)}/${lat2tile(
-        lat,
-        zoom
-    )}.jpg70?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
+export function getSatelliteUrl(x: number, y: number, zoom: number): string {
+    return `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${x}/${y}@2x.jpg70?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
     `
 }
 
-export async function loadMapLayers(zoom: number, lat: number, lon: number): Promise<Layers> {
-    const response = await fetch(`https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/${zoom}/${lon2tile(
-        lon,
-        zoom
-    )}/${lat2tile(
-        lat,
-        zoom
-    )}.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
+export async function loadMapLayers(x: number, y: number, zoom: number, tilePixelSize = 256): Promise<Layers> {
+    const sizeInMeter = tileSizeMeters(y, zoom, tilePixelSize)
+    const response =
+        await fetch(`https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/${zoom}/${x}/${y}.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
     `)
     const data = await response.arrayBuffer()
     const vectorTile = new VectorTile(new Protobuf(data))
-    return Object.entries(vectorTile.layers).reduce((prev, [name, layer]: [string, any]) => {
+    return Object.entries(vectorTile.layers).reduce((prev, [name, layer]: [string, VectorTileLayer]) => {
+        const meterToIntegerRatio = sizeInMeter / layer.extent
         return {
             ...prev,
             [name]: new Array(layer.length).fill(null).map((_, i) => {
                 const feature = layer.feature(i)
                 return {
                     properties: feature.properties,
-                    geometry: feature.loadGeometry(),
+                    geometry: feature
+                        .loadGeometry()
+                        .map((points) =>
+                            points.map(({ x, y }) => ({ x: x * meterToIntegerRatio, y: y * meterToIntegerRatio }))
+                        ),
                 }
             }),
         }
@@ -79,7 +115,7 @@ const buildingParameters: Parameters = {
     layer: of("building"),
 }
 
-export function convertRoadsToSteps(layers: Layers): Array<{ name: string; step: ParsedSteps }> {
+export function convertRoadsToSteps(layers: Layers, suffix: string): Array<{ name: string; step: ParsedSteps }> {
     return layers["road"]
         .filter((feature) => feature.properties.class === "street")
         .reduce<Array<ParsedSteps>>(
@@ -115,10 +151,10 @@ export function convertRoadsToSteps(layers: Layers): Array<{ name: string; step:
                 ),
             []
         )
-        .map((step, i) => ({ name: `Road${i + 1}`, step }))
+        .map((step, i) => ({ name: `Road${i + 1}${suffix}`, step }))
 }
 
-export function convertLotsToSteps(layers: Layers): Array<{ name: string; step: ParsedSteps }> {
+export function convertLotsToSteps(layers: Layers, suffix: string): Array<{ name: string; step: ParsedSteps }> {
     return layers["building"]
         .reduce<Array<ParsedSteps>>(
             (prev, feature) =>
@@ -144,7 +180,7 @@ export function convertLotsToSteps(layers: Layers): Array<{ name: string; step: 
                 ),
             []
         )
-        .map((step, i) => ({ name: `Lot${i + 1}`, step }))
+        .map((step, i) => ({ name: `Building${i + 1}${suffix}`, step }))
 }
 
 function getBuildings(layers: Layers, materialGenerator: MaterialGenerator): Array<[Primitive, Parameters]> {

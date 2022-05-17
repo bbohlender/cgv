@@ -10,31 +10,20 @@ import {
     shallowEqual,
     ParsedSteps,
     debounceBufferTime,
-    getLocalDescription,
     HierarchicalParsedGrammarDefinition,
     FullValue,
     getIndexRelation,
     HierarchicalRelation,
 } from "cgv"
-import {
-    createPhongMaterialGenerator,
-    operations,
-    PointPrimitive,
-    Primitive,
-    applyToObject3D,
-    loadMapLayers,
-    convertLotsToSteps,
-    convertRoadsToSteps,
-} from "cgv/domains/shape"
-import { HTMLProps, useEffect, startTransition, useState, RefObject, ReactNode, useRef, Fragment } from "react"
-import { of, Subject, Subscription, tap } from "rxjs"
+import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
+import { HTMLProps, useEffect, RefObject, ReactNode, Fragment } from "react"
+import { of, Subject, Subscription } from "rxjs"
 import { Color, Group, Matrix4 } from "three"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
-import { Background } from "./background"
 import { ViewerCamera } from "./camera"
-import { PrimitiveMap, useViewerState } from "./state"
+import { useViewerState } from "./state"
 import { ViewControls } from "./view-controls"
 import { Control } from "./control"
 import { ImageIcon } from "../../../icons/image"
@@ -44,7 +33,8 @@ import { MultiSelectIcon } from "../../../icons/multi-select"
 import { DescriptionList } from "../../../gui/description-list"
 import { GUI } from "../../../gui"
 import { TextEditorToggle } from "../../../gui/toggles/text"
-import { Any } from "@react-spring/types"
+import { GeoSearch } from "../geo-search"
+import { Tiles } from "./tile"
 
 export type Annotation = HierarchicalParsedSteps | undefined
 
@@ -111,17 +101,15 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <ViewControls />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
-                    <SelectedDescriptionResult />
-                    <UnselectedDescriptionResults />
-                    <HighlightPrimitives />
                     <Panoramas />
-                    <Background />
+                    <Tiles />
                 </Bridge>
             </Canvas>
             <div
                 className="d-flex flex-row justify-content-between position-absolute"
                 style={{ pointerEvents: "none", inset: 0 }}>
-                <div className="d-flex flex-column justify-content-between my-3 ms-3">
+                <div className="d-flex flex-column my-3 ms-3" style={{ maxWidth: 160 }}>
+                    <GeoSearch style={{ pointerEvents: "all" }} className="mb-3" />
                     <DescriptionList style={{ pointerEvents: "all" }} className="mb-3">
                         <div className="p-2 border-top border-1">
                             <div className="w-100 btn-sm btn btn-outline-secondary" onClick={() => generateLots(store)}>
@@ -134,6 +122,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                             </div>
                         </div>
                     </DescriptionList>
+                    <div className="flex-grow-1" />
                     <div style={{ pointerEvents: "all" }} className="d-flex flex-row">
                         <MultiSelectButton className="me-2" />
                         <BackgroundToggle className="me-2" />
@@ -147,7 +136,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                         className="bg-light border rounded shadow w-100 mb-3 overflow-hidden"
                         style={{
                             maxWidth: "16rem",
-                            pointerEvents: "all"
+                            pointerEvents: "all",
                         }}
                     />
                     <div className="flex-grow-1"></div>
@@ -163,15 +152,19 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
 }
 
 async function generateLots(store: UseBaseStore) {
-    const layers = await loadMapLayers(18, 50.1159, 8.66318) //Kettenhofweg 66
-    const newDescriptions = convertLotsToSteps(layers)
-    store.getState().addDescriptions(newDescriptions)
+    /*const tile = useViewerState.getState().tile
+    //TODO: convert to default zoom level
+    const layers = await loadMapLayers(tile.x, tile.y, tile.zoom)
+    const newDescriptions = convertLotsToSteps(layers, `/${tile.x}/${tile.y}`)
+    store.getState().addDescriptions(newDescriptions)*/
 }
 
 async function generateRoads(store: UseBaseStore) {
-    const layers = await loadMapLayers(18, 50.1159, 8.66318) //Kettenhofweg 66
-    const newDescriptions = convertRoadsToSteps(layers)
-    store.getState().addDescriptions(newDescriptions)
+    /*const tile = useViewerState.getState().tile
+    //TODO: convert to default zoom level
+    const layers = await loadMapLayers(tile.x, tile.y, tile.zoom)
+    const newDescriptions = convertRoadsToSteps(layers, `/${tile.x}/${tile.y}`)
+    store.getState().addDescriptions(newDescriptions)*/
 }
 
 function ShowError() {
@@ -317,7 +310,7 @@ function useInterpretation(
     }, [store, description])
 }
 
-function UnselectedDescriptionResults() {
+/*function UnselectedDescriptionResults() {
     const store = useBaseStore()
     const unselectedDescriptions = store(
         (state) =>
@@ -415,15 +408,15 @@ function SelectedDescriptionResult() {
             }}
         />
     )
-}
+}*/
 
 function Panoramas() {
     return (
         <>
-            {panoramas.map(({ position }, index) => (
+            {panoramas.map(({ lat, lon, height }, index) => (
                 <Sphere
                     key={index}
-                    position={position}
+                    position={[lat, height, lon]}
                     onClick={(e) => {
                         e.stopPropagation()
                         useViewerState.getState().changePanoramaView(index)

@@ -40,7 +40,7 @@ function computeGraphExpand(
     )
 }
 
-function computeMapbox(instance: Primitive /*[lat, lon]: ReadonlyArray<any>*/): Observable<Array<Primitive>> {
+/*function computeMapbox(instance: Primitive [lat, lon]: ReadonlyArray<any>): Observable<Array<Primitive>> {
     return from(loadMap(instance.materialGenerator)).pipe(
         map(([roads, buildings]) => {
             //TODO: forward parameters
@@ -49,7 +49,7 @@ function computeMapbox(instance: Primitive /*[lat, lon]: ReadonlyArray<any>*/): 
         }),
         shareReplay({ bufferSize: 1, refCount: true })
     )
-}
+}*/
 
 THREE.Cache.enabled = true
 
@@ -248,11 +248,11 @@ export const operations: Operations<any, any> = {
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: "x" })],
     },
-    mapbox: {
+    /*mapbox: {
         execute: simpleExecution<any, unknown>(computeMapbox),
         includeThis: true,
         defaultParameters: [],
-    },
+    },*/
     expandGraph: {
         execute: simpleExecution<any, unknown>(computeGraphExpand),
         includeThis: true,

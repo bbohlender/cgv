@@ -37,7 +37,6 @@ export function createGraph(
         //node.width = width
         //node.height = height
     }
-    console.log(allNodes, allEdges)
 }
 
 const edgeSpace = 30
