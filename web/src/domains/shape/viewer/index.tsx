@@ -413,10 +413,10 @@ function SelectedDescriptionResult() {
 function Panoramas() {
     return (
         <>
-            {panoramas.map(({ lat, lon, height }, index) => (
+            {panoramas.map(({ position }, index) => (
                 <Sphere
                     key={index}
-                    position={[lat, height, lon]}
+                    position={position}
                     onClick={(e) => {
                         e.stopPropagation()
                         useViewerState.getState().changePanoramaView(index)

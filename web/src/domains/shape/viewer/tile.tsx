@@ -1,32 +1,48 @@
-import { useLoader } from "@react-three/fiber"
-import { getSatelliteUrl, lat2tile, lon2tile, tileSizeMeters } from "cgv/domains/shape"
+import { useLoader, useThree } from "@react-three/fiber"
+import { getSatelliteUrl, tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
 import { Suspense, useMemo } from "react"
-import { tile2lat, tile2lon } from "cgv/domains/shape"
 import { DoubleSide, PlaneBufferGeometry, TextureLoader, Vector3Tuple } from "three"
-import { FOV, getPosition, useViewerState } from "./state"
+import { clip, FOV, getPosition, useViewerState } from "./state"
 import { shallowEqual } from "cgv"
 
 type ViewBounds = [minX: number, minY: number, maxX: number, maxY: number, zoom: number]
 
-function calculateTileViewBounds(lon: number, lat: number, height: number, fov: number, ratio: number): ViewBounds {
+function calculateTileViewBounds(
+    xGlobal: number,
+    yGlobal: number,
+    zGlobal: number,
+    fov: number,
+    ratio: number
+): ViewBounds {
     const zoom = 18
-    const x = lon2tile(lon, zoom)
-    const y = lat2tile(lat, zoom)
-    return [x, y, x, y, zoom]
+    const globalLocalRatio = tileZoomRatio(0, zoom)
+    const topDistance = Math.tan(((fov / 180) * Math.PI) / 2) * (yGlobal)
+    const leftDistance = topDistance * ratio
+    const globalMinX = clip(xGlobal - leftDistance, 0, 1)
+    const globalMaxX = clip(xGlobal + leftDistance, 0, 1)
+    const globalMinY = clip(zGlobal - topDistance, 0, 1)
+    const globalMaxY = clip(zGlobal + topDistance, 0, 1)
+    const minX = Math.floor(globalLocalRatio * globalMinX)
+    const minY = Math.floor(globalLocalRatio * globalMinY)
+    const maxX = Math.floor(globalLocalRatio * globalMaxX)
+    const maxY = Math.floor(globalLocalRatio * globalMaxY)
+    return [minX, minY, maxX, maxY, zoom]
 }
 
 export function Tiles() {
+    const { size } = useThree()
     const [minX, minY, maxX, maxY, zoom] = useViewerState((state) => {
-        const { lat, lon, height } = getPosition(state)
-        return calculateTileViewBounds(lon, lat, height, FOV, 1)
+        const [x, y, z] = getPosition(state)
+        return calculateTileViewBounds(x, y, z, FOV, size.width / size.height)
     }, shallowEqual)
+    console.log(minX, minY, maxX, maxY)
     const distanceX = maxX + 1 - minX
     const distanceY = maxY + 1 - minY
     return (
         <>
             {new Array(distanceX * distanceY).fill(null).map((_, i) => {
-                const x = minX + i / distanceX
-                const y = minY + (i % distanceX)
+                const x = minX + Math.floor(i / distanceY)
+                const y = minY + (i % distanceY)
                 return <Tile key={`${x}/${y}`} x={x} y={y} zoom={zoom} />
             })}
         </>
@@ -35,17 +51,15 @@ export function Tiles() {
 
 export function Tile({ x, y, zoom }: { x: number; y: number; zoom: number }) {
     const showGround = useViewerState((state) => state.showBackground && state.viewType === "2d")
-    const { position, scale } = useMemo<{ position: Vector3Tuple; scale: Vector3Tuple }>(() => {
-        const lat = tile2lat(y, zoom)
-        const lon = tile2lon(x, zoom)
-        const tileSizeLat = tile2lat(y + 1, zoom) - lat
-        const tileSizeLon = tile2lon(x + 1, zoom) - lon
-        const sizeMeters = tileSizeMeters(y, zoom)
-        const scaleX = tileSizeLon / sizeMeters
-        const scaleZ = tileSizeLat / sizeMeters
+    const { position, scale } = useMemo<{ position: Vector3Tuple; scale: number }>(() => {
+        const globalLocalRatio = tileZoomRatio(0, zoom)
+        const xGlobal = x / globalLocalRatio
+        const yGlobal = y / globalLocalRatio
+        const tileSizeInMeter = tileMeterRatio(y, zoom)
+        const scale = 1 / (tileSizeInMeter * globalLocalRatio)
         return {
-            position: [lon, 0, lat],
-            scale: [scaleX, 1, scaleZ],
+            position: [xGlobal, 0, yGlobal],
+            scale,
         }
     }, [x, y, zoom])
     return (
@@ -76,7 +90,7 @@ planeGeometry.rotateX(-Math.PI / 2)
 
 function Ground({ x, y, zoom }: { x: number; y: number; zoom: number }) {
     const texture = useLoader(TextureLoader, getSatelliteUrl(x, y, zoom))
-    const sizeInMeter = tileSizeMeters(y, zoom)
+    const sizeInMeter = /**1 tile */ tileMeterRatio(y, zoom)
     return (
         <mesh scale={[sizeInMeter, 1, sizeInMeter]} geometry={planeGeometry} renderOrder={-1} position={[0, 0, 0]}>
             <meshBasicMaterial side={DoubleSide} depthWrite={false} depthTest={false} map={texture} />

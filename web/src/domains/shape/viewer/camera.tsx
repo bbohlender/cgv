@@ -6,15 +6,10 @@ import { calculateRotation, FOV, getPosition, useViewerState, ViewerState } from
 
 const APerspectiveCamera = animated(PerspectiveCamera)
 
-function calculatePositionTuple(state: ViewerState): Vector3Tuple {
-    const { height, lat, lon } = getPosition(state)
-    return [lon, height, lat]
-}
-
 function getInitialState() {
     const state = useViewerState.getState()
     return {
-        position: calculatePositionTuple(state),
+        position: getPosition(state),
         rotation: calculateRotation(state),
     }
 }
@@ -28,7 +23,7 @@ export function ViewerCamera() {
             (rot) => rotation.start(rot)
         )
         const unsubscribePosition = useViewerState.subscribe<Vector3Tuple>(
-            (state) => calculatePositionTuple(state),
+            (state) => getPosition(state),
             (pos) => position.start(pos)
         )
         return () => {

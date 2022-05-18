@@ -1,15 +1,15 @@
 import { of } from "rxjs"
-import { Color, Matrix4, Shape, Vector2, Vector3 } from "three"
-import { CombinedPrimitive, createPhongMaterialGenerator, FacePrimitive, LinePrimitive, Primitive } from "."
+import { Matrix4, Shape, Vector2, Vector3 } from "three"
+import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "."
 
 //https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
 export function lon2tile(lon: number, zoom: number) {
-    return Math.floor(((lon + 180) / 360) * Math.pow(2, zoom))
+    return ((lon + 180) / 360) * Math.pow(2, zoom)
 }
 export function lat2tile(lat: number, zoom: number) {
-    return Math.floor(
+    return (
         ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
-            Math.pow(2, zoom)
+        Math.pow(2, zoom)
     )
 }
 export function tile2lon(x: number, zoom: number) {
@@ -19,10 +19,22 @@ export function tile2lat(y: number, zoom: number) {
     const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, zoom)
     return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
 }
-export function tileSizeMeters(y: number, zoom: number, tilePixelSize = 256): number {
+
+/**
+ * @example meter = tile * tileMeterRatio(y, zoom)
+ */
+export function tileMeterRatio(y: number, zoom: number, tilePixelSize = 256): number {
     const lat = tile2lat(y, zoom)
     return ((156543.03 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom)) * tilePixelSize
 }
+
+/**
+ * @example toX = fromX * tileZoomRatio(fromZoom, toZoom)
+ */
+export function tileZoomRatio(from: number, to: number): number {
+    return Math.pow(2, to) / Math.pow(2, from)
+}
+
 /*
 export function gpsToMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
     // generally used geo measurement function
@@ -79,7 +91,7 @@ export function getSatelliteUrl(x: number, y: number, zoom: number): string {
 }
 
 export async function loadMapLayers(x: number, y: number, zoom: number, tilePixelSize = 256): Promise<Layers> {
-    const sizeInMeter = tileSizeMeters(y, zoom, tilePixelSize)
+    const sizeInMeter = /** 1 tile */ tileMeterRatio(y, zoom, tilePixelSize)
     const response =
         await fetch(`https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/${zoom}/${x}/${y}.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
     `)

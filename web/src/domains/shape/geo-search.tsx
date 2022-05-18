@@ -15,7 +15,7 @@ export function GeoSearch({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             return
         }
         setState({ search: "", option: undefined })
-        useViewerState.getState().setPosition(option.lat, option.lon)
+        useViewerState.getState().setLatLon(option.lat, option.lon)
     }, [option])
     const subject = useMemo(() => new Subject<string>(), [])
     useEffect(() => subject.next(search), [search])
