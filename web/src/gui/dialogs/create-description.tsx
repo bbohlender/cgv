@@ -3,7 +3,13 @@ import { useBaseStore } from "../../global"
 import { CheckIcon } from "../../icons/check"
 import { CloseIcon } from "../../icons/close"
 
-export function CreateDescriptionDialog({ fulfill }: { fulfill: (value: any) => void }) {
+export function CreateDescriptionDialog({
+    fulfill,
+    data,
+}: {
+    fulfill: (value: any) => void
+    data?: { suffix: string }
+}) {
     const store = useBaseStore()
     const [value, setValue] = useState("")
     const valueValid = useMemo(() => {
@@ -43,7 +49,7 @@ export function CreateDescriptionDialog({ fulfill }: { fulfill: (value: any) => 
 
                 <button
                     className="d-flex align-items-center ms-3 btn btn-sm btn-outline-secondary"
-                    onClick={() => submit(value)}
+                    onClick={() => submit(`${value}${data?.suffix ?? ""}`)}
                     disabled={valueValid}>
                     <CheckIcon />
                 </button>

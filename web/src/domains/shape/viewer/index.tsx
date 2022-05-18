@@ -1,29 +1,12 @@
 import { Sphere, useContextBridge } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import {
-    interprete,
-    toValue,
-    Value,
-    HierarchicalParsedSteps,
-    HierarchicalInfo,
-    HierarchicalPath,
-    shallowEqual,
-    ParsedSteps,
-    debounceBufferTime,
-    HierarchicalParsedGrammarDefinition,
-    FullValue,
-    getIndexRelation,
-    HierarchicalRelation,
-} from "cgv"
-import { createPhongMaterialGenerator, operations, PointPrimitive, Primitive, applyToObject3D } from "cgv/domains/shape"
-import { HTMLProps, useEffect, RefObject, ReactNode, Fragment } from "react"
-import { of, Subject, Subscription } from "rxjs"
-import { Color, Group, Matrix4 } from "three"
+import { convertLotsToSteps, convertRoadsToSteps, loadMapLayers, tileZoomRatio } from "cgv/domains/shape"
+import { HTMLProps } from "react"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
 import { ViewerCamera } from "./camera"
-import { useViewerState } from "./state"
+import { getPosition, useViewerState } from "./state"
 import { ViewControls } from "./view-controls"
 import { Control } from "./control"
 import { ImageIcon } from "../../../icons/image"
@@ -35,52 +18,11 @@ import { GUI } from "../../../gui"
 import { TextEditorToggle } from "../../../gui/toggles/text"
 import { GeoSearch } from "../geo-search"
 import { Tiles } from "./tile"
+import { PanoramaView } from "./background"
 
-export type Annotation = HierarchicalParsedSteps | undefined
-
-function getAnnotationAfterStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
-    if (value.annotation == null) {
-        return step
-    }
-    if (step.path[0] != value.annotation.path[0]) {
-        //change through symbol
-        return value.annotation
-    }
-    if (pathStartsWith(value.annotation.path, step.path)) {
-        return value.annotation
-    }
-    return step
+export function tileDescriptionSuffix(x: number, y: number): string {
+    return `_${x}/${y}`
 }
-
-function getAnnotationBeforeStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
-    if (step.type === "symbol") {
-        return undefined
-    }
-    return value.annotation
-}
-
-/**
- *
- * @param p1
- * @param p2
- * @returns true if p1 starts with p2 (including both are the same)
- */
-function pathStartsWith(p1: HierarchicalPath, p2: HierarchicalPath): boolean {
-    if (p1 === p2) {
-        return true
-    }
-    if (p1.length < p2.length) {
-        return false
-    }
-    for (let i = 0; i < p2.length; i++) {
-        if (p1[i] != p2[i]) {
-            return false
-        }
-    }
-    return true
-}
-
-const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
     const Bridge = useContextBridge(domainContext)
@@ -97,10 +39,10 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 dpr={global.window == null ? 1 : window.devicePixelRatio}>
                 <Bridge>
                     <ViewerCamera />
-                    <Control />
                     <ViewControls />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
+                    <PanoramaView />
                     <Panoramas />
                     <Tiles />
                 </Bridge>
@@ -110,7 +52,15 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 style={{ pointerEvents: "none", inset: 0 }}>
                 <div className="d-flex flex-column my-3 ms-3" style={{ maxWidth: 160 }}>
                     <GeoSearch style={{ pointerEvents: "all" }} className="mb-3" />
-                    <DescriptionList style={{ pointerEvents: "all" }} className="mb-3">
+                    <DescriptionList
+                        createDescriptionRequestData={() => {
+                            const [globalX, globalY, globalZ] = getPosition(useViewerState.getState())
+                            const x = Math.floor(globalX * globalLocalRatio)
+                            const y = Math.floor(globalZ * globalLocalRatio)
+                            return { suffix: tileDescriptionSuffix(x, y) }
+                        }}
+                        style={{ pointerEvents: "all" }}
+                        className="mb-3">
                         <div className="p-2 border-top border-1">
                             <div className="w-100 btn-sm btn btn-outline-secondary" onClick={() => generateLots(store)}>
                                 Generate Lots
@@ -151,20 +101,25 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
     )
 }
 
+const zoom = 18
+const globalLocalRatio = tileZoomRatio(0, zoom)
+
 async function generateLots(store: UseBaseStore) {
-    /*const tile = useViewerState.getState().tile
-    //TODO: convert to default zoom level
-    const layers = await loadMapLayers(tile.x, tile.y, tile.zoom)
-    const newDescriptions = convertLotsToSteps(layers, `/${tile.x}/${tile.y}`)
-    store.getState().addDescriptions(newDescriptions)*/
+    const [globalX, globalY, globalZ] = getPosition(useViewerState.getState())
+    const x = Math.floor(globalX * globalLocalRatio)
+    const y = Math.floor(globalZ * globalLocalRatio)
+    const layers = await loadMapLayers(x, y, zoom)
+    const newDescriptions = convertLotsToSteps(layers, tileDescriptionSuffix(x, y))
+    store.getState().addDescriptions(newDescriptions)
 }
 
 async function generateRoads(store: UseBaseStore) {
-    /*const tile = useViewerState.getState().tile
-    //TODO: convert to default zoom level
-    const layers = await loadMapLayers(tile.x, tile.y, tile.zoom)
-    const newDescriptions = convertRoadsToSteps(layers, `/${tile.x}/${tile.y}`)
-    store.getState().addDescriptions(newDescriptions)*/
+    const [globalX, globalY, globalZ] = getPosition(useViewerState.getState())
+    const x = Math.floor(globalX * globalLocalRatio)
+    const y = Math.floor(globalZ * globalLocalRatio)
+    const layers = await loadMapLayers(x, y, zoom)
+    const newDescriptions = convertRoadsToSteps(layers, tileDescriptionSuffix(x, y))
+    store.getState().addDescriptions(newDescriptions)
 }
 
 function ShowError() {
@@ -174,241 +129,6 @@ function ShowError() {
     }
     return <ErrorMessage message={error} align="left" />
 }
-
-function useSimpleInterpretation(
-    description: HierarchicalParsedGrammarDefinition | undefined,
-    ref: RefObject<ReactNode & Group>
-) {
-    const store = useBaseStore()
-    useEffect(() => {
-        if (ref.current == null || description == null) {
-            return
-        }
-        const subscription = applyToObject3D(
-            of(point).pipe(
-                toValue(),
-                interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
-                    delay: store.getState().interpretationDelay,
-                })
-            ),
-            ref.current,
-            (value) => {
-                useViewerState.getState().setError(undefined)
-                return value.raw.getObject()
-            },
-            (error: any) => {
-                console.error(error)
-                useViewerState.getState().setError(error.message)
-            }
-        )
-        return () => {
-            ref.current?.remove(...ref.current.children)
-            subscription.unsubscribe()
-        }
-    }, [store, description])
-}
-
-function useInterpretation(
-    description: HierarchicalParsedGrammarDefinition | undefined,
-    ref: RefObject<ReactNode & Group>
-) {
-    const store = useBaseStore()
-    useEffect(() => {
-        if (ref.current == null || description == null) {
-            return
-        }
-
-        let subscription: Subscription | undefined
-
-        const beforeValuesMap = new Map<ParsedSteps, Array<Value<Primitive, Annotation>>>()
-
-        const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; value: FullValue }>()
-
-        const unsubscribeAfterStep = afterStepSubject
-            .pipe(debounceBufferTime(300))
-            .subscribe((entries) => store.getState().editIndices(entries, true))
-        try {
-            subscription = applyToObject3D(
-                of(point).pipe(
-                    toValue(),
-                    interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
-                        delay: store.getState().interpretationDelay,
-                        //TODO: we need a possibility to know when a value is removed
-                        annotateAfterStep: (value, steps) => {
-                            const beforeValues = beforeValuesMap.get(steps)
-                            const beforeValue = beforeValues?.find((possibleBeforeValue) => {
-                                const relation = getIndexRelation(value.index, possibleBeforeValue.index)
-                                return (
-                                    relation === HierarchicalRelation.Predecessor ||
-                                    relation === HierarchicalRelation.Equal
-                                )
-                            })
-                            if (beforeValue != null) {
-                                afterStepSubject.next({
-                                    steps,
-                                    value: { after: value, before: beforeValue },
-                                })
-                            }
-                            return getAnnotationAfterStep(value, steps)
-                        },
-                        annotateBeforeStep: (value, steps) => {
-                            let beforeValues = beforeValuesMap.get(steps)
-                            if (beforeValues == null) {
-                                beforeValues = []
-                                beforeValuesMap.set(steps, beforeValues)
-                            }
-                            beforeValues.push(value)
-                            return getAnnotationBeforeStep(value, steps)
-                        },
-                    })
-                ),
-                ref.current,
-                (value) => {
-                    const child = value.raw.getObject()
-                    if (value.annotation != null) {
-                        const beforeValues = beforeValuesMap.get(value.annotation)
-                        const beforeValue = beforeValues?.find((possibleBeforeValue) => {
-                            const relation = getIndexRelation(value.index, possibleBeforeValue.index)
-                            return (
-                                relation === HierarchicalRelation.Predecessor || relation === HierarchicalRelation.Equal
-                            )
-                        })
-                        if (beforeValue != null) {
-                            const fullValue: FullValue = {
-                                after: value,
-                                before: beforeValue,
-                            }
-                            child.traverse((o) => {
-                                o.userData.steps = value.annotation
-                                o.userData.value = fullValue
-                            })
-                        }
-                    }
-                    return child
-                },
-                (error: any) => {
-                    console.error(error)
-                    useViewerState.getState().setError(error.message)
-                }
-            )
-            /*
-                        .subscribe({
-                            next: (object) => useViewerState.getState().setResult(object),
-                            error: (error) => {
-                                console.error(error)
-                                useViewerState.getState().setError(error.message)
-                            },
-                        })*/
-        } catch (error: any) {
-            useViewerState.getState().setError(error.message)
-        }
-        return () => {
-            ref.current?.remove(...ref.current.children)
-            subscription?.unsubscribe()
-            unsubscribeAfterStep?.unsubscribe()
-        }
-    }, [store, description])
-}
-
-/*function UnselectedDescriptionResults() {
-    const store = useBaseStore()
-    const unselectedDescriptions = store(
-        (state) =>
-            state.type === "gui"
-                ? state.descriptions
-                      .filter((description) => description.visible && description.name != state.selectedDescription)
-                      .map((description) => description.name)
-                : undefined,
-        shallowEqual
-    )
-
-    if (unselectedDescriptions == null) {
-        return null
-    }
-
-    return (
-        <>
-            {unselectedDescriptions.map((unselectedDescription) => (
-                <UnselectedDescription key={unselectedDescription} description={unselectedDescription} />
-            ))}
-        </>
-    )
-}
-
-function UnselectedDescription({ description }: { description: string }) {
-    const groupRef = useRef<ReactNode & Group>(null)
-    const store = useBaseStore()
-    const unselectedDescription = store(
-        (state) =>
-            state.type === "gui" ? getLocalDescription(state.grammar, state.dependencyMap, description) : undefined,
-        shallowEqual
-    )
-    useSimpleInterpretation(unselectedDescription, groupRef)
-    return <group onClick={() => store.getState().selectDescription(description)} ref={groupRef} />
-}
-
-function SelectedDescriptionResult() {
-    const store = useBaseStore()
-    const selectedDescription = store(
-        (state) =>
-            state.type === "gui" &&
-            state.selectedDescription != null &&
-            state.descriptions.find((description) => description.name === state.selectedDescription)?.visible
-                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
-                : undefined,
-        shallowEqual
-    )
-    const groupRef = useRef<ReactNode & Group>(null)
-    useInterpretation(selectedDescription, groupRef)
-    if (selectedDescription == null) {
-        return null
-    }
-    return (
-        <group
-            ref={groupRef}
-            onPointerMove={(e) => {
-                e.stopPropagation()
-                if (e.intersections.length === 0) {
-                    return
-                }
-                const object = e.intersections[0].object
-                const steps = object.userData.steps
-                const value = object.userData.value
-                if (steps == null || value == null) {
-                    return
-                }
-                store.getState().onStartHover(steps, [value])
-            }}
-            onPointerOut={(e) => {
-                e.stopPropagation()
-                const object = e.object
-                const steps = object.userData.steps
-                const value = object.userData.value
-                if (steps == null || value == null) {
-                    return
-                }
-                store.getState().onEndHover(steps)
-            }}
-            onClick={(e) => {
-                e.stopPropagation()
-                const state = store.getState()
-                if (state.type != "gui") {
-                    return
-                }
-                if (state.requested != null) {
-                    return
-                }
-                const object = e.intersections[0].object
-                const steps = object.userData.steps
-                const value = object.userData.value
-                if (steps == null || value == null) {
-                    return
-                }
-                store.getState().selectResult(steps, value)
-            }}
-        />
-    )
-}*/
 
 function Panoramas() {
     return (
@@ -424,43 +144,6 @@ function Panoramas() {
                     args={[5]}>
                     <meshBasicMaterial color={0x0000ff} />
                 </Sphere>
-            ))}
-        </>
-    )
-}
-
-function HighlightPrimitives() {
-    const store = useBaseStore()
-
-    const primitives = store(
-        (state) =>
-            state.type === "gui"
-                ? Array.from(
-                      new Set(
-                          state.selectionsList
-                              .reduce<Array<Primitive>>(
-                                  (prev, selections) => prev.concat(selections.values.map((value) => value.after.raw)),
-                                  []
-                              )
-                              .concat(state.hovered?.values.map((value) => value.after.raw) ?? [])
-                              .filter((raw) => raw instanceof Primitive)
-                      )
-                  )
-                : undefined,
-        shallowEqual
-    )
-
-    if (primitives == null) {
-        return null
-    }
-
-    return (
-        <>
-            {primitives.map((primitive) => (
-                <Fragment key={primitive.getOutline().uuid}>
-                    <primitive object={primitive.getOutline()} />
-                    <axesHelper args={[10]} matrix={primitive.matrix} matrixAutoUpdate={false} />
-                </Fragment>
             ))}
         </>
     )

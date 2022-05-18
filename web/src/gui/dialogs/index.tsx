@@ -30,7 +30,7 @@ function selectDialog(data: any, type: string, fulfill: (value: any) => void) {
         case "create-step":
             return <CreateStepDialog fulfill={fulfill} />
         case "create-description":
-            return <CreateDescriptionDialog fulfill={fulfill} />
+            return <CreateDescriptionDialog data={data} fulfill={fulfill} />
         case "set-name":
             return <SetNameDialog fulfill={fulfill} />
         case "select-condition":

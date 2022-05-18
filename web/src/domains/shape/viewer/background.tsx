@@ -9,7 +9,7 @@ import { getSatelliteUrl } from "cgv/domains/shape"
 
 const geometry = new SphereBufferGeometry(500, 60, 40)
 
-function PanoramaView() {
+export function PanoramaView() {
     const panoramaIndex = useViewerState(({ showBackground, viewType, panoramaIndex }) =>
         showBackground && viewType === "3d" ? panoramaIndex : undefined
     )

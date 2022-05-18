@@ -1,6 +1,7 @@
 import { TransformControls } from "@react-three/drei"
-import { useRef, useEffect } from "react"
-import { Camera, Vector2Tuple, Vector3Tuple } from "three"
+import { createPortal, useThree } from "@react-three/fiber"
+import { useRef, useEffect, useMemo, ReactNode } from "react"
+import { AxesHelper, Camera, Object3D, Vector2Tuple, Vector3Tuple } from "three"
 import type { TransformControls as TransformControlsImpl } from "three-stdlib"
 
 export function Transform3Control({
@@ -11,6 +12,7 @@ export function Transform3Control({
     set: (x: number, y: number, z: number) => void
 }) {
     const ref = useRef<TransformControlsImpl<Camera>>(null)
+    const object = useMemo(() => new Object3D(), [])
     useEffect(() => {
         const controls = ref.current
         if (controls == null) {
@@ -18,21 +20,27 @@ export function Transform3Control({
         }
         const listener = () => {
             if (ref.current != null) {
-                set(ref.current["worldPosition"].x, ref.current["worldPosition"].y, ref.current["worldPosition"].z)
+                set(object.position.x, object.position.y, object.position.z)
             }
         }
         controls.addEventListener("mouseUp", listener)
         return () => controls.removeEventListener("mouseUp", listener)
     }, [set])
+    object.position.x = position[0]
+    object.position.y = position[1]
+    object.position.z = position[2]
+    const scene = useThree((state) => state.scene)
     return (
-        <TransformControls ref={ref} position={position}>
-            <></>
-        </TransformControls>
+        <>
+            {createPortal(<TransformControls space="local" object={object} ref={ref} />, scene)}
+            <primitive object={object} />
+        </>
     )
 }
 
 export function Transform2Control({ set, position }: { position: Vector2Tuple; set: (x: number, z: number) => void }) {
     const ref = useRef<TransformControlsImpl<Camera>>(null)
+    const object = useMemo(() => new Object3D(), [])
     useEffect(() => {
         const controls = ref.current
         if (controls == null) {
@@ -40,15 +48,19 @@ export function Transform2Control({ set, position }: { position: Vector2Tuple; s
         }
         const listener = () => {
             if (ref.current != null) {
-                set(ref.current["worldPosition"].x, ref.current["worldPosition"].z)
+                set(object.position.x, object.position.z)
             }
         }
         controls.addEventListener("mouseUp", listener)
         return () => controls.removeEventListener("mouseUp", listener)
     }, [set])
+    object.position.x = position[0]
+    object.position.z = position[1]
+    const scene = useThree((state) => state.scene)
     return (
-        <TransformControls showY={false} ref={ref} position={[position[0], 0, position[1]]}>
-            <></>
-        </TransformControls>
+        <>
+            {createPortal(<TransformControls space="local" object={object} showY={false} ref={ref} />, scene)}
+            <primitive object={object} />
+        </>
     )
 }

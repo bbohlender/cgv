@@ -1,20 +1,21 @@
-import { AbstractParsedOperation, HierarchicalInfo, HierarchicalParsedSteps, ParsedOperation, ParsedSteps, SelectionsList } from "cgv"
+import { AbstractParsedOperation, HierarchicalParsedSteps, ParsedOperation, ParsedSteps } from "cgv"
 import { Draft } from "immer"
 import { useBaseStore } from "../../../../global"
 import { Transform2Control, Transform3Control } from "./transform-control"
 
 export function Point3Control<Type extends ParsedSteps["type"]>({
-    value,
+    substepValue,
     getSubstep,
+    valueRef,
 }: {
+    valueRef: { current: HierarchicalParsedSteps }
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
-    value: HierarchicalParsedSteps & { type: Type }
+    substepValue: AbstractParsedOperation<unknown> & { type: Type }
 }) {
-    const substepValue = getSubstep(value)
     const store = useBaseStore()
-    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
-    const y = substepValue.children[1].type === "raw" ? substepValue.children[1].value : undefined
-    const z = substepValue.children[2].type === "raw" ? substepValue.children[2].value : undefined
+    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : 0
+    const y = substepValue.children[1].type === "raw" ? substepValue.children[1].value : 0
+    const z = substepValue.children[2].type === "raw" ? substepValue.children[2].value : 0
     return (
         <Transform3Control
             position={[x, y, z]}
@@ -25,23 +26,26 @@ export function Point3Control<Type extends ParsedSteps["type"]>({
                         type: "raw",
                         value,
                     }))
-                }, value)
+                }, valueRef.current)
             }
         />
     )
 }
 
 export function Point2Control<Type extends ParsedSteps["type"]>({
-    value,
+    substepValue,
     getSubstep,
+    valueRef,
 }: {
+    valueRef: { current: HierarchicalParsedSteps }
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
-    value: HierarchicalParsedSteps & { type: Type }
+    substepValue: AbstractParsedOperation<unknown> & { type: Type }
 }) {
-    const substepValue = getSubstep(value)
     const store = useBaseStore()
-    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : undefined
-    const z = substepValue.children[1].type === "raw" ? substepValue.children[1].value : undefined
+
+    const x = substepValue.children[0].type === "raw" ? substepValue.children[0].value : 0
+    const z = substepValue.children[1].type === "raw" ? substepValue.children[1].value : 0
+
     return (
         <Transform2Control
             position={[x, z]}
@@ -52,7 +56,7 @@ export function Point2Control<Type extends ParsedSteps["type"]>({
                         type: "raw",
                         value,
                     }))
-                }, value)
+                }, valueRef.current)
             }
         />
     )

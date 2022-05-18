@@ -1,10 +1,16 @@
-import { HTMLProps, useRef } from "react"
+import { HTMLProps } from "react"
 import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { EyeSlashIcon } from "../icons/eye-slash"
 import { PlusIcon } from "../icons/plus"
 
-export function DescriptionList({ style, className, children, ...rest }: HTMLProps<HTMLDivElement>) {
+export function DescriptionList({
+    createDescriptionRequestData,
+    style,
+    className,
+    children,
+    ...rest
+}: HTMLProps<HTMLDivElement> & { createDescriptionRequestData?: () => any }) {
     const store = useBaseStore()
     const descriptions = store((state) => state.descriptions)
     const selectedDescription = store((state) => state.selectedDescription)
@@ -20,7 +26,11 @@ export function DescriptionList({ style, className, children, ...rest }: HTMLPro
                     onClick={() =>
                         store
                             .getState()
-                            .request("create-description", (name) => store.getState().addDescriptions([{ name }]))
+                            .request(
+                                "create-description",
+                                (name) => store.getState().addDescriptions([{ name }]),
+                                createDescriptionRequestData == null ? undefined : createDescriptionRequestData()
+                            )
                     }
                     className={`btn text-primary btn-sm`}>
                     <PlusIcon />

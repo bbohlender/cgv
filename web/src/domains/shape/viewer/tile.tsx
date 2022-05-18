@@ -4,6 +4,8 @@ import { Suspense, useMemo } from "react"
 import { DoubleSide, PlaneBufferGeometry, TextureLoader, Vector3Tuple } from "three"
 import { clip, FOV, getPosition, useViewerState } from "./state"
 import { shallowEqual } from "cgv"
+import { Descriptions } from "./description"
+import { Control } from "./control"
 
 type ViewBounds = [minX: number, minY: number, maxX: number, maxY: number, zoom: number]
 
@@ -16,7 +18,7 @@ function calculateTileViewBounds(
 ): ViewBounds {
     const zoom = 18
     const globalLocalRatio = tileZoomRatio(0, zoom)
-    const topDistance = Math.tan(((fov / 180) * Math.PI) / 2) * (yGlobal)
+    const topDistance = Math.tan(((fov / 180) * Math.PI) / 2) * yGlobal
     const leftDistance = topDistance * ratio
     const globalMinX = clip(xGlobal - leftDistance, 0, 1)
     const globalMaxX = clip(xGlobal + leftDistance, 0, 1)
@@ -35,7 +37,6 @@ export function Tiles() {
         const [x, y, z] = getPosition(state)
         return calculateTileViewBounds(x, y, z, FOV, size.width / size.height)
     }, shallowEqual)
-    console.log(minX, minY, maxX, maxY)
     const distanceX = maxX + 1 - minX
     const distanceY = maxY + 1 - minY
     return (
@@ -73,16 +74,6 @@ export function Tile({ x, y, zoom }: { x: number; y: number; zoom: number }) {
         </group>
     )
 }
-
-function Descriptions({ x, y }: { x: number; y: number }) {
-    return null
-}
-
-function Description({}: { name: string }) {}
-
-function SelectedDescription() {}
-
-function UnselectedDescription() {}
 
 const planeGeometry = new PlaneBufferGeometry(1, 1)
 planeGeometry.translate(0.5, -0.5, 0)

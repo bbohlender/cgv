@@ -176,6 +176,11 @@ function createBaseStateFunctions(
                 })
             }
         },
+        clearValueMap: () => {
+            set({
+                valueMap: {},
+            })
+        },
         copyNoun: async (step: HierarchicalParsedSteps, globalNounName: string) => {
             const state = get()
             if (state.type !== "gui" || state.selectedDescription == null) {
