@@ -263,13 +263,13 @@ Window --> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
 House
 
 ````
-Start --> face(point2(-22.6, -88.57), point2(-22.53, -137.76), point2(62.55, -119.99), point2(71.6, -84.9)) -> Lot
+Start --> face(point2(-23.93, 66.93), point2(-32.02, 56.24), point2(-10.81, 37.99), point2(-0.33, 45.46)) -> Lot
 
-Lot --> color("#333343") -> extrude(60) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
+Lot --> color("#333343") -> extrude(6) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
 
 Wall --> split("z", 20) -> Floor
 
-Roof --> color("#881111") -> extrude(30) -> gableRoof(90)
+Roof --> color("#881111") -> extrude(5) -> gableRoof(-45)
 
 Floor --> split("x", 20) -> WindowFrame
 
@@ -287,5 +287,5 @@ Start --> expandGraph(20, line(point2(205.09, -7.75), point2(97.35, -6.38)), lin
 Forest
 
 ```
-Start --> face(point2(86.74, 19.26), point2(199.71, 16.55), point2(185.67, 147.77), point2(36.18, 131.63), point2(-119.68, 39.67), point2(-87.81, -66.99)) -> (sample(50) -> load("/cgv/tree.gltf") -> scale(80, 80, 80) | color("#63bf31"))
+Start --> face(point2(46.06, -86.66), point2(128.51, -68.68), point2(116.58, -11.81), point2(46.7, 2.21), point2(11.59, -22.09), point2(36.35, -60.33)) -> (sample(50) -> load("/cgv/tree.gltf") -> scale(20, 20, 20) | color("#63bf31"))
 ```

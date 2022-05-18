@@ -36,7 +36,7 @@ export function createPhongMaterialGenerator(color: Color): MaterialGenerator {
     return (type) => {
         switch (type) {
             case ObjectType.Point:
-                return new PointsMaterial({ toneMapped: false, color })
+                return new PointsMaterial({ size: 1e-9, toneMapped: false, color })
             case ObjectType.Line:
                 return new LineBasicMaterial({ toneMapped: false, color })
             case ObjectType.Mesh:
@@ -448,6 +448,16 @@ export class FacePrimitive extends Primitive {
         const result = setupObject3D(new Object3D(), this.matrix)
         result.renderOrder = 1000
         result.add(outerPath, ...innerPaths)
+        const faceHighlight = new Mesh(
+            this.getGeometry(),
+            new MeshBasicMaterial({
+                transparent: true,
+                opacity: 0.5,
+                color: 0xffffff,
+                depthTest: false,
+            })
+        )
+        result.add(faceHighlight)
         return result
     }
 
@@ -518,7 +528,8 @@ function invertWinding(geometry: BufferGeometry): void {
 
 const box3Helper = new Box3()
 
-const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
+const boxGeometry = new BoxBufferGeometry(1, 1, 1)
+const outlineGeometry = new EdgesGeometry(boxGeometry)
 
 export class ObjectPrimitive extends Primitive {
     get materialGenerator(): MaterialGenerator {
@@ -558,22 +569,15 @@ export class ObjectPrimitive extends Primitive {
     }
 
     getBoundingBox(target: Box3): void {
-        target.makeEmpty()
-        for (const child of this.object.children) {
-            if (!(child instanceof Mesh)) {
-                continue
-            }
-            ;(child.geometry as BufferGeometry).computeBoundingBox()
-            box3Helper.copy((child.geometry as BufferGeometry).boundingBox!)
-            box3Helper.applyMatrix4(child.matrix)
-            target.union(box3Helper)
-        }
+        getLocalBoundingBox(this.object, target)
     }
 
     protected computeOutline(): Object3D<Event> {
-        box3Helper.setFromObject(this.object)
+        this.getBoundingBox(box3Helper)
         box3Helper.getCenter(helperVector)
-        const matrix = new Matrix4().makeTranslation(helperVector.x, helperVector.y, helperVector.z)
+        const matrix = this.matrix
+            .clone()
+            .multiply(makeTranslationMatrix(helperVector.x, helperVector.y, helperVector.z))
         box3Helper.getSize(helperVector)
         matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
         const lines = new LineSegments(
@@ -584,8 +588,20 @@ export class ObjectPrimitive extends Primitive {
                 color: 1,
             })
         )
-        lines.renderOrder = 1000
-        return setupObject3D(lines, matrix)
+        const faces = new Mesh(
+            boxGeometry,
+            new MeshBasicMaterial({
+                transparent: true,
+                opacity: 0.5,
+                color: 0xffffff,
+                depthTest: false,
+            })
+        )
+        const result = setupObject3D(new Object3D(), matrix)
+        result.renderOrder = 1000
+        result.add(lines)
+        result.add(faces)
+        return result
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
@@ -599,6 +615,24 @@ export class ObjectPrimitive extends Primitive {
     samplePoints(amount: number): Primitive[] {
         throw new Error("Method not implemented.")
     }
+}
+
+function getLocalBoundingBox(object: Object3D, target?: Box3): Box3 {
+    target = target ?? new Box3()
+    if (object instanceof Mesh) {
+        ;(object.geometry as BufferGeometry).computeBoundingBox()
+        target.copy((object.geometry as BufferGeometry).boundingBox!)
+    } else {
+        target.makeEmpty()
+    }
+    for (const child of object.children) {
+        if (child.children.length === 0 && !(child instanceof Mesh)) {
+            continue
+        }
+        const box = getLocalBoundingBox(child).applyMatrix4(child.matrix)
+        target.union(box)
+    }
+    return target
 }
 
 export class GeometryPrimitive extends Primitive {
@@ -640,11 +674,12 @@ export class GeometryPrimitive extends Primitive {
         return this.geometry
     }
     protected computeOutline(): Object3D<Event> {
-        const outlineGeometry = new EdgesGeometry(new BoxBufferGeometry(1, 1, 1))
-        this.geometry.boundingBox!.getSize(helperVector)
-        outlineGeometry.scale(helperVector.x, helperVector.y, helperVector.z)
         this.geometry.boundingBox!.getCenter(helperVector)
-        outlineGeometry.translate(helperVector.x, helperVector.y, helperVector.z)
+        const matrix = this.matrix
+            .clone()
+            .multiply(makeTranslationMatrix(helperVector.x, helperVector.y, helperVector.z))
+        this.geometry.boundingBox!.getSize(helperVector)
+        matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
         const lines = new LineSegments(
             outlineGeometry,
             new LineBasicMaterial({
@@ -653,8 +688,20 @@ export class GeometryPrimitive extends Primitive {
                 color: 1,
             })
         )
-        lines.renderOrder = 1000
-        return setupObject3D(lines, this.matrix)
+        const faces = new Mesh(
+            boxGeometry,
+            new MeshBasicMaterial({
+                transparent: true,
+                opacity: 0.5,
+                color: 0xffffff,
+                depthTest: false,
+            })
+        )
+        const result = setupObject3D(new Object3D(), matrix)
+        result.renderOrder = 1000
+        result.add(lines)
+        result.add(faces)
+        return result
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {

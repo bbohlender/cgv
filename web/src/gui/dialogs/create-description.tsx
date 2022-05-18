@@ -25,9 +25,9 @@ export function CreateDescriptionDialog({
                 return
             }
             //store.getState().createNoun(value)
-            fulfill(value)
+            fulfill(`${value}${data?.suffix ?? ""}`)
         },
-        [fulfill]
+        [fulfill, data?.suffix]
     )
     return (
         <>
@@ -49,7 +49,7 @@ export function CreateDescriptionDialog({
 
                 <button
                     className="d-flex align-items-center ms-3 btn btn-sm btn-outline-secondary"
-                    onClick={() => submit(`${value}${data?.suffix ?? ""}`)}
+                    onClick={() => submit(value)}
                     disabled={valueValid}>
                     <CheckIcon />
                 </button>
