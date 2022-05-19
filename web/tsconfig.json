@@ -1,29 +1,26 @@
 {
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "jsx": "preserve",
-    "strict": true,
-    "target": "ES5",
-    "lib": [
-      "DOM",
-      "es2017"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "incremental": true
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+    "ts-node": {
+        "transpileOnly": true,
+        "moduleTypes": {
+            "generate-panorama-list.ts": "cjs"
+        }
+    },
+    "compilerOptions": {
+        "esModuleInterop": true,
+        "jsx": "preserve",
+        "strict": true,
+        "target": "ES5",
+        "lib": ["DOM", "es2017"],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "noEmit": true,
+        "module": "esnext",
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "incremental": true
+    },
+    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+    "exclude": ["node_modules"]
 }

@@ -19,6 +19,7 @@ import { TextEditorToggle } from "../../../gui/toggles/text"
 import { GeoSearch } from "../geo-search"
 import { Tiles } from "./tile"
 import { PanoramaView } from "./background"
+import { DoubleSide } from "three"
 
 export function tileDescriptionSuffix(x: number, y: number): string {
     return `_${x}/${y}`
@@ -141,7 +142,7 @@ function Panoramas() {
                         e.stopPropagation()
                         useViewerState.getState().changePanoramaView(index)
                     }}
-                    args={[5]}>
+                    scale={0.00000005}>
                     <meshBasicMaterial color={0x0000ff} />
                 </Sphere>
             ))}
