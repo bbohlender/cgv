@@ -5,9 +5,16 @@ import { DoubleSide, PlaneBufferGeometry, TextureLoader, Vector3Tuple } from "th
 import { clip, FOV, getPosition, useViewerState } from "./state"
 import { shallowEqual } from "cgv"
 import { Descriptions } from "./description"
-import { Control } from "./control"
 
-type ViewBounds = [minX: number, minY: number, maxX: number, maxY: number, zoom: number]
+type ViewBounds = [
+    centerX: number,
+    centerY: number,
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+    zoom: number
+]
 
 function calculateTileViewBounds(
     xGlobal: number,
@@ -20,6 +27,8 @@ function calculateTileViewBounds(
     const globalLocalRatio = tileZoomRatio(0, zoom)
     const topDistance = Math.tan(((fov / 180) * Math.PI) / 2) * yGlobal
     const leftDistance = topDistance * ratio
+    const centerX = Math.floor(globalLocalRatio * xGlobal)
+    const centerY = Math.floor(globalLocalRatio * zGlobal)
     const globalMinX = clip(xGlobal - leftDistance, 0, 1)
     const globalMaxX = clip(xGlobal + leftDistance, 0, 1)
     const globalMinY = clip(zGlobal - topDistance, 0, 1)
@@ -28,12 +37,12 @@ function calculateTileViewBounds(
     const minY = Math.floor(globalLocalRatio * globalMinY)
     const maxX = Math.floor(globalLocalRatio * globalMaxX)
     const maxY = Math.floor(globalLocalRatio * globalMaxY)
-    return [minX, minY, maxX, maxY, zoom]
+    return [centerX, centerY, minX, minY, maxX, maxY, zoom]
 }
 
 export function Tiles() {
     const { size } = useThree()
-    const [minX, minY, maxX, maxY, zoom] = useViewerState((state) => {
+    const [centerX, centerY, minX, minY, maxX, maxY, zoom] = useViewerState((state) => {
         const [x, y, z] = getPosition(state)
         return calculateTileViewBounds(x, y, z, FOV, size.width / size.height)
     }, shallowEqual)
@@ -44,13 +53,13 @@ export function Tiles() {
             {new Array(distanceX * distanceY).fill(null).map((_, i) => {
                 const x = minX + Math.floor(i / distanceY)
                 const y = minY + (i % distanceY)
-                return <Tile key={`${x}/${y}`} x={x} y={y} zoom={zoom} />
+                return <Tile highlighted={x === centerX && y === centerY} key={`${x}/${y}`} x={x} y={y} zoom={zoom} />
             })}
         </>
     )
 }
 
-export function Tile({ x, y, zoom }: { x: number; y: number; zoom: number }) {
+export function Tile({ x, y, zoom, highlighted }: { highlighted: boolean; x: number; y: number; zoom: number }) {
     const showGround = useViewerState((state) => state.showBackground && state.viewType === "2d")
     const { position, scale } = useMemo<{ position: Vector3Tuple; scale: number }>(() => {
         const globalLocalRatio = tileZoomRatio(0, zoom)
@@ -68,7 +77,7 @@ export function Tile({ x, y, zoom }: { x: number; y: number; zoom: number }) {
             {zoom === 18 && <Descriptions x={x} y={y} />}
             {showGround && (
                 <Suspense fallback={null}>
-                    <Ground x={x} y={y} zoom={zoom} />
+                    <Ground highlighted={highlighted} x={x} y={y} zoom={zoom} />
                 </Suspense>
             )}
         </group>
@@ -79,12 +88,18 @@ const planeGeometry = new PlaneBufferGeometry(1, 1)
 planeGeometry.translate(0.5, -0.5, 0)
 planeGeometry.rotateX(-Math.PI / 2)
 
-function Ground({ x, y, zoom }: { x: number; y: number; zoom: number }) {
+function Ground({ x, y, zoom, highlighted }: { highlighted: boolean; x: number; y: number; zoom: number }) {
     const texture = useLoader(TextureLoader, getSatelliteUrl(x, y, zoom))
     const sizeInMeter = /**1 tile */ tileMeterRatio(y, zoom)
     return (
         <mesh scale={[sizeInMeter, 1, sizeInMeter]} geometry={planeGeometry} renderOrder={-1} position={[0, 0, 0]}>
-            <meshBasicMaterial side={DoubleSide} depthWrite={false} depthTest={false} map={texture} />
+            <meshBasicMaterial
+                color={highlighted ? 0xFFFFFF : 0xBBBBBB}
+                side={DoubleSide}
+                depthWrite={false}
+                depthTest={false}
+                map={texture}
+            />
         </mesh>
     )
 }

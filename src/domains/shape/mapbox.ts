@@ -1,5 +1,5 @@
 import { of } from "rxjs"
-import { Matrix4, Shape, Vector2, Vector3 } from "three"
+import { Matrix4, NumberKeyframeTrack, Shape, Vector2, Vector3 } from "three"
 import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "."
 
 //https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
@@ -64,6 +64,7 @@ import { VectorTile, VectorTileLayer } from "@mapbox/vector-tile"
 import Protobuf from "pbf"
 import { MaterialGenerator } from "./primitive"
 import { ParsedSteps } from "../../parser"
+import { filterNull } from "../../util"
 
 export type Layers = {
     [Layer in string]: Array<{
@@ -72,22 +73,8 @@ export type Layers = {
     }>
 }
 
-export async function loadMap(
-    x: number,
-    y: number,
-    zoom: number,
-    materialGenerator: MaterialGenerator,
-    tilePixelSize = 256
-) {
-    const layers = await loadMapLayers(x, y, zoom, tilePixelSize)
-    const roads = getRoads(layers, materialGenerator)
-    const buildings = getBuildings(layers, materialGenerator)
-    return [roads, buildings]
-}
-
 export function getSatelliteUrl(x: number, y: number, zoom: number): string {
-    return `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${x}/${y}@2x.jpg70?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
-    `
+    return `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${x}/${y}@2x.jpg70?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q`
 }
 
 export async function loadMapLayers(x: number, y: number, zoom: number, tilePixelSize = 256): Promise<Layers> {
@@ -103,17 +90,24 @@ export async function loadMapLayers(x: number, y: number, zoom: number, tilePixe
             ...prev,
             [name]: new Array(layer.length).fill(null).map((_, i) => {
                 const feature = layer.feature(i)
+                const geometry = feature.loadGeometry().map((points) => {
+                    const polygon = new Array<{ x: number; y: number }>(points.length)
+                    for (let i = 0; i < points.length; i++) {
+                        const { x, y } = points[i]
+                        polygon[i] = {
+                            x: x * meterToIntegerRatio,
+                            y: y * meterToIntegerRatio,
+                        }
+                    }
+                    return polygon
+                })
                 return {
                     properties: feature.properties,
-                    geometry: feature
-                        .loadGeometry()
-                        .map((points) =>
-                            points.map(({ x, y }) => ({ x: x * meterToIntegerRatio, y: y * meterToIntegerRatio }))
-                        ),
+                    geometry,
                 }
             }),
         }
-    }, {})
+    }, {} as Layers)
 }
 
 type Parameters = {
@@ -127,113 +121,203 @@ const buildingParameters: Parameters = {
     layer: of("building"),
 }
 
-export function convertRoadsToSteps(layers: Layers, suffix: string): Array<{ name: string; step: ParsedSteps }> {
+export function convertRoadsToSteps(
+    layers: Layers,
+    suffix: string,
+    outside: "exclude" | "clip" | "include",
+    extent: number
+): Array<{ name: string; step: ParsedSteps }> {
     return layers["road"]
         .filter((feature) => feature.properties.class === "street")
-        .reduce<Array<ParsedSteps>>(
-            (prev, feature) =>
-                prev.concat(
-                    feature.geometry.reduce<Array<ParsedSteps>>(
-                        (prev, geoemtry) =>
-                            prev.concat(
-                                geoemtry.slice(0, -1).map((p1, i) => {
-                                    const p2 = geoemtry[(i + 1) % geoemtry.length]
-                                    return {
-                                        type: "operation",
-                                        identifier: "line",
-                                        children: [p1, p2].map(({ x, y }) => ({
-                                            type: "operation",
-                                            identifier: "point2",
-                                            children: [
-                                                {
-                                                    type: "raw",
-                                                    value: x,
-                                                },
-                                                {
-                                                    type: "raw",
-                                                    value: y,
-                                                },
-                                            ],
-                                        })),
-                                    }
-                                })
-                            ),
-                        []
-                    )
-                ),
-            []
-        )
+        .map<ParsedSteps>((feature) => {
+            const steps = feature.geometry.reduce<Array<ParsedSteps>>(
+                (prev, polygon) => prev.concat(convertPolygonStreetToSteps(polygon, outside, extent)),
+                []
+            )
+            if (steps.length === 1) {
+                return steps[0]
+            }
+            return {
+                type: "parallel",
+                children: steps,
+            }
+        }, [])
         .map((step, i) => ({ name: `Road${i + 1}${suffix}`, step }))
 }
 
-export function convertLotsToSteps(layers: Layers, suffix: string): Array<{ name: string; step: ParsedSteps }> {
+function convertPolygonStreetToSteps(
+    polygon: Layers[string][number]["geometry"][number],
+    outside: "exclude" | "clip" | "include",
+    extent: number
+): Array<ParsedSteps> {
+    return polygon
+        .slice(0, -1)
+        .map<ParsedSteps | undefined>((p1, i) => {
+            let p2 = polygon[(i + 1) % polygon.length]
+
+            switch (outside) {
+                case "include":
+                    //do nothing
+                    break
+                case "exclude":
+                    if (!isInTile(p1.x, p1.y, extent) || !isInTile(p2.x, p2.y, extent)) {
+                        return undefined
+                    }
+                    break
+                case "clip":
+                    const result = clipLine(p1.x, p1.y, p2.x, p2.y, 0, 0, extent, extent)
+                    if (result == null) {
+                        return undefined
+                    }
+                    p1 = result.start
+                    p2 = result.end
+            }
+
+            return {
+                type: "operation",
+                identifier: "line",
+                children: [p1, p2].map(({ x, y }) => ({
+                    type: "operation",
+                    identifier: "point2",
+                    children: [
+                        {
+                            type: "raw",
+                            value: x,
+                        },
+                        {
+                            type: "raw",
+                            value: y,
+                        },
+                    ],
+                })),
+            }
+        })
+        .filter(filterNull)
+}
+
+function clipLine(
+    xStart: number,
+    yStart: number,
+    xEnd: number,
+    yEnd: number,
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number
+): { start: { x: number; y: number }; end: { x: number; y: number } } | undefined {
+    const slope = (yEnd - yStart) / (xEnd - xStart)
+    const yOffset = yStart - slope * xStart
+    const start = clipPointOnLine(slope, yOffset, xStart, yStart, minX, minY, maxX, maxY)
+    const end = clipPointOnLine(slope, yOffset, xEnd, yEnd, minX, minY, maxX, maxY)
+    if (start == null || end == null) {
+        return undefined
+    }
+    return {
+        start,
+        end,
+    }
+}
+
+function clipPointOnLine(
+    slope: number,
+    yOffset: number,
+    x: number,
+    y: number,
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number
+): { x: number; y: number } | undefined {
+    if (pointIsInside(x, y, minX, minY, maxX, maxY)) {
+        return { x, y }
+    }
+
+    const y1 = clip(y, minY, maxY)
+    const x1 = calculateX(y1, slope, yOffset)
+    if (pointIsInside(x1, y1, minX, minY, maxX, maxY)) {
+        return { x: x1, y: y1 }
+    }
+
+    const x2 = clip(x, minX, maxX)
+    const y2 = calculateY(x2, slope, yOffset)
+
+    if (pointIsInside(x2, y2, minX, minY, maxX, maxY)) {
+        return { x: x2, y: y2 }
+    }
+
+    return undefined
+}
+
+function calculateX(y: number, slope: number, yOffset: number): number {
+    return (y - yOffset) / slope
+}
+
+function calculateY(x: number, slope: number, yOffset: number): number {
+    return x * slope + yOffset
+}
+
+function clip(v: number, min: number, max: number): number {
+    return Math.max(Math.min(v, max), min)
+}
+
+export function convertLotsToSteps(
+    layers: Layers,
+    suffix: string,
+    outside: "exclude" | "include",
+    extent: number
+): Array<{ name: string; step: ParsedSteps }> {
     return layers["building"]
-        .reduce<Array<ParsedSteps>>(
-            (prev, feature) =>
-                prev.concat(
-                    feature.geometry.map<ParsedSteps>((lot, i) => ({
-                        type: "operation",
-                        identifier: "face",
-                        children: lot.map(({ x, y }) => ({
-                            type: "operation",
-                            identifier: "point2",
-                            children: [
-                                {
-                                    type: "raw",
-                                    value: x,
-                                },
-                                {
-                                    type: "raw",
-                                    value: y,
-                                },
-                            ],
-                        })),
-                    }))
-                ),
-            []
-        )
+        .map<ParsedSteps>((feature) => {
+            const steps = feature.geometry
+                .map((polygon) => convertPolygonLotToSteps(polygon, outside, extent))
+                .filter(filterNull)
+            return steps.length === 1
+                ? steps[0]
+                : {
+                      type: "parallel",
+                      children: steps,
+                  }
+        })
         .map((step, i) => ({ name: `Building${i + 1}${suffix}`, step }))
 }
 
-function getBuildings(layers: Layers, materialGenerator: MaterialGenerator): Array<[Primitive, Parameters]> {
-    return layers["building"].reduce<Array<[Primitive, Parameters]>>(
-        (prev, feature) =>
-            prev.concat(
-                feature.geometry.map<[Primitive, Parameters]>((lot) => [
-                    new FacePrimitive(
-                        new Matrix4(),
-                        new Shape(lot.map(({ x, y }) => new Vector2(x, y))),
-                        materialGenerator
-                    ),
-                    buildingParameters,
-                ])
-            ),
-        []
-    )
+function pointIsInside(x: number, y: number, minX: number, minY: number, maxX: number, maxY: number): boolean {
+    return minX <= x && minY <= y && x <= maxX && y <= maxY
 }
 
-function getRoads(layers: Layers, materialGenerator: MaterialGenerator): Array<[Primitive, Parameters]> {
-    return layers["road"]
-        .filter((feature) => feature.properties.class === "street")
-        .reduce<Array<[Primitive, Parameters]>>(
-            (prev, feature) =>
-                prev.concat(
-                    feature.geometry.map((geoemtry) => [
-                        new CombinedPrimitive(
-                            new Matrix4(),
-                            geoemtry.slice(0, -1).map((p1, i) => {
-                                const p2 = geoemtry[(i + 1) % geoemtry.length]
-                                return LinePrimitive.fromPoints(
-                                    new Matrix4(),
-                                    new Vector3(p1.x, 0, p1.y),
-                                    new Vector3(p2.x, 0, p2.y),
-                                    materialGenerator
-                                )
-                            })
-                        ),
-                        roadParameters,
-                    ])
-                ),
-            []
-        )
+function isInTile(x: number, y: number, extent: number): boolean {
+    return 0 < x && 0 < y && x < extent && y < extent
+}
+
+function convertPolygonLotToSteps(
+    geoemtry: Layers[string][number]["geometry"][number],
+    outside: "exclude" | "include",
+    extent: number
+): ParsedSteps | undefined {
+    const children = new Array<ParsedSteps>(geoemtry.length)
+    for (let i = 0; i < geoemtry.length; i++) {
+        const { x, y } = geoemtry[i]
+        if (outside === "exclude" && !isInTile(x, y, extent)) {
+            return undefined
+        }
+        children[i] = {
+            type: "operation",
+            identifier: "point2",
+            children: [
+                {
+                    type: "raw",
+                    value: x,
+                },
+                {
+                    type: "raw",
+                    value: y,
+                },
+            ],
+        }
+    }
+    return {
+        type: "operation",
+        identifier: "face",
+        children,
+    }
 }

@@ -1,6 +1,12 @@
 import { Sphere, useContextBridge } from "@react-three/drei"
 import { Canvas } from "@react-three/fiber"
-import { convertLotsToSteps, convertRoadsToSteps, loadMapLayers, tileZoomRatio } from "cgv/domains/shape"
+import {
+    convertLotsToSteps,
+    convertRoadsToSteps,
+    loadMapLayers,
+    tileMeterRatio,
+    tileZoomRatio,
+} from "cgv/domains/shape"
 import { HTMLProps } from "react"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
@@ -18,7 +24,7 @@ import { GUI } from "../../../gui"
 import { TextEditorToggle } from "../../../gui/toggles/text"
 import { GeoSearch } from "../geo-search"
 import { Tiles } from "./tile"
-import { PanoramaView } from "./background"
+import { PanoramaView } from "./panorama"
 import { DoubleSide } from "three"
 
 export function tileDescriptionSuffix(x: number, y: number): string {
@@ -110,7 +116,8 @@ async function generateLots(store: UseBaseStore) {
     const x = Math.floor(globalX * globalLocalRatio)
     const y = Math.floor(globalZ * globalLocalRatio)
     const layers = await loadMapLayers(x, y, zoom)
-    const newDescriptions = convertLotsToSteps(layers, tileDescriptionSuffix(x, y))
+    const extent = /**1 tile */ tileMeterRatio(y, zoom)
+    const newDescriptions = convertLotsToSteps(layers, tileDescriptionSuffix(x, y), "exclude", extent)
     store.getState().addDescriptions(newDescriptions)
 }
 
@@ -119,7 +126,8 @@ async function generateRoads(store: UseBaseStore) {
     const x = Math.floor(globalX * globalLocalRatio)
     const y = Math.floor(globalZ * globalLocalRatio)
     const layers = await loadMapLayers(x, y, zoom)
-    const newDescriptions = convertRoadsToSteps(layers, tileDescriptionSuffix(x, y))
+    const extent = /**1 tile */ tileMeterRatio(y, zoom)
+    const newDescriptions = convertRoadsToSteps(layers, tileDescriptionSuffix(x, y), "clip", extent)
     store.getState().addDescriptions(newDescriptions)
 }
 

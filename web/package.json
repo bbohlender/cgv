@@ -6,7 +6,9 @@
         "build": "next build",
         "start": "next start",
         "generate": "next build && next export",
-        "generate:panorma-list": "ts-node generate-panorama-list.ts"
+        "generate:panorama-list": "ts-node scripts/generate-panorama-list.ts",
+        "add-rotation": "ts-node scripts/add-rotation.ts",
+        "trim-images:fm": "cd public/panoramas/fm && magick mogrify -trim *.png"
     },
     "dependencies": {
         "@react-spring/three": "^9.4.4",

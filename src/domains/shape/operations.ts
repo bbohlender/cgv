@@ -1,5 +1,5 @@
-import { from, map, Observable, of, shareReplay } from "rxjs"
-import { LinePrimitive, loadMap, PointPrimitive } from "."
+import { from, map, Observable, of } from "rxjs"
+import { LinePrimitive, PointPrimitive } from "."
 import { Operations, simpleExecution } from "../.."
 import {
     makeRotationMatrix,

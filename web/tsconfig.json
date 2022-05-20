@@ -2,7 +2,7 @@
     "ts-node": {
         "transpileOnly": true,
         "moduleTypes": {
-            "generate-panorama-list.ts": "cjs"
+            "scripts/*": "cjs"
         }
     },
     "compilerOptions": {

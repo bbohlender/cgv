@@ -5,9 +5,9 @@ const searchFolders = ["panoramas/ny", "panoramas/fm"]
 
 const baseFolder = "./public/"
 
-const regex = /.*@(-?\d+.\d+),(-?\d+.\d+).*/
+const regex = /.*@(-?\d+.\d+),(-?\d+.\d+)(?:,(-?\d+(?:.\d+)?))?.*/
 
-const panorama_height = 1.5
+const panorama_height = 0.2
 
 const result: Array<{ url: string; rotationOffset: number; position: Vector3Tuple }> = []
 
@@ -20,9 +20,10 @@ for (const searchFolder of searchFolders) {
         }
         const lat = parseFloat(match[1])
         const lon = parseFloat(match[2])
+        const rotationOffset = parseFloat(match[3] ?? "0")
         result.push({
             position: [lon, panorama_height, lat],
-            rotationOffset: 0,
+            rotationOffset,
             url: `/cgv/${searchFolder}/${file}`,
         })
     }
