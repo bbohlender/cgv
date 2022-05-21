@@ -17,7 +17,7 @@ export function DescriptionList({
     return (
         <div
             {...rest}
-            style={{ ...style, maxWidth: 200 }}
+            style={style}
             className={`${className} bg-light rounded shadow w-100 overflow-hidden border d-flex flex-column`}>
             <div className="px-3 py-2 border-bottom d-flex flex-row align-items-center">
                 <span>Descriptions</span>
@@ -44,7 +44,9 @@ export function DescriptionList({
                         className={`pointer py-2 ps-3 pe-2 d-flex flex-row align-items-center border-top border-1 ${
                             selectedDescription === description.name ? "bg-primary text-light" : ""
                         }`}>
-                        {description.name}
+                        <span className="overflow-hidden" style={{ textOverflow: "ellipsis" }}>
+                            {description.name}
+                        </span>
                         <div className="flex-grow-1" />
                         <button
                             onClick={(e) => {

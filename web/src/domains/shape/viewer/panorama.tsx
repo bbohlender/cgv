@@ -14,8 +14,8 @@ export function PanoramaView() {
         showBackground && viewType === "3d" ? panoramaIndex : undefined
     )
     const panorama = panoramaIndex != null ? panoramas[panoramaIndex] : undefined
-    const [rotationOffset, setRotationOffset] = useState(0)
-    useEffect(() => {
+    //const [rotationOffset, setRotationOffset] = useState(0)
+    /*useEffect(() => {
         if (panorama == null) {
             return
         }
@@ -42,13 +42,13 @@ export function PanoramaView() {
         }
         window.addEventListener("keydown", listener)
         return () => window.removeEventListener("keydown", listener)
-    }, [panorama])
+    }, [panorama])*/
     if (panorama == null) {
         return null
     }
     return (
         <Suspense fallback={null}>
-            <Dome url={panorama.url} rotationOffset={(rotationOffset / 180) * Math.PI} />
+            <Dome url={panorama.url} rotationOffset={(panorama.rotationOffset / 180) * Math.PI} />
         </Suspense>
     )
 }

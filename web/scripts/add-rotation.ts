@@ -1,6 +1,65 @@
 import { renameSync } from "fs"
 
-const data: Array<[string, number]> = [
+const data: Array<[string, number]> = []
+/*[
+    ["/panoramas/fm/panorama-@50.1184347,8.6605192,-97.png", -96],
+    ["/panoramas/fm/panorama-@50.1176976,8.6600027,-186.png", -189],
+    ["/panoramas/fm/panorama-@50.1177469,8.6593229,-186.png", -189],
+    ["/panoramas/fm/panorama-@50.1176176,8.6590014,74.png", 72],
+    ["/panoramas/fm/panorama-@50.1172581,8.6588044,71.png", 71],
+    ["/panoramas/fm/panorama-@50.1169004,8.6586113,73.png", 70],
+    ["/panoramas/fm/panorama-@50.1177635,8.660359,261.png", 260],
+    ["/panoramas/fm/panorama-@50.1180577,8.6604327,263.png", 261],
+    ["/panoramas/fm/panorama-@50.1160285,8.6630039,-96.png", -97],
+    ["/panoramas/fm/panorama-@50.1163257,8.6631204,-100.png", -98],
+    ["/panoramas/fm/panorama-@50.1167265,8.6632372,-100.png", -100],
+    ["/panoramas/fm/panorama-@50.1171317,8.6633554,-100.png", -101],
+    ["/panoramas/fm/panorama-@50.1174098,8.663442,-100.png", -101],
+]*/
+
+/*[
+    ["/panoramas/ny/panorama-@40.7610493,-73.9928593,151.png", 152],
+    ["/panoramas/ny/panorama-@40.7619205,-73.9937505,79.png", 58],
+    ["/panoramas/ny/panorama-@40.7620772,-73.9933428,-25.png", -28],
+    ["/panoramas/ny/panorama-@40.7617265,-73.9925237,-26.png", -30],
+    ["/panoramas/ny/panorama-@40.7612502,-73.9913927,-35.png", -31],
+]*/
+
+/*[
+    ["/panoramas/ny/panorama-@40.7619153,-73.9929245.png", -23],
+    ["/panoramas/ny/panorama-@40.7617265,-73.9925237.png", -26],
+    ["/panoramas/ny/panorama-@40.7620772,-73.9933428.png", -25],
+    ["/panoramas/ny/panorama-@40.7615683,-73.9920941.png", -26],
+    ["/panoramas/ny/panorama-@40.7612502,-73.9913927.png", -35],
+    ["/panoramas/ny/panorama-@40.7607584,-73.9909371.png", -117],
+    ["/panoramas/ny/panorama-@40.7605103,-73.9911163.png", -115],
+    ["/panoramas/ny/panorama-@40.7603894,-73.991293.png", 152],
+    ["/panoramas/ny/panorama-@40.7605683,-73.9917221.png", 152],
+    ["/panoramas/ny/panorama-@40.7607437,-73.9921399.png", 151],
+    ["/panoramas/ny/panorama-@40.7608757,-73.9924488.png", 151],
+    ["/panoramas/ny/panorama-@40.7610493,-73.9928593.png", 151],
+    ["/panoramas/ny/panorama-@40.7612609,-73.9933606.png", 147],
+    ["/panoramas/ny/panorama-@40.7614897,-73.9938411.png", 154],
+    ["/panoramas/ny/panorama-@40.7619205,-73.9937505.png", 79],
+]*/
+
+/*[
+    ["/panoramas/fm/panorama-@50.1163257,8.6631204.png", -100],
+    ["/panoramas/fm/panorama-@50.1167265,8.6632372.png", -100],
+    ["/panoramas/fm/panorama-@50.1174098,8.663442.png", -100],
+    ["/panoramas/fm/panorama-@50.1171317,8.6633554.png", -100],
+    ["/panoramas/fm/panorama-@50.1169004,8.6586113.png", 73],
+    ["/panoramas/fm/panorama-@50.1172581,8.6588044.png", 71],
+    ["/panoramas/fm/panorama-@50.1176176,8.6590014.png", 74],
+    ["/panoramas/fm/panorama-@50.1177469,8.6593229.png", -186],
+    ["/panoramas/fm/panorama-@50.1176976,8.6600027.png", -186],
+    ["/panoramas/fm/panorama-@50.1177635,8.660359.png", 261],
+    ["/panoramas/fm/panorama-@50.1180577,8.6604327.png", 263],
+    ["/panoramas/fm/panorama-@50.1184347,8.6605192.png", -97],
+    ["/panoramas/fm/panorama-@50.1160285,8.6630039.png", -96],
+]*/
+
+/*[
     ["/panoramas/fm/panorama-@50.1159062,8.6619545.png", -65],
     ["/panoramas/fm/panorama-@50.1157194,8.6619182.png", -98],
     ["/panoramas/fm/panorama-@50.1156269,8.6618911.png", -99],
@@ -36,7 +95,7 @@ const data: Array<[string, number]> = [
     ["/panoramas/fm/panorama-@50.1146801,8.6625474.png", -154],
     ["/panoramas/fm/panorama-@50.1146702,8.6623931.png", -182],
     ["/panoramas/fm/panorama-@50.1146802,8.6622397.png", -184],
-]
+]*/
 /**
  * ["panoramas/ny/panorama-@40.7629306,-73.989556.png", 152],
     ["panoramas/ny/panorama-@40.7628862,-73.9894495.png", 153],

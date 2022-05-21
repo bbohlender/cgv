@@ -69,7 +69,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
             <div
                 className="d-flex flex-row justify-content-between position-absolute"
                 style={{ pointerEvents: "none", inset: 0 }}>
-                <div className="d-flex flex-column my-3 ms-3" style={{ maxWidth: 160 }}>
+                <div className="d-flex flex-column my-3 ms-3" style={{ maxWidth: 200 }}>
                     <GeoSearch style={{ pointerEvents: "all" }} className="mb-3" />
                     <DescriptionList
                         createDescriptionRequestData={() => {
@@ -171,7 +171,7 @@ function Panoramas() {
                         e.stopPropagation()
                         useViewerState.getState().changePanoramaView(index)
                     }}
-                    scale={0.00000005}>
+                    scale={0.00000003}>
                     <meshBasicMaterial color={0x0000ff} />
                 </Sphere>
             ))}

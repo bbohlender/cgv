@@ -36,7 +36,7 @@ export function createPhongMaterialGenerator(color: Color): MaterialGenerator {
     return (type) => {
         switch (type) {
             case ObjectType.Point:
-                return new PointsMaterial({ size: 1e-9, toneMapped: false, color })
+                return new PointsMaterial({ size: 3e-8, toneMapped: false, color })
             case ObjectType.Line:
                 return new LineBasicMaterial({ toneMapped: false, color })
             case ObjectType.Mesh:
@@ -169,6 +169,7 @@ export class PointPrimitive extends Primitive {
             new BufferGeometry().setFromPoints([new Vector3()]),
             new PointsMaterial({
                 color: 0,
+                size: 3e-8,
                 transparent: true,
                 depthTest: false,
             })

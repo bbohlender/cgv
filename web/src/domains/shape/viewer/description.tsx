@@ -73,28 +73,28 @@ const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new
 export function Descriptions({ x, y }: { x: number; y: number }) {
     const suffix = tileDescriptionSuffix(x, y)
     const descriptions = useBaseStoreState(
-        (state) => state.descriptions.filter((description) => description.visible && description.name.endsWith(suffix)),
+        (state) => state.descriptions.filter((description) => description.name.endsWith(suffix)),
         shallowEqual
     )
     return (
         <>
-            {descriptions.map(({ name }) => (
-                <Description x={x} y={y} key={name} name={name} />
+            {descriptions.map(({ name, visible }) => (
+                <Description visible={visible} x={x} y={y} key={name} name={name} />
             ))}
         </>
     )
 }
 
-export function Description({ name, x, y }: { name: string; x: number; y: number }) {
+export function Description({ name, visible, x, y }: { visible: boolean; name: string; x: number; y: number }) {
     const isSelected = useBaseStoreState((state) => state.selectedDescription === name)
     return isSelected ? (
         <>
-            <Control/>
+            <Control />
             <HighlightDescriptions />
-            <SelectedDescription name={name} />
+            <SelectedDescription visible={visible} name={name} />
         </>
     ) : (
-        <UnselectedDescription name={name} />
+        <UnselectedDescription visible={visible} name={name} />
     )
 }
 
@@ -241,15 +241,15 @@ function useLocalDescription(store: UseBaseStore, name: string) {
     )
 }
 
-function UnselectedDescription({ name }: { name: string }) {
+function UnselectedDescription({ visible, name }: { visible: boolean; name: string }) {
     const groupRef = useRef<ReactNode & Group>(null)
     const store = useBaseStore()
     const unselectedDescription = useLocalDescription(store, name)
     useSimpleInterpretation(unselectedDescription, groupRef)
-    return <group onClick={() => store.getState().selectDescription(name)} ref={groupRef} />
+    return <group visible={visible} onClick={() => store.getState().selectDescription(name)} ref={groupRef} />
 }
 
-function SelectedDescription({ name }: { name: string }) {
+function SelectedDescription({ visible, name }: { visible: boolean; name: string }) {
     const store = useBaseStore()
     const selectedDescription = useLocalDescription(store, name)
     const groupRef = useRef<ReactNode & Group>(null)
@@ -259,6 +259,7 @@ function SelectedDescription({ name }: { name: string }) {
     }
     return (
         <group
+            visible={visible}
             ref={groupRef}
             onPointerMove={(e) => {
                 e.stopPropagation()
