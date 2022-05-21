@@ -5,6 +5,7 @@ import create from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { panoramas } from "../global"
 import { lat2tile, lon2tile, Primitive, tileMeterRatio } from "cgv/domains/shape"
+import { locations } from "../geo-search"
 
 export const FOV = 60
 
@@ -46,20 +47,20 @@ const panoramaRotation: Vector3Tuple = [0, 0, 0]
 
 export const topRotation = eulerToTuple(new Euler(-Math.PI / 2, 0, 0))
 
-export function createViewerStateInitial(): ViewerState {
-    return {
-        viewType: "2d",
-        position: [0, DEFAULT_Y, 0],
-        error: undefined,
-        showBackground: false,
-    }
-}
-
 const GLOBAL_METER_RATIO = tileMeterRatio(0, 0)
 
 const MIN_Y = 1 /*m*/ / GLOBAL_METER_RATIO
 const DEFAULT_Y = 10 /*m*/ / GLOBAL_METER_RATIO
 const MAX_Y = 40 /*m*/ / GLOBAL_METER_RATIO
+
+export function createViewerStateInitial(): ViewerState {
+    return {
+        viewType: "2d",
+        position: [lon2tile(locations[0].lon, 0), DEFAULT_Y, lat2tile(locations[0].lat, 0)],
+        error: undefined,
+        showBackground: false,
+    }
+}
 
 export function clip(v: number, min: number, max: number) {
     return Math.min(Math.max(v, min), max)

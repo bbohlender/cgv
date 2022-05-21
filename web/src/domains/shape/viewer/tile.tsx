@@ -1,10 +1,11 @@
 import { useLoader, useThree } from "@react-three/fiber"
-import { getSatelliteUrl, tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
+import { tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
 import { Suspense, useMemo } from "react"
 import { DoubleSide, PlaneBufferGeometry, TextureLoader, Vector3Tuple } from "three"
 import { clip, FOV, getPosition, useViewerState } from "./state"
 import { shallowEqual } from "cgv"
 import { Descriptions } from "./description"
+import availableTiles, { getTileUrl } from "../available-tiles"
 
 type ViewBounds = [
     centerX: number,
@@ -72,12 +73,13 @@ export function Tile({ x, y, zoom, highlighted }: { highlighted: boolean; x: num
             scale,
         }
     }, [x, y, zoom])
+    const url = getTileUrl(zoom, x, y, "png")
     return (
         <group scale={scale} position={position}>
             {zoom === 18 && <Descriptions x={x} y={y} />}
-            {showGround && (
+            {showGround && url != null && (
                 <Suspense fallback={null}>
-                    <Ground highlighted={highlighted} x={x} y={y} zoom={zoom} />
+                    <Ground highlighted={highlighted} url={url} y={y} zoom={zoom} />
                 </Suspense>
             )}
         </group>
@@ -88,13 +90,13 @@ const planeGeometry = new PlaneBufferGeometry(1, 1)
 planeGeometry.translate(0.5, -0.5, 0)
 planeGeometry.rotateX(-Math.PI / 2)
 
-function Ground({ x, y, zoom, highlighted }: { highlighted: boolean; x: number; y: number; zoom: number }) {
-    const texture = useLoader(TextureLoader, getSatelliteUrl(x, y, zoom))
+function Ground({ url, y, zoom, highlighted }: { highlighted: boolean; url: string; y: number; zoom: number }) {
+    const texture = useLoader(TextureLoader, url)
     const sizeInMeter = /**1 tile */ tileMeterRatio(y, zoom)
     return (
         <mesh scale={[sizeInMeter, 1, sizeInMeter]} geometry={planeGeometry} renderOrder={-1} position={[0, 0, 0]}>
             <meshBasicMaterial
-                color={highlighted ? 0xFFFFFF : 0xBBBBBB}
+                color={highlighted ? 0xffffff : 0xbbbbbb}
                 side={DoubleSide}
                 depthWrite={false}
                 depthTest={false}

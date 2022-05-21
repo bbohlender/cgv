@@ -7,14 +7,13 @@ import {
     tileMeterRatio,
     tileZoomRatio,
 } from "cgv/domains/shape"
-import { HTMLProps } from "react"
+import { HTMLProps, DragEvent } from "react"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
 import { ViewerCamera } from "./camera"
 import { getPosition, useViewerState } from "./state"
 import { ViewControls } from "./view-controls"
-import { Control } from "./control"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
 import { SpeedSelection } from "../../../gui/speed-selection"
@@ -25,10 +24,19 @@ import { TextEditorToggle } from "../../../gui/toggles/text"
 import { GeoSearch } from "../geo-search"
 import { Tiles } from "./tile"
 import { PanoramaView } from "./panorama"
-import { DoubleSide } from "three"
+import { getTileUrl } from "../available-tiles"
+import { DownloadIcon } from "../../../icons/download"
 
 export function tileDescriptionSuffix(x: number, y: number): string {
-    return `_${x}/${y}`
+    return `_${x}_${y}`
+}
+
+function onDrop(store: UseBaseStore, e: DragEvent<HTMLDivElement>) {
+    e.stopPropagation()
+    e.preventDefault()
+    if (e.dataTransfer?.files.length === 1) {
+        e.dataTransfer.files[0].text().then((text) => store.getState().import(text))
+    }
 }
 
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
@@ -36,7 +44,11 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
     const store = useBaseStore()
 
     return (
-        <div {...rest} className={`${className} position-relative`}>
+        <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={onDrop.bind(null, store)}
+            {...rest}
+            className={`${className} position-relative`}>
             <Canvas
                 style={{
                     touchAction: "none",
@@ -85,6 +97,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                         <BackgroundToggle className="me-2" />
                         <BackButton className="me-2" />
                         <SpeedSelection className="me-2" />
+                        <DownloadButton className="me-2" />
                         <ShowError />
                     </div>
                 </div>
@@ -112,20 +125,28 @@ const zoom = 18
 const globalLocalRatio = tileZoomRatio(0, zoom)
 
 async function generateLots(store: UseBaseStore) {
-    const [globalX, globalY, globalZ] = getPosition(useViewerState.getState())
+    const [globalX, , globalZ] = getPosition(useViewerState.getState())
     const x = Math.floor(globalX * globalLocalRatio)
     const y = Math.floor(globalZ * globalLocalRatio)
-    const layers = await loadMapLayers(x, y, zoom)
+    const url = getTileUrl(zoom, x, y, "mvt")
+    if (url == null) {
+        return
+    }
+    const layers = await loadMapLayers(url, y, zoom)
     const extent = /**1 tile */ tileMeterRatio(y, zoom)
     const newDescriptions = convertLotsToSteps(layers, tileDescriptionSuffix(x, y), "exclude", extent)
     store.getState().addDescriptions(newDescriptions)
 }
 
 async function generateRoads(store: UseBaseStore) {
-    const [globalX, globalY, globalZ] = getPosition(useViewerState.getState())
+    const [globalX, , globalZ] = getPosition(useViewerState.getState())
     const x = Math.floor(globalX * globalLocalRatio)
     const y = Math.floor(globalZ * globalLocalRatio)
-    const layers = await loadMapLayers(x, y, zoom)
+    const url = getTileUrl(zoom, x, y, "mvt")
+    if (url == null) {
+        return
+    }
+    const layers = await loadMapLayers(url, y, zoom)
     const extent = /**1 tile */ tileMeterRatio(y, zoom)
     const newDescriptions = convertRoadsToSteps(layers, tileDescriptionSuffix(x, y), "clip", extent)
     store.getState().addDescriptions(newDescriptions)
@@ -155,6 +176,19 @@ function Panoramas() {
                 </Sphere>
             ))}
         </>
+    )
+}
+
+function DownloadButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const store = useBaseStore()
+
+    return (
+        <div
+            {...rest}
+            onClick={() => store.getState().download()}
+            className={`${className} d-flex align-items-center justify-content-center btn btn-primary btn-sm `}>
+            <DownloadIcon />
+        </div>
     )
 }
 

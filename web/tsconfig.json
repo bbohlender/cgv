@@ -1,8 +1,7 @@
 {
     "ts-node": {
-        "transpileOnly": true,
-        "moduleTypes": {
-            "scripts/*": "cjs"
+        "compilerOptions": {
+            "module": "CommonJS"
         }
     },
     "compilerOptions": {

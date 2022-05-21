@@ -1,6 +1,8 @@
 import { of } from "rxjs"
-import { Matrix4, NumberKeyframeTrack, Shape, Vector2, Vector3 } from "three"
-import { CombinedPrimitive, FacePrimitive, LinePrimitive, Primitive } from "."
+import { VectorTile, VectorTileLayer } from "@mapbox/vector-tile"
+import Protobuf from "pbf"
+import { ParsedSteps } from "../../parser"
+import { filterNull } from "../../util"
 
 //https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
 export function lon2tile(lon: number, zoom: number) {
@@ -35,37 +37,6 @@ export function tileZoomRatio(from: number, to: number): number {
     return Math.pow(2, to) / Math.pow(2, from)
 }
 
-/*
-export function gpsToMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-    // generally used geo measurement function
-    var R = 6378.137 // Radius of earth in KM
-    var dLat = (lat2 * Math.PI) / 180 - (lat1 * Math.PI) / 180
-    var dLon = (lon2 * Math.PI) / 180 - (lon1 * Math.PI) / 180
-    var a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    var d = R * c
-    return d * 1000 // meters
-}
-
-export function tileSizeMeters(x: number, y: number, zoom: number): { width: number; height: number } {
-    const startLon = tile2lon(x, zoom)
-    const startLat = tile2lat(y, zoom)
-    const nextLon = tile2lon(x + 1, zoom)
-    const nextLat = tile2lat(y + 1, zoom)
-    return {
-        width: gpsToMeters(startLat, startLon, startLat, nextLon),
-        height: gpsToMeters(startLat, startLon, nextLat, startLon),
-    }
-}*/
-
-import { VectorTile, VectorTileLayer } from "@mapbox/vector-tile"
-import Protobuf from "pbf"
-import { MaterialGenerator } from "./primitive"
-import { ParsedSteps } from "../../parser"
-import { filterNull } from "../../util"
-
 export type Layers = {
     [Layer in string]: Array<{
         properties: any
@@ -73,15 +44,9 @@ export type Layers = {
     }>
 }
 
-export function getSatelliteUrl(x: number, y: number, zoom: number): string {
-    return `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${x}/${y}@2x.jpg70?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q`
-}
-
-export async function loadMapLayers(x: number, y: number, zoom: number, tilePixelSize = 256): Promise<Layers> {
+export async function loadMapLayers(url: string, y: number, zoom: number, tilePixelSize = 256): Promise<Layers> {
     const sizeInMeter = /** 1 tile */ tileMeterRatio(y, zoom, tilePixelSize)
-    const response =
-        await fetch(`https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/${zoom}/${x}/${y}.mvt?access_token=pk.eyJ1IjoiZ2V0dGlucWRvd24iLCJhIjoiY2t2NXVnMXY2MTl4cDJ1czNhd3AwNW9rMCJ9.k8Dv277a0znf4LE_Pkcl3Q
-    `)
+    const response = await fetch(url)
     const data = await response.arrayBuffer()
     const vectorTile = new VectorTile(new Protobuf(data))
     return Object.entries(vectorTile.layers).reduce((prev, [name, layer]: [string, VectorTileLayer]) => {
@@ -108,17 +73,6 @@ export async function loadMapLayers(x: number, y: number, zoom: number, tilePixe
             }),
         }
     }, {} as Layers)
-}
-
-type Parameters = {
-    //TODO
-}
-
-const roadParameters: Parameters = {
-    layer: of("road"),
-}
-const buildingParameters: Parameters = {
-    layer: of("building"),
 }
 
 export function convertRoadsToSteps(

@@ -55,6 +55,22 @@ export function getAtPath<I>(path: TranslatedPath<I>, pathIndex: number): Abstra
     return path[pathIndex + 1] as AbstractParsedSteps<I>
 }
 
+export function removeHierarchicalFromDescription(
+    description: HierarchicalParsedGrammarDefinition
+): ParsedGrammarDefinition {
+    return description.map(({ name, step }) => ({ name, step: removeHierarchicalFromStep(step) }))
+}
+
+export function removeHierarchicalFromStep({ path, children, ...step }: HierarchicalParsedSteps): ParsedSteps {
+    if (children == null) {
+        return step as ParsedSteps
+    }
+    return {
+        ...step,
+        children: children.map((child) => removeHierarchicalFromStep(child)),
+    } as ParsedSteps
+}
+
 export function toHierarchicalSteps<T = unknown>(
     steps: AbstractParsedSteps<T>,
     ...basePath: HierarchicalPath

@@ -39,6 +39,8 @@ import {
     localizeNoun,
     toHierarchicalSteps,
     copyNoun,
+    removeHierarchicalFromDescription,
+    parse,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -142,6 +144,39 @@ function createBaseStateFunctions(
     const selectCondition: ConditionSelector = (conditions) =>
         new Promise((resolve) => request("select-condition", resolve, conditions))
     return {
+        import: (data: string) => {
+            try {
+                const parsedDescription = toHierarchical(parse(data))
+                const descriptionSet = new Set<string>()
+                for (const { name } of parsedDescription) {
+                    const descriptionName = getDescriptionOfNoun(name)
+                    descriptionSet.add(descriptionName)
+                }
+                set({
+                    descriptions: Array.from(descriptionSet).map((name) => ({ name, visible: true })),
+                    grammar: parsedDescription,
+                    selectedDescription: undefined,
+                    selectionsList: [],
+                    valueMap: {},
+                    dependencyMap: computeDependencies(parsedDescription),
+                    hovered: undefined,
+                    requested: undefined,
+                    type: "gui",
+                })
+            } catch (e) {
+                console.error(e)
+            }
+        },
+        download: () => {
+            const state = get()
+            const unhierarchicalDescription =
+                state.type === "gui" ? removeHierarchicalFromDescription(state.grammar) : state.grammar
+            const string = serializeString(unhierarchicalDescription)
+            var a = document.createElement("a")
+            a.href = window.URL.createObjectURL(new Blob([string], { type: "text/plain" }))
+            a.download = "descriptions.cgv"
+            a.click()
+        },
         setShowTui: (showTui: boolean) => {
             set({ showTui })
         },

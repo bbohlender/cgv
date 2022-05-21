@@ -2,7 +2,37 @@ import { HTMLProps, useCallback, useEffect, useMemo, useState } from "react"
 import { debounceTime, EMPTY, filter, from, Subject, switchMap, tap } from "rxjs"
 import { useViewerState } from "./viewer/state"
 
+export const locations: Array<{ title: string; lat: number; lon: number }> = [
+    {
+        title: "721 9th Ave, New York, NY 10019",
+        lat: 40.7628862,
+        lon: -73.9894495,
+    },
+    {
+        title: "Feuerbachstraße 25, 60325 Frankfurt am Main",
+        lat: 50.1157581,
+        lon: 8.6629498,
+    },
+]
+
 export function GeoSearch({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    return (
+        <div {...rest} className={`${className} bg-light border rounded shadow`}>
+            <div className="py-2 px-3 border-bottom border-2">Adresses</div>
+            {locations.map(({ title, lat, lon }) => (
+                <div
+                    key={title}
+                    style={{ fontSize: "x-small" }}
+                    className="pointer border-top py-2 px-3"
+                    onClick={() => useViewerState.getState().setLatLon(lat, lon)}>
+                    {title}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+/*export function GeoSearch({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const [{ search, option }, setState] = useState<{
         search: string
         option: { title: string; lat: number; lon: number } | undefined
@@ -71,3 +101,4 @@ export function GeoSearch({ className, ...rest }: HTMLProps<HTMLDivElement>) {
         </div>
     )
 }
+*/
