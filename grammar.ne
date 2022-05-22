@@ -152,5 +152,6 @@ IfThenElse              ->  %ifSymbol %ws Steps %ws Then ws Else                
 Then                    ->  %thenSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
 Else                    ->  %elseSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
 
-Switch                  ->  %switchSymbol %ws Steps ws %openCurlyBracket SwitchCase:* ws %closedCurlyBracket    {% ([,,value,,,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
-SwitchCase              ->  ws %caseSymbol %ws Constant %colon ws Steps                                         {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}
+Switch                  ->  %switchSymbol %ws Steps ws %openCurlyBracket SwitchCases:* ws %closedCurlyBracket    {% ([,,value,,,cases]) => ({ type: "switch", cases: cases.map(({ caseValues }: any) => caseValues), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+SwitchCases             ->  ws SwitchCase:+ Steps                                                               {% ([,caseValues,steps]) => ({ caseValues, steps }) %}
+SwitchCase              ->  %caseSymbol %ws Constant %colon ws                                                  {% ([,,caseValue]) => caseValue %}

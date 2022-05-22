@@ -122,7 +122,7 @@ export type AbstractParsedIf<T> = {
 } & T
 export type AbstractParsedSwitch<T> = {
     type: "switch"
-    cases: Array<any>
+    cases: Array<Array<any>>
     children: Array<AbstractParsedSteps<T>>
 } & T
 export type AbstractParsedSetVariable<T> = {

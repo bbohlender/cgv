@@ -238,8 +238,8 @@ function serializeSwitch<T>(
         serializeChild(step.children[0]),
         serializeText(" { "),
         ...insertBetweenAll(
-            step.cases.map((caseValue, i) => [
-                serializeText(`case ${serializeConstant(caseValue)}: `),
+            step.cases.map((caseValues, i) => [
+                ...caseValues.map((caseValue) => serializeText(`case ${serializeConstant(caseValue)}: `)),
                 serializeChild(step.children[i + 1]),
             ]),
             serializeText(" ")
