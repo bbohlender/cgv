@@ -93,6 +93,13 @@ describe("summarize grammars", () => {
         expect(serializeString(summarizedGrammar)).to.equal(`s1 --> if this == false then { 50%: 2 50%: 1 } else { 2 }`)
     })
 
+    it("should summarize two grammars as multiple innter random switches with nested nouns", () => {
+        const description1 = parse(`s1 --> if this == false then { 3 } else { s2 } \n s2 --> 2`)
+        const description2 = parse(`s2 --> if this == false then { 1 } else { 2 }`)
+        const summarizedGrammar = summarize(description1, description2)
+        expect(serializeString(summarizedGrammar)).to.equal(`s1 --> if this == false then { 50%: 3 50%: 1 } else { s2 } \n\n s2 --> 2`)
+    })
+
     it("should summarize three equal grammars as the same", () => {
         const text = `s1 --> if this == false then { switch this { case 0: 1 case 1: 0 } } else { 2 }`
         const description1 = parse(text)

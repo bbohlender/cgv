@@ -1,6 +1,7 @@
 import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
 
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
+    summarizeTwo(d1, w1, d2: w2) //w1, w2 weights for the respective description
     throw new Error("method not implemented")
 }
 
