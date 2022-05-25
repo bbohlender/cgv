@@ -1,25 +1,7 @@
 import { expect } from "chai"
-import { parse, serializeString, summarize, unifyNested } from "../src"
+import { parse, serializeString, summarize } from "../src"
 
 describe("summarize grammars", () => {
-    it("should unify and group nested random", () => {
-        const steps = parse(`a --> { 50%: { 25%: 1 50%: 2 25%: 3 } 50%: { 10%: 2 30%: 3 60%: 1 } }`)[0].step
-        const result = unifyNested(steps)
-        expect(serializeString([{ name: "a", step: result }])).to.equal(`a --> { 42.5%: 1 30%: 2 27.5%: 3 }`)
-    })
-
-    it("should unify nested random", () => {
-        const steps = parse(`a --> { 50%: { 25%: 1 50%: 2 25%: 3 } 50%: 4 }`)[0].step
-        const result = unifyNested(steps)
-        expect(serializeString([{ name: "a", step: result }])).to.equal(`a --> { 12.5%: 1 25%: 2 12.5%: 3 50%: 4 }`)
-    })
-
-    it("should unify nested random with brackets", () => {
-        const steps = parse(`a --> { 50%: ({ 25%: 1 50%: 2 25%: 3 }) 50%: 2 }`)[0].step
-        const result = unifyNested(steps)
-        expect(serializeString([{ name: "a", step: result }])).to.equal(`a --> { 12.5%: 1 75%: 2 12.5%: 3 }`)
-    })
-
     it("should summarize at inner steps with using a random step based on the operation type and at least one equal child", () => {
         const description1 = parse(`a --> 1 | this -> 3`)
         const description2 = parse(`a --> 2 | this -> 2`)
@@ -46,6 +28,17 @@ describe("summarize grammars", () => {
         const result = summarize(description1, description2)
 
         expect(serializeString(result)).to.equal(`a --> { 50%: 1 50%: b } | this -> { 50%: 3 50%: b }\n\nb -> 1`)
+    })
+
+    it("should summarize steps with nouns from both sides", () => {
+        const description1 = parse(`a --> g | this -> 3\ng --> 2`)
+        const description2 = parse(`a --> this -> 2 | b\nb --> 1`)
+
+        const result = summarize(description1, description2)
+
+        expect(serializeString(result)).to.equal(
+            `a --> { 50%: g 50%: b } | this -> { 50%: 3 50%: b }\n\ng --> 2\n\nb --> 1`
+        )
     })
 
     it("should summarize steps unodered in a ParallelStep", () => {
@@ -97,7 +90,9 @@ describe("summarize grammars", () => {
         const description1 = parse(`s1 --> if this == false then { 3 } else { s2 } \n s2 --> 2`)
         const description2 = parse(`s2 --> if this == false then { 1 } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2)
-        expect(serializeString(summarizedGrammar)).to.equal(`s1 --> if this == false then { 50%: 3 50%: 1 } else { s2 } \n\n s2 --> 2`)
+        expect(serializeString(summarizedGrammar)).to.equal(
+            `s1 --> if this == false then { 50%: 3 50%: 1 } else { s2 } \n\n s2 --> 2`
+        )
     })
 
     it("should summarize three equal grammars as the same", () => {
@@ -133,7 +128,9 @@ describe("summarize grammars", () => {
         const description2 = parse(`s1 --> if this == false then { 1 } else { 2 }`)
         const description4 = parse(`s1 --> if this == false then { 1 } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2, description3, description4)
-        expect(serializeString(summarizedGrammar)).to.equal(`s1 -> if (this == false) then { 25%: 2 75%: 1 } else { 2 }`)
+        expect(serializeString(summarizedGrammar)).to.equal(
+            `s1 -> if (this == false) then { 25%: 2 75%: 1 } else { 2 }`
+        )
     })
 
     it("should only summarize grammars with same operation identifier", () => {

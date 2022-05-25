@@ -1,13 +1,169 @@
-import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
+import {
+    ParsedGrammarDefinition,
+    ParsedIf,
+    ParsedParallel,
+    ParsedRandom,
+    ParsedSequantial,
+    ParsedSteps,
+    ParsedSwitch,
+} from "../parser"
+import { serializeStepString } from "../serializer"
+import { SimilarityMap } from "./similar"
 
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
-    summarizeTwo(d1, w1, d2: w2) //w1, w2 weights for the respective description
-    throw new Error("method not implemented")
+    return descriptions.reduce((prev, current, i) => combineDescriptions(prev, i + 1, current, 1))
 }
 
-export function unifyNested(steps: ParsedSteps): ParsedSteps {
-    throw new Error("method not implemented")
+function combineDescriptions(
+    description1: ParsedGrammarDefinition,
+    weight1: number,
+    description2: ParsedGrammarDefinition,
+    weight2: number
+): ParsedGrammarDefinition {
+    //TODO: work list for the nouns 
 }
+
+function getNounName(preferredName: string, grammar: ParsedGrammarDefinition): string {
+    if (grammar.find(({ name }) => preferredName === name) != null) {
+        return getNounName(`${preferredName}'`, grammar)
+    }
+    return preferredName
+}
+
+/**
+ * @returns undefined if the step1 & 2 are not combineable
+ */
+function combineSteps(
+    step1: ParsedSteps,
+    weight1: number,
+    step2: ParsedSteps,
+    weight2: number,
+
+): ParsedSteps | undefined {
+    //TODO: cache map for serialization
+    if (serializeStepString(step1) === serializeStepString(step2)) {
+        return step1
+    }
+    let combined: ParsedSteps | undefined
+    if (step1.type === step2.type) {
+        switch (step1.type) {
+            case "parallel":
+                combined = combineParallel(step1, weight1, step2 as typeof step1, weight2)
+                break
+            case "switch":
+                combined = combineSwitch(step1, weight1, step2 as typeof step1, weight2)
+                break
+            case "random":
+                combined = combineRandom(step1, weight1, step2 as typeof step1, weight2)
+                break
+            case "if":
+                combined = combineIf(step1, weight1, step2 as typeof step1, weight2)
+                break
+            case "sequential":
+                combined = combineSequential(step1, weight1, step2 as typeof step1, weight2)
+                break
+            default:
+                combined = combineDefault(step1, weight1, step2 as typeof step1, weight2)
+                break
+        }
+    }
+    return (
+        combined ?? combineWithChild(step1, weight1, step2, weight2) ?? combineWithChild(step2, weight2, step1, weight1)
+    )
+}
+
+function combineWithChild(
+    step1: ParsedSteps,
+    weight1: number,
+    step2: ParsedSteps,
+    weight2: number
+): ParsedSteps | undefined {
+    if (step1.children == null) {
+        return undefined
+    }
+    for (let i = 0; i < step1.children.length; i++) {
+        const neutralCombinationGenerator = getNeutralStepForCombination(step1, i)
+        if (neutralCombinationGenerator == null) {
+            continue
+        }
+        const combined = combineSteps(step1.children[i], weight1, step2, weight2)
+        if (combined != null) {
+            const weightSum = weight1 + weight2
+            return {
+                ...step1,
+                children: step1.children.map((child, index) =>
+                    i === index
+                        ? combined
+                        : {
+                              type: "random",
+                              children: [child, neutralCombinationGenerator()],
+                              probabilities: [weight1 / weightSum, weight2 / weightSum],
+                          }
+                ),
+            } as ParsedSteps
+        }
+    }
+    return undefined
+}
+
+const generateNull: () => ParsedSteps = () => ({ type: "null" })
+const generateThis: () => ParsedSteps = () => ({ type: "this" })
+
+function getNeutralStepForCombination(parent: ParsedSteps, childIndex: number): (() => ParsedSteps) | undefined {
+    switch (parent.type) {
+        case "sequential":
+            return generateThis
+        case "parallel":
+        case "random":
+            return generateNull
+        case "switch":
+        case "if":
+            return childIndex > 0 ? generateNull : undefined
+    }
+    return undefined
+}
+
+function combineDefault(
+    step1: ParsedSteps,
+    weight1: number,
+    step2: ParsedSteps,
+    weight2: number
+): ParsedSteps | undefined {
+    if (step1.children == null || step2.children == null) {
+        return undefined
+    }
+    //similar to sequential but with null as neutral step
+}
+
+function combineParallel(
+    step1: ParsedParallel,
+    weight1: number,
+    step2: ParsedParallel,
+    weight2: number
+): ParsedSteps | undefined {}
+
+function combineSwitch(
+    step1: ParsedSwitch,
+    weight1: number,
+    step2: ParsedSwitch,
+    weight2: number
+): ParsedSteps | undefined {}
+
+function combineIf(step1: ParsedIf, weight1: number, step2: ParsedIf, weight2: number): ParsedSteps | undefined {}
+
+function combineSequential(
+    step1: ParsedSequantial,
+    weight1: number,
+    step2: ParsedSequantial,
+    weight2: number
+): ParsedSteps | undefined {}
+
+function combineRandom(
+    step1: ParsedRandom,
+    weight1: number,
+    step2: ParsedRandom,
+    weight2: number
+): ParsedSteps | undefined {}
 
 //TODO: keep grammar symbol names
 /*
