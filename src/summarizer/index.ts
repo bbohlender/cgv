@@ -40,13 +40,23 @@ function combineDescriptions(
          *      b. different nouns -> insert noun1'
          *  4. no nouns are already there -> insert noun1 rename noun2 to noun1
          */
-        const noun1Exists = typeof noun1 === "string" ? maybe : false
-        const noun2Exists = typeof noun2 === "string" ? maybe : false
 
         let newNounName: string
 
+        
+
         const step1 = translateNoun(noun1, description1)
         const step2 = translateNoun(noun2, description2)
+        
+        const translatedName1 = context.nounTranslationMap1[noun1]
+        const translatedName2 = context.nounTranslationMap2[noun2]
+
+        if(translatedName1 === translatedName2) {
+            return [context, {
+                type: "symbol",
+                identifier: translatedName1
+            }]
+        }
 
         if (typeof noun1 === "string") {
             newNounName = getNounName(noun1, nounTranslationMap1)
@@ -160,8 +170,7 @@ type NounTranslationMap = {
 
 type CombineContext = {
     grammar: ParsedGrammarDefinition
-    nounTranslationMap1: NounTranslationMap
-    nounTranslationMap2: NounTranslationMap
+    nounTranslationMap: Array<[first: string, second: string, to: string]>
 }
 
 type CombineResult = [CombineContext, ParsedSteps] | undefined
@@ -181,7 +190,7 @@ function combineSteps(
         const noun1 = step1.type === "symbol" ? step1.identifier : step1
         const noun2 = step2.type === "symbol" ? step2.identifier : step2
         if (
-            (typeof noun1 === "string" && context.nounTranslationMap1[noun1] != null) ||
+            (typeof noun1 === "string" && context.nounTranslationMap[noun1] != null) ||
             (typeof noun2 === "string" && context.nounTranslationMap1[noun2] != null)
         ) {
             //recursive combination must be stopped
@@ -193,7 +202,7 @@ function combineSteps(
     if (step1.type === step2.type) {
         switch (step1.type) {
             case "raw":
-                combined = combineRaw(step1, probability1, step2 as typeof step1, probability2)
+                combined = combineRaw(step1, probability1, step2 as typeof step1, probability2, combineNoun, context)
                 break
             case "getVariable":
                 combined = combineGetVariable(
@@ -241,9 +250,6 @@ function combineSteps(
             case "random":
                 combined = combineRandom(step1, probability1, step2 as typeof step1, probability2, combineNoun, context)
                 break
-            case "if":
-                combined = combineIf(step1, probability1, step2 as typeof step1, probability2, combineNoun, context)
-                break
             case "sequential":
                 combined = combineSequential(
                     step1,
@@ -255,7 +261,7 @@ function combineSteps(
                 )
                 break
             default:
-                combined = combineBasedOnChildren(
+                combined = combineChildrenDefault(
                     step1,
                     probability1,
                     step2 as typeof step1,
@@ -293,8 +299,10 @@ function swapContext<T>(context: CombineContext & T): CombineContext & T {
     }
 }
 
-function combineOuter(step1: ParsedSteps, step2: ParsedSteps, context: CombineContext): [CombineContext, ParsedSteps] {
-    //TODO
+function combineOuter(step1: ParsedSteps, probability1: number, step2: ParsedSteps, probability2: number, context: CombineContext): [CombineContext, ParsedSteps] {
+    return {
+
+    }
 }
 
 function combineWithChild(
@@ -349,8 +357,8 @@ function getNeutralStepForCombination(parent: ParsedSteps, childIndex: number): 
     return undefined
 }
 
-function combineRaw(step1: ParsedRaw, probability1: number, step2: ParsedRaw, probability2: number): CombineResult {
-    return step1.value === step2.value ? step1 : undefined
+function combineRaw(step1: ParsedRaw, probability1: number, step2: ParsedRaw, probability2: number, combineNoun: CombineNoun, context: CombineContext): CombineResult {
+    return step1.value === step2.value ? [context, step1] : undefined
 }
 
 function combineOperation(
@@ -364,30 +372,56 @@ function combineOperation(
     if (step1.identifier !== step2.identifier) {
         return undefined
     }
-    return combineBasedOnChildren(step1, probability1, step2, probability2, combineNoun, context)
+    return combineDefault(step1, probability1, step2, probability2, combineNoun, context)
 }
 
-function combineBasedOnChildren(
+function combineDefault(
     step1: ParsedSteps,
     probability1: number,
     step2: ParsedSteps,
     probability2: number,
     combineNoun: CombineNoun,
-    context: CombineContext
-): CombineResult {
+    context: CombineContext): CombineResult {
     if (step1.children == null || step2.children == null) {
-        return step1
+        return [context, step1]
     }
-    const children = new Array(Math.max(step1.children.length, step2.children.length)).fill(null).map((_, i) => {
-        const child1: ParsedSteps | undefined = step1.children[i]
-        const child2: ParsedSteps | undefined = step2.children[i]
-        return combineSteps(child1, probability1, child2, probability2, combineNoun, context)
-    })
-    return {
+    
+    const result = combineChildrenDefault(step1.children, probability1, step2.children, probability2, combineNoun, context)
+
+    if(result == null) {
+        return undefined
+    }
+    return [result[0], {
         ...step1,
-        children,
+        children: result[1]
+    } as ParsedSteps]
+}
+
+function combineChildrenDefault(
+    children1: Array<ParsedSteps>,
+    probability1: number,
+    children2: Array<ParsedSteps>,
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): [CombineContext, Array<ParsedSteps>] | undefined {
+    const length = Math.max(children1.length, children2.length)
+    let combined: number = 0
+    const children: Array<ParsedSteps> = new Array(length)
+    
+    for(let i = 0; i < length; i++) {
+        const child1 = children1[i] ?? { type: "null"}
+        const child2 = children2[i] ?? { type: "null" }
+        const [ctx, step] = combineSteps(child1, probability1, child2, probability2, combineNoun, context) ?? combineOuter(child1, probability1, child2, probability2, context)
+        children[i] = step
+        context = ctx
     }
-    //similar to sequential but with null as neutral step
+
+    if(combined < length / 2) {
+        return undefined
+    }
+    
+    return [context, children]
 }
 
 function combineGetVariable(
@@ -397,7 +431,12 @@ function combineGetVariable(
     probability2: number,
     combineNoun: CombineNoun,
     context: CombineContext
-): CombineResult {}
+): CombineResult {
+    if(step1.identifier !== step2.identifier) {
+        return undefined
+    }
+    return [context, step1]
+}
 
 function combineSetVariable(
     step1: ParsedSetVariable,
@@ -406,7 +445,12 @@ function combineSetVariable(
     probability2: number,
     combineNoun: CombineNoun,
     context: CombineContext
-): CombineResult {}
+): CombineResult {
+    if(step1.identifier !== step2.identifier) {
+        return undefined
+    }
+    return combineDefault(step1, probability1, step2, probability2, combineNoun, context)
+}
 
 function combineParallel(
     step1: ParsedParallel,
@@ -415,7 +459,17 @@ function combineParallel(
     probability2: number,
     combineNoun: CombineNoun,
     context: CombineContext
-): CombineResult {}
+): CombineResult {
+    //TODO: ?? { type: "null"}
+    //TODO: filterBothUndefined
+    const length = Math.max(step1.children.length, step2.children.length)
+    const result = randomCombination<CombineResult>(length, (indices) =>
+        combineAll((children, innerCombinedAmount) => innerCombinedAmount >= length / 2 ? { type: "parallel", children } : undefined, indices.map(([i1, i2]) => [step1.children[i1] ??, step2.children[i2] ?? { type: "null" }]), probability1, probability2, combineNoun, context))
+    if(result == null) {
+        return undefined
+    }
+    return result
+}
 
 function combineSwitch(
     step1: ParsedSwitch,
@@ -424,16 +478,17 @@ function combineSwitch(
     probability2: number,
     combineNoun: CombineNoun,
     context: CombineContext
-): CombineResult {}
-
-function combineIf(
-    step1: ParsedIf,
-    probability1: number,
-    step2: ParsedIf,
-    probability2: number,
-    combineNoun: CombineNoun,
-    context: CombineContext
-): CombineResult {}
+): CombineResult {
+    //TODO: get case from combined steps
+    //TODO: assure cases are the same
+    const length = Math.max(step1.children.length, step2.children.length)
+    const result = randomCombination<CombineResult>(length, (indices) =>
+        combineAll((children, innerCombinedAmount) => innerCombinedAmount >= length / 2 ? { type: "switch", children } : undefined, indices.map(([i1, i2]) => []), probability1, probability2, combineNoun, context))
+    if(result == null) {
+        return undefined
+    }
+    return result
+}
 
 function combineSequential(
     step1: ParsedSequantial,
@@ -442,7 +497,17 @@ function combineSequential(
     probability2: number,
     combineNoun: CombineNoun,
     context: CombineContext
-): CombineResult {}
+): CombineResult {
+    //TODO: ?? { type: "thisp"}
+    //TODO: filterBothUndefined
+    const length = Math.max(step1.children.length, step2.children.length)
+    const result = randomCombination<CombineResult>(length, (indices) =>
+        combineAll((children, innerCombinedAmount) => innerCombinedAmount >= length / 2 ? { type: "sequential", children } : undefined, indices.map(([i1, i2]) => [step1.children[i1] , step2.children[i2] ]), probability1, probability2, combineNoun, context))
+    if(result == null) {
+        return undefined
+    }
+    return result
+}
 
 function combineRandom(
     step1: ParsedRandom,
@@ -451,7 +516,67 @@ function combineRandom(
     probability2: number,
     combineNoun: CombineNoun,
     context: CombineContext
-): CombineResult {}
+): CombineResult {
+    //TODO: flatten random
+    //TODO: get probability from combined steps
+    const length = Math.max(step1.children.length, step2.children.length)
+    const result = randomCombination<CombineResult>(length, (indices) =>
+        combineAll((children, innerCombinedAmount) => innerCombinedAmount >= length / 2 ? { type: "random", children } : undefined, indices.map(([i1, i2]) => []), probability1, probability2, combineNoun, context))
+    if(result == null) {
+        return undefined
+    }
+    return [context]
+}
+
+function combineAll(combine: (steps: Array<ParsedSteps>, innerCombinedAmount: number) => ParsedSteps | undefined, stepCombinations: Array<[ParsedSteps, ParsedSteps]>, probability1: number, probability2: number, 
+    combineNoun: CombineNoun,
+    context: CombineContext): CombineResult {
+        const combinedSteps: Array<ParsedSteps> = new Array(stepCombinations.length)
+    
+        let innerCombinedAmount = 0
+
+    for(let i = 0; i < length; i++) {
+        const [child1, child2] = stepCombinations[i]
+        let result = combineSteps(child1, probability1, child2, probability2, combineNoun, context)
+        if(result != null) {
+            ++innerCombinedAmount
+        } else {
+            result = combineOuter(child1, probability1, child2, probability2, context)
+        }
+        context = result[0]
+        combinedSteps[i] = result[1]
+    }
+
+    const combined = combine(combinedSteps, innerCombinedAmount)
+
+    if(combined == null) {
+        return undefined
+    }
+
+    return [context, combined]
+}
+
+function randomCombination<T>(length: number, select: (indices: Array<[number, number]>) => T | undefined, transform: (i1: number, i2: number) => Array<[number, number]> = () => []): T | undefined {
+    if(length === 1) {
+        return select(transform(0, 0))
+    }
+    for(let i = 0; i < length; i++) {
+        const base = transform(0, i)
+        const result = randomCombination(length - 1, select, (i1, i2) => [...base, [shiftIfGreaterEqual(i, i1), shiftIfGreaterEqual(i, i2)]])
+        if(result != null) {
+            return result
+        }
+    }
+    return undefined
+}
+
+function filterBothUndefined<T>([v1, v2]: [T | undefined, T | undefined]): boolean {
+    return v1 != null || v2 != null
+}
+
+function shiftIfGreaterEqual(then: number, value: number): number {
+    return value >= then ? value + 2 : value + 1
+}
 
 //TODO: keep grammar symbol names
 /*
