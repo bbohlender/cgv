@@ -1,83 +1,310 @@
+import { Context } from "mocha"
 import {
+    ParsedGetVariable,
     ParsedGrammarDefinition,
     ParsedIf,
+    ParsedOperation,
     ParsedParallel,
     ParsedRandom,
+    ParsedRaw,
     ParsedSequantial,
+    ParsedSetVariable,
     ParsedSteps,
     ParsedSwitch,
 } from "../parser"
-import { serializeStepString } from "../serializer"
-import { SimilarityMap } from "./similar"
 
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
-    return descriptions.reduce((prev, current, i) => combineDescriptions(prev, i + 1, current, 1))
+    return descriptions.reduce((prev, current, i) => {
+        const weight1 = i + 1
+        const weight2 = 1
+        const sum = weight1 + weight2
+        const p1 = weight1 / sum
+        const p2 = weight2 / sum
+        return combineDescriptions(prev, p1, current, p2)
+    })
 }
 
 function combineDescriptions(
     description1: ParsedGrammarDefinition,
-    weight1: number,
+    probability1: number,
     description2: ParsedGrammarDefinition,
-    weight2: number
+    probability2: number
 ): ParsedGrammarDefinition {
-    //TODO: work list for the nouns 
+    const combineNoun: CombineNoun = (noun1, weight1, noun2, weight2, context) => {
+        /**
+         * cases:
+         *  1. noun1 is already there but not noun2 -> insert noun2 with symbol to noun1
+         *  2. vice verca
+         *  3. both nouns are already there
+         *      a. the same noun -> return this noun
+         *      b. different nouns -> insert noun1'
+         *  4. no nouns are already there -> insert noun1 rename noun2 to noun1
+         */
+        const noun1Exists = typeof noun1 === "string" ? maybe : false
+        const noun2Exists = typeof noun2 === "string" ? maybe : false
+
+        let newNounName: string
+
+        const step1 = translateNoun(noun1, description1)
+        const step2 = translateNoun(noun2, description2)
+
+        if (typeof noun1 === "string") {
+            newNounName = getNounName(noun1, nounTranslationMap1)
+        } else if (typeof noun2 === "string") {
+            newNounName = getNounName(noun2, nounTranslationMap2)
+        } else {
+            throw new Error(`can't combine two non-nouns as nouns`)
+        }
+
+        /**
+         * 
+        if (typeof noun1 === "string") {
+            nounTranslationMap1.set(noun1, newContext)
+        }
+        if (typeof noun2 === "string") {
+            nounTranslationMap2.set(noun2, newContext)
+        }
+        nounTranslationMap1.set(newNounName, newContext)
+         */
+
+        const result = combineSteps(step1, probability1, step2, probability2, combineNoun, {
+            ...context,
+            nounTranslationMap1: [...],
+            nounTranslationMap2: [...]
+        })
+
+        if (result == null) {
+            return undefined
+        }
+
+        const [newContext, combined] = result
+
+        return [
+            {
+                ...newContext,
+                grammar: [
+                    ...newContext.grammar,
+                    {
+                        name: newNounName,
+                        step: combined,
+                    },
+                ],
+            },
+            {
+                type: "symbol",
+                identifier: newNounName,
+            },
+        ]
+    }
+
+    let result = combineNoun(description1[0].name, probability1, description2[0].name, probability2, {
+        grammar: [],
+        nounTranslationMap1: {},
+        nounTranslationMap2: {},
+    })
+
+    if (result == null) {
+        const rootName1 = description1[0].name
+        const rootName2 = description1[0].name
+        result = combineOuter(description1[0].step, description2[0].step, {
+            grammar: [],
+            nounTranslationMap1: {
+                [rootName1]: rootName1,
+            },
+            nounTranslationMap2: {
+                [rootName2]: rootName1,
+            },
+        })
+        result[0].grammar.unshift({
+            name: rootName1,
+            step: result[1],
+        })
+    }
+
+    return result[0].grammar
 }
 
-function getNounName(preferredName: string, grammar: ParsedGrammarDefinition): string {
-    if (grammar.find(({ name }) => preferredName === name) != null) {
-        return getNounName(`${preferredName}'`, grammar)
+function translateNoun(noun: string | ParsedSteps, description: ParsedGrammarDefinition): ParsedSteps {
+    if (typeof noun === "string") {
+        const result = description.find(({ name }) => name === noun)
+        if (result == null) {
+            throw new Error(`unknown noun "${noun}"`)
+        }
+        return result.step
+    }
+    return noun
+}
+
+function getNounName(preferredName: string, nounTranslationMap: Map<string, ParsedSteps>): string {
+    if (noun) {
+        const newName = getNounName(`${preferredName}'`, grammar, undefined)
+        if (nounTranslationMap != null) {
+            nounTranslationMap.set(preferredName, newName)
+        }
+        return newName
     }
     return preferredName
 }
+
+type CombineNoun = (
+    n1: string | ParsedSteps,
+    probability1: number,
+    n2: string | ParsedSteps,
+    probability2: number,
+    context: CombineContext
+) => CombineResult
+
+type NounTranslationMap = {
+    [oldName in string]: string
+}
+
+type CombineContext = {
+    grammar: ParsedGrammarDefinition
+    nounTranslationMap1: NounTranslationMap
+    nounTranslationMap2: NounTranslationMap
+}
+
+type CombineResult = [CombineContext, ParsedSteps] | undefined
 
 /**
  * @returns undefined if the step1 & 2 are not combineable
  */
 function combineSteps(
     step1: ParsedSteps,
-    weight1: number,
+    probability1: number,
     step2: ParsedSteps,
-    weight2: number,
-
-): ParsedSteps | undefined {
-    //TODO: cache map for serialization
-    if (serializeStepString(step1) === serializeStepString(step2)) {
-        return step1
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {
+    if (step1.type === "symbol" || step2.type === "symbol") {
+        const noun1 = step1.type === "symbol" ? step1.identifier : step1
+        const noun2 = step2.type === "symbol" ? step2.identifier : step2
+        if (
+            (typeof noun1 === "string" && context.nounTranslationMap1[noun1] != null) ||
+            (typeof noun2 === "string" && context.nounTranslationMap1[noun2] != null)
+        ) {
+            //recursive combination must be stopped
+            return undefined
+        }
+        return combineNoun(noun1, probability1, noun2, probability2, context)
     }
-    let combined: ParsedSteps | undefined
+    let combined: CombineResult
     if (step1.type === step2.type) {
         switch (step1.type) {
+            case "raw":
+                combined = combineRaw(step1, probability1, step2 as typeof step1, probability2)
+                break
+            case "getVariable":
+                combined = combineGetVariable(
+                    step1,
+                    probability1,
+                    step2 as typeof step1,
+                    probability2,
+                    combineNoun,
+                    context
+                )
+                break
+            case "setVariable":
+                combined = combineSetVariable(
+                    step1,
+                    probability1,
+                    step2 as typeof step1,
+                    probability2,
+                    combineNoun,
+                    context
+                )
+                break
+            case "operation":
+                combined = combineOperation(
+                    step1,
+                    probability1,
+                    step2 as typeof step1,
+                    probability2,
+                    combineNoun,
+                    context
+                )
+                break
             case "parallel":
-                combined = combineParallel(step1, weight1, step2 as typeof step1, weight2)
+                combined = combineParallel(
+                    step1,
+                    probability1,
+                    step2 as typeof step1,
+                    probability2,
+                    combineNoun,
+                    context
+                )
                 break
             case "switch":
-                combined = combineSwitch(step1, weight1, step2 as typeof step1, weight2)
+                combined = combineSwitch(step1, probability1, step2 as typeof step1, probability2, combineNoun, context)
                 break
             case "random":
-                combined = combineRandom(step1, weight1, step2 as typeof step1, weight2)
+                combined = combineRandom(step1, probability1, step2 as typeof step1, probability2, combineNoun, context)
                 break
             case "if":
-                combined = combineIf(step1, weight1, step2 as typeof step1, weight2)
+                combined = combineIf(step1, probability1, step2 as typeof step1, probability2, combineNoun, context)
                 break
             case "sequential":
-                combined = combineSequential(step1, weight1, step2 as typeof step1, weight2)
+                combined = combineSequential(
+                    step1,
+                    probability1,
+                    step2 as typeof step1,
+                    probability2,
+                    combineNoun,
+                    context
+                )
                 break
             default:
-                combined = combineDefault(step1, weight1, step2 as typeof step1, weight2)
+                combined = combineBasedOnChildren(
+                    step1,
+                    probability1,
+                    step2 as typeof step1,
+                    probability1,
+                    combineNoun,
+                    context
+                )
                 break
         }
     }
     return (
-        combined ?? combineWithChild(step1, weight1, step2, weight2) ?? combineWithChild(step2, weight2, step1, weight1)
+        combined ??
+        combineWithChild(step2, probability2, step1, probability1, swap(combineNoun), context) ??
+        combineWithChild(step1, probability1, step2, probability2, combineNoun, context)
     )
+}
+
+function swap(fn: CombineNoun): CombineNoun {
+    return (n1, p1, n2, p2, context) => {
+        const result = fn(n2, p2, n1, p1, swapContext(context))
+        if (result == null) {
+            return undefined
+        }
+        return swapContext(result)
+    }
+}
+
+function swapContext<T>(context: CombineContext & T): CombineContext & T {
+    return {
+        ...context,
+        nounTranslationMap1: context.nounTranslationMap2,
+        nounTranslationMap2: context.nounTranslationMap1,
+        visited1: context.visited2,
+        visited2: context.visited1,
+    }
+}
+
+function combineOuter(step1: ParsedSteps, step2: ParsedSteps, context: CombineContext): [CombineContext, ParsedSteps] {
+    //TODO
 }
 
 function combineWithChild(
     step1: ParsedSteps,
-    weight1: number,
+    probability1: number,
     step2: ParsedSteps,
-    weight2: number
-): ParsedSteps | undefined {
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {
     if (step1.children == null) {
         return undefined
     }
@@ -86,9 +313,8 @@ function combineWithChild(
         if (neutralCombinationGenerator == null) {
             continue
         }
-        const combined = combineSteps(step1.children[i], weight1, step2, weight2)
+        const combined = combineSteps(step1.children[i], probability1, step2, probability2, combineNoun, context)
         if (combined != null) {
-            const weightSum = weight1 + weight2
             return {
                 ...step1,
                 children: step1.children.map((child, index) =>
@@ -97,7 +323,7 @@ function combineWithChild(
                         : {
                               type: "random",
                               children: [child, neutralCombinationGenerator()],
-                              probabilities: [weight1 / weightSum, weight2 / weightSum],
+                              probabilities: [probability1, probability2],
                           }
                 ),
             } as ParsedSteps
@@ -123,47 +349,109 @@ function getNeutralStepForCombination(parent: ParsedSteps, childIndex: number): 
     return undefined
 }
 
-function combineDefault(
-    step1: ParsedSteps,
-    weight1: number,
-    step2: ParsedSteps,
-    weight2: number
-): ParsedSteps | undefined {
-    if (step1.children == null || step2.children == null) {
+function combineRaw(step1: ParsedRaw, probability1: number, step2: ParsedRaw, probability2: number): CombineResult {
+    return step1.value === step2.value ? step1 : undefined
+}
+
+function combineOperation(
+    step1: ParsedOperation,
+    probability1: number,
+    step2: ParsedOperation,
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {
+    if (step1.identifier !== step2.identifier) {
         return undefined
+    }
+    return combineBasedOnChildren(step1, probability1, step2, probability2, combineNoun, context)
+}
+
+function combineBasedOnChildren(
+    step1: ParsedSteps,
+    probability1: number,
+    step2: ParsedSteps,
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {
+    if (step1.children == null || step2.children == null) {
+        return step1
+    }
+    const children = new Array(Math.max(step1.children.length, step2.children.length)).fill(null).map((_, i) => {
+        const child1: ParsedSteps | undefined = step1.children[i]
+        const child2: ParsedSteps | undefined = step2.children[i]
+        return combineSteps(child1, probability1, child2, probability2, combineNoun, context)
+    })
+    return {
+        ...step1,
+        children,
     }
     //similar to sequential but with null as neutral step
 }
 
+function combineGetVariable(
+    step1: ParsedGetVariable,
+    probability1: number,
+    step2: ParsedGetVariable,
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
+
+function combineSetVariable(
+    step1: ParsedSetVariable,
+    probability1: number,
+    step2: ParsedSetVariable,
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
+
 function combineParallel(
     step1: ParsedParallel,
-    weight1: number,
+    probability1: number,
     step2: ParsedParallel,
-    weight2: number
-): ParsedSteps | undefined {}
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
 
 function combineSwitch(
     step1: ParsedSwitch,
-    weight1: number,
+    probability1: number,
     step2: ParsedSwitch,
-    weight2: number
-): ParsedSteps | undefined {}
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
 
-function combineIf(step1: ParsedIf, weight1: number, step2: ParsedIf, weight2: number): ParsedSteps | undefined {}
+function combineIf(
+    step1: ParsedIf,
+    probability1: number,
+    step2: ParsedIf,
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
 
 function combineSequential(
     step1: ParsedSequantial,
-    weight1: number,
+    probability1: number,
     step2: ParsedSequantial,
-    weight2: number
-): ParsedSteps | undefined {}
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
 
 function combineRandom(
     step1: ParsedRandom,
-    weight1: number,
+    probability1: number,
     step2: ParsedRandom,
-    weight2: number
-): ParsedSteps | undefined {}
+    probability2: number,
+    combineNoun: CombineNoun,
+    context: CombineContext
+): CombineResult {}
 
 //TODO: keep grammar symbol names
 /*
