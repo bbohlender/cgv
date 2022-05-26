@@ -333,10 +333,7 @@ function HighlightDescriptions() {
     return (
         <>
             {primitives.map((primitive) => (
-                <Fragment key={primitive.getOutline().uuid}>
-                    <primitive object={primitive.getOutline()} />
-                    <axesHelper args={[10]} matrix={primitive.matrix} matrixAutoUpdate={false} />
-                </Fragment>
+                <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
             ))}
         </>
     )

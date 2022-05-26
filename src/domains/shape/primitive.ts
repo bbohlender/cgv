@@ -454,8 +454,7 @@ export class FacePrimitive extends Primitive {
             new MeshBasicMaterial({
                 transparent: true,
                 opacity: 0.5,
-                color: 0xffffff,
-                depthTest: false,
+                color: 0xffffff
             })
         )
         result.add(faceHighlight)
@@ -473,8 +472,7 @@ export class FacePrimitive extends Primitive {
             geometry,
             new MeshBasicMaterial({
                 color: 0,
-                transparent: true,
-                depthTest: false,
+                transparent: true
             })
         )
     }

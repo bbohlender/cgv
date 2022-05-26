@@ -55,17 +55,20 @@ export async function loadMapLayers(url: string, y: number, zoom: number, tilePi
             ...prev,
             [name]: new Array(layer.length).fill(null).map((_, i) => {
                 const feature = layer.feature(i)
-                const geometry = feature.loadGeometry().map((points) => {
-                    const polygon = new Array<{ x: number; y: number }>(points.length)
-                    for (let i = 0; i < points.length; i++) {
-                        const { x, y } = points[i]
-                        polygon[i] = {
-                            x: x * meterToIntegerRatio,
-                            y: y * meterToIntegerRatio,
+                const geometry = feature
+                    .loadGeometry()
+                    .map((points) => {
+                        const polygon = new Array<{ x: number; y: number }>(points.length)
+                        for (let i = 0; i < points.length; i++) {
+                            const { x, y } = points[i]
+                            polygon[i] = {
+                                x: x * meterToIntegerRatio,
+                                y: y * meterToIntegerRatio,
+                            }
                         }
-                    }
-                    return polygon
-                })
+                        return polygon
+                    })
+                    .filter((points) => points.length > 0)
                 return {
                     properties: feature.properties,
                     geometry,
@@ -83,11 +86,14 @@ export function convertRoadsToSteps(
 ): Array<{ name: string; step: ParsedSteps }> {
     return layers["road"]
         .filter((feature) => feature.properties.class === "street")
-        .map<ParsedSteps>((feature) => {
-            const steps = feature.geometry.reduce<Array<ParsedSteps>>(
-                (prev, polygon) => prev.concat(convertPolygonStreetToSteps(polygon, outside, extent)),
-                []
-            )
+        .map<ParsedSteps | undefined>((feature) => {
+            const steps = feature.geometry.reduce<Array<ParsedSteps>>((prev, polygon) => {
+                const steps = convertPolygonStreetToSteps(polygon, outside, extent)
+                if (steps == null) {
+                    return prev
+                }
+                return prev.concat(steps)
+            }, [])
             if (steps.length === 1) {
                 return steps[0]
             }
@@ -96,6 +102,7 @@ export function convertRoadsToSteps(
                 children: steps,
             }
         }, [])
+        .filter(filterNull)
         .map((step, i) => ({ name: `Road${i + 1}${suffix}`, step }))
 }
 
@@ -103,8 +110,8 @@ function convertPolygonStreetToSteps(
     polygon: Layers[string][number]["geometry"][number],
     outside: "exclude" | "clip" | "include",
     extent: number
-): Array<ParsedSteps> {
-    return polygon
+): Array<ParsedSteps> | undefined {
+    const result = polygon
         .slice(0, -1)
         .map<ParsedSteps | undefined>((p1, i) => {
             let p2 = polygon[(i + 1) % polygon.length]
@@ -147,6 +154,10 @@ function convertPolygonStreetToSteps(
             }
         })
         .filter(filterNull)
+    if (result.length === 0) {
+        return undefined
+    }
+    return result
 }
 
 function clipLine(
@@ -221,10 +232,13 @@ export function convertLotsToSteps(
     extent: number
 ): Array<{ name: string; step: ParsedSteps }> {
     return layers["building"]
-        .map<ParsedSteps>((feature) => {
+        .map<ParsedSteps | undefined>((feature) => {
             const steps = feature.geometry
                 .map((polygon) => convertPolygonLotToSteps(polygon, outside, extent))
                 .filter(filterNull)
+            if (steps.length === 0) {
+                return undefined
+            }
             return steps.length === 1
                 ? steps[0]
                 : {
@@ -232,6 +246,7 @@ export function convertLotsToSteps(
                       children: steps,
                   }
         })
+        .filter(filterNull)
         .map((step, i) => ({ name: `Building${i + 1}${suffix}`, step }))
 }
 
@@ -244,13 +259,13 @@ function isInTile(x: number, y: number, extent: number): boolean {
 }
 
 function convertPolygonLotToSteps(
-    geoemtry: Layers[string][number]["geometry"][number],
+    geometry: Layers[string][number]["geometry"][number],
     outside: "exclude" | "include",
     extent: number
 ): ParsedSteps | undefined {
-    const children = new Array<ParsedSteps>(geoemtry.length)
-    for (let i = 0; i < geoemtry.length; i++) {
-        const { x, y } = geoemtry[i]
+    const children = new Array<ParsedSteps>(geometry.length)
+    for (let i = 0; i < geometry.length; i++) {
+        const { x, y } = geometry[i]
         if (outside === "exclude" && !isInTile(x, y, extent)) {
             return undefined
         }
