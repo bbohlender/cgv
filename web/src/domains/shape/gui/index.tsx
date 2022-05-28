@@ -4,7 +4,6 @@ import { GUIColorStep } from "./color"
 import { GUIExtrudeStep } from "./extrude"
 import { GUIFaceSteps } from "./face"
 import { GUILineStep } from "./line"
-import { GUIMultiSplitSteps } from "./multi-split"
 import { GUIPoint2Step, GUIPoint3Step } from "./point"
 import { GUIRoofStep } from "./roof"
 import { GUIRotateStep } from "./rotate"
@@ -30,6 +29,5 @@ export const operationGuiMap: OperationGUIMap = {
     toLines: emptyStep,
     toPoints: emptyStep,
     split: GUISplitSteps,
-    multiSplit: GUIMultiSplitSteps,
     gableRoof: GUIRoofStep,
 }

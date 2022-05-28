@@ -62,21 +62,21 @@ function computeLoad(instance: Primitive, url: string) {
     return from(gltfLoader.loadAsync(url)).pipe(map((gltf) => [new ObjectPrimitive(instance.matrix, gltf.scene)]))
 }
 
-function computePoint3(x: number, y: number, z: number): Observable<Array<Primitive>> {
+function computePoint3(instance: Primitive, x: number, y: number, z: number): Observable<Array<Primitive>> {
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
-    return of([new PointPrimitive(makeTranslationMatrix(x, y, z, new Matrix4()), redMaterialGenerator)])
+    return of([new PointPrimitive(makeTranslationMatrix(x, y, z, instance.matrix.clone()), redMaterialGenerator)])
 }
 
-function computePoint2(x: number, z: number): Observable<Array<Primitive>> {
+function computePoint2(instance: Primitive, x: number, z: number): Observable<Array<Primitive>> {
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
-    return of([new PointPrimitive(makeTranslationMatrix(x, 0, z, new Matrix4()), redMaterialGenerator)])
+    return of([new PointPrimitive(makeTranslationMatrix(x, 0, z, instance.matrix.clone()), redMaterialGenerator)])
 }
 
 const helperVector = new Vector3()
 
-function computeFace(...points: ReadonlyArray<Primitive>): Observable<Array<Primitive>> {
+function computeFace(instance: Primitive, ...points: ReadonlyArray<Primitive>): Observable<Array<Primitive>> {
     if (points.length < 3) {
-        return of([])
+        return of([instance])
     }
     const points2d = points.map((point) => {
         helperVector.setFromMatrixPosition(point.matrix)
@@ -87,16 +87,16 @@ function computeFace(...points: ReadonlyArray<Primitive>): Observable<Array<Prim
     }
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
 
-    return of([new FacePrimitive(new Matrix4(), new Shape(points2d), redMaterialGenerator)])
+    return of([new FacePrimitive(instance.matrix, new Shape(points2d), redMaterialGenerator)])
 }
 
-function computeLine(...points: ReadonlyArray<Primitive>): Observable<Array<Primitive>> {
+function computeLine(instance: Primitive, ...points: ReadonlyArray<Primitive>): Observable<Array<Primitive>> {
     if (points.length < 2) {
-        return of([])
+        return of([instance])
     }
     const [p1, p2] = points.map((point) => new Vector3().setFromMatrixPosition(point.matrix))
     const redMaterialGenerator = createPhongMaterialGenerator(new Color(0xff0000))
-    return of([LinePrimitive.fromPoints(new Matrix4(), p1, p2, redMaterialGenerator)])
+    return of([LinePrimitive.fromPoints(instance.matrix.clone(), p1, p2, redMaterialGenerator)])
 }
 
 function computeSample(instance: Primitive, amount: number): Observable<Array<Primitive>> {
@@ -147,25 +147,26 @@ function computeComponents(
     return of(components)
 }
 
-function computeSplit(instance: Primitive, axis: Axis, at: number, limit?: number): Observable<Array<Primitive>> {
+function computeSplit(
+    instance: Primitive,
+    axis: Axis,
+    repetitions: boolean | number,
+    ...sizes: Array<number>
+): Observable<Array<Primitive>> {
+    if (sizes.length === 0) {
+        return of([instance])
+    }
+
     const splits = Split(instance, axis, (matrix, index, x, y, z) => {
-        if (limit == null || index < limit) {
-            const sizeX = axis === "x" ? Math.min(at, x) : x
-            const sizeZ = axis === "z" ? Math.min(at, z) : z
+        const repetitionIndex = Math.floor(index / sizes.length)
+        const size = sizes[index % sizes.length]
+        if ((repetitions === false && repetitionIndex == 0) || repetitions === true || repetitionIndex < repetitions) {
+            const sizeX = axis === "x" ? Math.min(size, x) : x
+            const sizeZ = axis === "z" ? Math.min(size, z) : z
             return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.materialGenerator)
         } else {
             return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.materialGenerator)
         }
-    })
-    return of(splits)
-}
-
-function computeMultiSplit(instance: Primitive, axis: Axis, ...distances: Array<number>): Observable<Array<Primitive>> {
-    const splits = Split(instance, axis, (matrix, index, x, y, z) => {
-        const sizeX = axis === "x" && distances[index] != null ? Math.min(distances[index], x) : x
-        const sizeZ = axis === "z" && distances[index] != null ? Math.min(distances[index], z) : z
-
-        return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.materialGenerator)
     })
     return of(splits)
 }
@@ -206,17 +207,16 @@ export const operations: Operations<any, any> = {
     extrude: {
         execute: simpleExecution<any, unknown>(computeExtrude),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 100 })],
+        defaultParameters: [() => ({ type: "raw", value: 1 })],
     },
     split: {
         execute: simpleExecution<any, unknown>(computeSplit),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: "x" }), () => ({ type: "raw", value: 10 })],
-    },
-    multiSplit: {
-        execute: simpleExecution<any, unknown>(computeMultiSplit),
-        includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: "x" })],
+        defaultParameters: [
+            () => ({ type: "raw", value: "x" }),
+            () => ({ type: "raw", value: true }),
+            () => ({ type: "raw", value: 1 }),
+        ],
     },
     toPoints: {
         execute: simpleExecution<any, unknown>(computeComponents.bind(null, "points")),
@@ -236,7 +236,7 @@ export const operations: Operations<any, any> = {
     sample: {
         execute: simpleExecution<any, unknown>(computeSample),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 100 })],
+        defaultParameters: [() => ({ type: "raw", value: 10 })],
     },
     color: {
         execute: simpleExecution<any, unknown>(computeColorChange),
@@ -256,7 +256,7 @@ export const operations: Operations<any, any> = {
     expandGraph: {
         execute: simpleExecution<any, unknown>(computeGraphExpand),
         includeThis: true,
-        defaultParameters: [() => ({ type: "raw", value: 30 })],
+        defaultParameters: [() => ({ type: "raw", value: 3 })],
     },
     load: {
         execute: simpleExecution<any, unknown>(computeLoad),
@@ -265,7 +265,7 @@ export const operations: Operations<any, any> = {
     },
     point3: {
         execute: simpleExecution<any, unknown>(computePoint3),
-        includeThis: false,
+        includeThis: true,
         defaultParameters: [
             () => ({ type: "raw", value: 0 }),
             () => ({ type: "raw", value: 0 }),
@@ -274,12 +274,12 @@ export const operations: Operations<any, any> = {
     },
     point2: {
         execute: simpleExecution<any, unknown>(computePoint2),
-        includeThis: false,
+        includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 0 }), () => ({ type: "raw", value: 0 })],
     },
     line: {
         execute: simpleExecution<any, unknown>(computeLine),
-        includeThis: false,
+        includeThis: true,
         defaultParameters: [
             () => ({
                 type: "operation",
@@ -294,7 +294,7 @@ export const operations: Operations<any, any> = {
                 type: "operation",
                 identifier: "point3",
                 children: [
-                    { type: "raw", value: 100 },
+                    { type: "raw", value: 1 },
                     { type: "raw", value: 0 },
                     { type: "raw", value: 0 },
                 ],
@@ -303,7 +303,7 @@ export const operations: Operations<any, any> = {
     },
     face: {
         execute: simpleExecution<any, unknown>(computeFace),
-        includeThis: false,
+        includeThis: true,
         defaultParameters: [],
     },
     gableRoof: {

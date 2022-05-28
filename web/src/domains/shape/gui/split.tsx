@@ -1,46 +1,26 @@
-import { AbstractParsedOperation, createDefaultStep, HierarchicalInfo } from "cgv"
-import { BlurInput } from "../../../gui/blur-input"
+import { AbstractParsedOperation, HierarchicalInfo } from "cgv"
 import { useBaseStore } from "../../../global"
+import { BlurInput } from "../../../gui/blur-input"
+import { DeleteIcon } from "../../../icons/delete"
 import { EndLabel, StartLabel } from "../../../gui/label"
 import { AxisInput } from "./axis-input"
 import { useCallback } from "react"
-import { operations } from "cgv/domains/shape"
 
 export function GUISplitSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
-    const [child1, child2, child3] = value.children
-    const axis = child1.type === "raw" ? child1.value : undefined
-    const splitSize = child2.type === "raw" ? child2.value : undefined
-    const limit = child3?.type === "raw" ? child3.value : undefined
+    const [axisChild, repetitionChild] = value.children
+    const axis = axisChild.type === "raw" ? axisChild.value : undefined
+    const repetitions: number | boolean = repetitionChild.type === "raw" ? repetitionChild.value : undefined
     const store = useBaseStore()
-    const setLimit = useCallback(
-        (limit: number | undefined) => {
+    const setRepitions = useCallback(
+        (repetitions: number | boolean) => {
             store.getState().replace<"operation">((draft) => {
-                if (limit == null || isNaN(limit)) {
-                    draft.children.splice(2, 1)
-                } else {
-                    draft.children[2] = { type: "raw", value: limit }
-                }
+                draft.children[1] = { type: "raw", value: repetitions }
             }, value)
         },
         [store, value]
     )
     return (
         <div className="d-flex flex-column mx-3">
-            <EndLabel value="Multiple" className="mb-3">
-                <input
-                    className="min-w-0 form-check-input"
-                    type="checkbox"
-                    checked={false}
-                    onChange={() =>
-                        store
-                            .getState()
-                            .replace(() =>
-                                createDefaultStep({ type: "operation", identifier: "multiSplit" }, operations),
-                                value
-                            )
-                    }
-                />
-            </EndLabel>
             <StartLabel value="Axis" className="mb-3 ">
                 <AxisInput
                     value={axis}
@@ -52,46 +32,69 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
             </StartLabel>
-            <StartLabel value="Size" className="mb-3">
-                <BlurInput
-                    className="min-w-0 form-control form-control-sm"
-                    type="number"
-                    value={splitSize ?? 10}
-                    onBlur={(e) =>
-                        store.getState().replace<"operation">((draft) => {
-                            draft.children[1] = { type: "raw", value: e.target.valueAsNumber }
-                        }, value)
-                    }
-                />
-            </StartLabel>
             <EndLabel value="Repeat" className="mb-3">
                 <input
                     className="min-w-0 form-check-input"
                     type="checkbox"
-                    checked={limit != 1}
-                    onChange={(e) => setLimit(e.target.checked ? undefined : 1)}
+                    checked={repetitions !== false}
+                    onChange={(e) => setRepitions(e.target.checked ? true : false)}
                 />
             </EndLabel>
-            {limit != 1 && (
-                <EndLabel value="Limit Splitting" className="mb-3">
-                    <input
-                        className="min-w-0 form-check-input"
-                        type="checkbox"
-                        checked={limit != null}
-                        onChange={(e) => setLimit(e.target.checked ? 2 : undefined)}
-                    />
-                </EndLabel>
+            {repetitions !== false && (
+                <>
+                    <EndLabel value="Infinite" className="mb-3">
+                        <input
+                            className="min-w-0 form-check-input"
+                            type="checkbox"
+                            checked={repetitions === true}
+                            onChange={(e) => setRepitions(e.target.checked ? true : 1)}
+                        />
+                    </EndLabel>
+                    {typeof repetitions === "number" && (
+                        <StartLabel value="Repitions" className="mb-3">
+                            <BlurInput
+                                className="min-w-0 form-control form-control-sm"
+                                type="number"
+                                value={repetitions}
+                                onBlur={(e) => setRepitions(isNaN(e.target.valueAsNumber) ? 1 : e.target.valueAsNumber)}
+                            />
+                        </StartLabel>
+                    )}
+                </>
             )}
-            {limit != null && limit != 1 && (
-                <StartLabel value="Limit to" className="mb-3">
+
+            {value.children.slice(2).map((child, i) => (
+                <StartLabel value="Size" key={i} className="mb-3">
                     <BlurInput
                         className="min-w-0 form-control form-control-sm"
                         type="number"
-                        value={limit}
-                        onBlur={(e) => setLimit(isNaN(e.target.valueAsNumber) ? 10 : e.target.valueAsNumber)}
+                        value={(child.type === "raw" ? child.value : undefined) ?? 1}
+                        onBlur={(e) =>
+                            store.getState().replace<"operation">((draft) => {
+                                draft.children[i + 2] = { type: "raw", value: e.target.valueAsNumber }
+                            }, value)
+                        }
                     />
+                    <div
+                        onClick={() =>
+                            store.getState().replace<"operation">((draft) => {
+                                draft.children.splice(i + 2, 1)
+                            }, value)
+                        }
+                        className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
+                        <DeleteIcon />
+                    </div>
                 </StartLabel>
-            )}
+            ))}
+            <div
+                className="btn btn-outline-success mb-3"
+                onClick={() =>
+                    store.getState().replace<"operation">((draft) => {
+                        draft.children.push({ type: "raw", value: 1 })
+                    }, value)
+                }>
+                Add
+            </div>
         </div>
     )
 }
