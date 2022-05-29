@@ -1,5 +1,5 @@
 import produce from "immer"
-import { ConditionSelector, EditorState, SelectionPattern } from "."
+import { PatternSelector, EditorState, PatternType } from "."
 import {
     getAtPath,
     HierarchicalInfo,
@@ -8,7 +8,7 @@ import {
     ParsedSteps,
     HierarchicalParsedGrammarDefinition,
     HierarchicalPath,
-    getSelectionCondition,
+    getMatchingCondition,
 } from ".."
 import { computeDependencies, HierarchicalParsedSteps, toHierarchical, toHierarchicalSteps } from "../util"
 import { getSelectedStepsUpwardsPaths } from "./replace"
@@ -17,8 +17,8 @@ import { getSelectedStepsPath, ValueMap, SelectionsList } from "./selection"
 export async function insert<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
-    patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: ConditionSelector,
+    patterns: Array<PatternType<T, A>>,
+    selectCondition: PatternSelector,
     position: "before" | "after" | "parallel",
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,
     grammar: HierarchicalParsedGrammarDefinition
@@ -27,7 +27,7 @@ export async function insert<T, A>(
         { grammar, selectionsList: [] as SelectionsList },
         async ({ grammar: draft, selectionsList: newSelections }) => {
             const type = position === "parallel" ? "parallel" : "sequential"
-            for (const { values, steps } of selectionsList) {
+            for (const { values, steps, generatePatternCondition } of selectionsList) {
                 const paths =
                     position === "after" ? [getSelectedStepsPath(steps)] : getSelectedStepsUpwardsPaths(steps, grammar)
                 for (const path of paths) {
@@ -46,17 +46,21 @@ export async function insert<T, A>(
                     const newSteps = stepGenerator(path)
                     const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
                     const selector = position === "parallel" ? "before" : position
-                    const selectedCondition = await getSelectionCondition(
-                        all.map((value) => value[selector]),
-                        values.map((value) => value[selector]),
-                        patterns,
-                        selectCondition
-                    )
+                    const generatedCondition =
+                        generatePatternCondition ??
+                        (
+                            await getMatchingCondition(
+                                all.map((value) => value[selector]),
+                                values.map((value) => value[selector]),
+                                patterns,
+                                selectCondition
+                            )
+                        ).generateStep
 
                     const translatedSteps: ParsedSteps =
-                        selectedCondition == null
+                        generatedCondition == null
                             ? newSteps
-                            : { type: "if", children: [selectedCondition, newSteps, oldSteps] }
+                            : { type: "if", children: [generatedCondition(), newSteps, oldSteps] }
 
                     const current = getAtPath(translatedPath, path.length - 1)
                     const parent: ParsedSteps | undefined =

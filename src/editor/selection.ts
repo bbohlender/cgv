@@ -1,5 +1,6 @@
-import produce from "immer"
+import produce, { freeze } from "immer"
 import { Value } from "../interpreter"
+import { ParsedSteps } from "../parser"
 import {
     filterNull,
     getAtPath,
@@ -11,11 +12,16 @@ import {
     translatePath,
 } from "../util"
 import { findSymbolsWithIdentifier } from "./noun"
+import { getContainingCondition, PatternSelector, PatternType } from "./pattern"
 
 export type ValueMap<T = any, A = any> = { [Path in string]?: Array<FullValue<T, A>> }
 export type FullValue<T = any, A = any> = { after: Value<T, A>; before: Value<T, A> }
 export type SelectionsList<T = any, A = any> = Array<Selections<T, A>>
-export type Selections<T = any, A = any> = { steps: SelectedSteps; values: Array<FullValue<T, A>> }
+export type Selections<T = any, A = any> = {
+    steps: SelectedSteps
+    values: Array<FullValue<T, A>>
+    generatePatternCondition?: () => ParsedSteps
+}
 export type SelectedSteps = HierarchicalParsedSteps | string
 
 export function getSelectedStepsJoinedPath(steps: SelectedSteps): string {
@@ -82,9 +88,9 @@ export function getRelatedSelections<T, A>(
     values: Array<FullValue<T, A>>,
     valueIsRelated: (current: FullValue<T, A>, next: FullValue<T, A>) => boolean,
     filter: ((value: FullValue<T, A>) => boolean) | undefined
-): SelectionState<T, A>["selectionsList"] {
+): SelectionsList<T, A> {
     return relatedStepsList
-        .map((relatedSteps) => {
+        .map<Selections | undefined>((relatedSteps) => {
             const path = getSelectedStepsJoinedPath(relatedSteps)
             const exisitingValues = valueMap[path] ?? []
             const forwardValues = exisitingValues.filter(
@@ -96,7 +102,7 @@ export function getRelatedSelections<T, A>(
             if (forwardValues.length === 0 && exisitingValues.length > 0) {
                 return undefined
             }
-            return { steps: relatedSteps, values: forwardValues }
+            return { steps: relatedSteps, values: forwardValues, generatePatternCondition: undefined }
         })
         .filter(filterNull)
 }
@@ -232,6 +238,37 @@ function getHorizontalSelections(
     return getRelatedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
 }*/
 
+export async function autoSelectPattern<T, A>(
+    selectionsList: SelectionsList,
+    indicesMap: ValueMap,
+    selections: Selections,
+    patternTypes: Array<PatternType<T, A>>,
+    selectPattern: PatternSelector
+): Promise<SelectionsList> {
+    const path = getSelectedStepsJoinedPath(selections.steps)
+    const all = indicesMap[path] ?? []
+    if (all.length === 0) {
+        return selectionsList
+    }
+    const pattern = await getContainingCondition(
+        all.map(({ after }) => after),
+        selections.values.map(({ after }) => after),
+        patternTypes,
+        selectPattern
+    )
+    return freeze(
+        selectionsList.map((s) =>
+            s === selections
+                ? {
+                      ...selections,
+                      generatePatternCondition: pattern.generateStep,
+                      values: all.filter(({ after }) => pattern.isSelected(after)),
+                  }
+                : s
+        )
+    )
+}
+
 function editSelectionOnDraft(
     indicesMap: ValueMap,
     selectionsList: SelectionsList,
@@ -258,6 +295,8 @@ function editSelectionOnDraft(
     }
 
     const selections = selectionsList[selectionsIndex]
+
+    selections.generatePatternCondition = undefined
 
     if (values == null) {
         if (type === "toggle" || type === "remove") {

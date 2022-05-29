@@ -1,7 +1,7 @@
 import { useBaseStoreState } from "../../global"
 import { CreateDescriptionDialog } from "./create-description"
 import { CreateStepDialog } from "./create-step"
-import { SelectionConditionDialog } from "./select-condition"
+import { SelectionPatternDialog } from "./select-pattern"
 import { SetNameDialog } from "./set-name"
 import { SummarizeDialog } from "./summarize"
 
@@ -34,6 +34,6 @@ function selectDialog(data: any, type: string, fulfill: (value: any) => void) {
         case "set-name":
             return <SetNameDialog fulfill={fulfill} />
         case "select-condition":
-            return <SelectionConditionDialog data={data} fulfill={fulfill} />
+            return <SelectionPatternDialog data={data} fulfill={fulfill} />
     }
 }

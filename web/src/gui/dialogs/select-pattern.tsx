@@ -1,15 +1,15 @@
-import { ParsedSteps, serializeStepString } from "cgv"
+import { Pattern } from "cgv"
 import { useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
 
 //TODO: custom condition
 
-export function SelectionConditionDialog({
+export function SelectionPatternDialog({
     data,
     fulfill,
 }: {
-    data: Array<ParsedSteps>
-    fulfill: (value: ParsedSteps | undefined) => void
+    data: Array<Pattern<any, any>>
+    fulfill: (value: Pattern<any, any>) => void
 }) {
     const store = useBaseStore()
     return (
@@ -22,12 +22,12 @@ export function SelectionConditionDialog({
                 </button>
             </div>
             <div className="d-flex flex-column" style={{ overflowY: "auto" }}>
-                <button onClick={fulfill.bind(null, undefined)} className="mt-3 btn btn-outline-primary w-100">
-                    All
-                </button>
-                {data.map((step, i) => (
-                    <button onClick={fulfill.bind(null, step)} className="mt-3 btn btn-outline-primary w-100" key={i}>
-                        {serializeStepString(step)}
+                {data.map((pattern, i) => (
+                    <button
+                        onClick={fulfill.bind(null, pattern)}
+                        className="mt-3 btn btn-outline-primary w-100"
+                        key={i}>
+                        {pattern.description}
                     </button>
                 ))}
             </div>

@@ -29,7 +29,7 @@ export function GUISwitchStep({
                         value={step.cases[i]}
                         onBlur={(e) =>
                             store.getState().replace<"switch">((draft) => {
-                                draft.cases[i] = stringToConstant(e.target.value)
+                                draft.cases[i] = [stringToConstant(e.target.value)]
                             }, step)
                         }
                     />
@@ -56,7 +56,7 @@ export function GUISwitchStep({
                 onClick={() =>
                     store.getState().replace<"switch">((draft) => {
                         draft.children.push({ type: "this" })
-                        draft.cases.push(0)
+                        draft.cases.push([0])
                     }, step)
                 }
                 className="btn btn-outline-success">

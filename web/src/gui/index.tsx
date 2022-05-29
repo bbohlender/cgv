@@ -9,6 +9,7 @@ import {
     FullValue,
     getIndexRelation,
     HierarchicalRelation,
+    Selections,
 } from "cgv"
 import { HTMLProps, useMemo } from "react"
 import { UseBaseStore, useBaseStore } from "../global"
@@ -125,13 +126,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
-function GUISelection({
-    selections,
-    descriptionName,
-}: {
-    descriptionName: string
-    selections: SelectionsList[number]
-}) {
+function GUISelection({ selections, descriptionName }: { descriptionName: string; selections: Selections<any, any> }) {
     const store = useBaseStore()
     const path = getSelectedStepsJoinedPath(selections.steps)
     const indicesMap = store((state) => (state.type === "gui" ? state.valueMap : undefined))
@@ -142,16 +137,21 @@ function GUISelection({
             <label className="mb-3 mx-3">{getSelectedLabel(selections.steps, descriptionName)}</label>
             <GUISteps descriptionName={descriptionName} step={selections.steps} values={selections.values} />
             {all != null && (
-                <MultiSelect<FullValue>
-                    selectAll={() => store.getState().select(selections.steps, undefined, "add")}
-                    unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
-                    className="mb-3 mx-3"
-                    label={`${selections.values.length}/${all.length} selected`}
-                    onChange={(index, selected) => {
-                        store.getState().select(selections.steps, index, selected ? "add" : "remove")
-                    }}
-                    values={getValues(selections, all)}
-                />
+                <>
+                    <button onClick={() => store.getState().autoSelectPattern(selections)} className="btn mx-3 btn-outline-secondary btn-sm mb-2">
+                        auto-select pattern
+                    </button>
+                    <MultiSelect<FullValue>
+                        selectAll={() => store.getState().select(selections.steps, undefined, "add")}
+                        unselectAll={() => store.getState().select(selections.steps, undefined, "remove")}
+                        className="mb-3 mx-3"
+                        label={`${selections.values.length}/${all.length} selected`}
+                        onChange={(index, selected) => {
+                            store.getState().select(selections.steps, index, selected ? "add" : "remove")
+                        }}
+                        values={getValues(selections, all)}
+                    />
+                </>
             )}
         </div>
     )

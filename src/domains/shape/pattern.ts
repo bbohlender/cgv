@@ -1,23 +1,67 @@
-import { idSelectionPattern, SelectionPattern } from "../../editor"
+import {
+    allPatternType,
+    computePattern,
+    idPatternType,
+    indexModuloPatternType,
+    patternIsMatching,
+    PatternType,
+} from "../../editor"
+import { Value } from "../../interpreter"
 import { Primitive } from "./primitive"
 import { getDirection } from "./primitive-utils"
 
-export const directionSelectionPattern: SelectionPattern<Primitive, any> = {
-    getConditionKey: (value) => getDirection(value.raw.matrix),
-    getConditionStep: (value) => ({
-        type: "equal",
-        children: [
-            {
-                type: "operation",
-                identifier: "direction",
-                children: [],
-            },
-            {
-                type: "raw",
-                value: getDirection(value.raw.matrix),
-            },
-        ],
-    }),
+const getValueDirectionKey = (value: Value<Primitive, any>) => getDirection(value.raw.matrix)
+
+export const directionSelectionPattern: PatternType<Primitive, any> = {
+    generateMatching: (allValues, selectedValues) =>
+        computePattern(
+            (keys) => `direction is in ${keys.join(", ")}`,
+            allValues,
+            selectedValues,
+            getValueDirectionKey,
+            (value) => ({
+                type: "equal",
+                children: [
+                    {
+                        type: "operation",
+                        children: [],
+                        identifier: "direction",
+                    },
+                    {
+                        type: "raw",
+                        value: getValueDirectionKey(value),
+                    },
+                ],
+            }),
+            (newSelectionValues) => patternIsMatching(allValues, selectedValues, newSelectionValues)
+        ),
+
+    generateContaining: (allValues, selectedValues) =>
+        computePattern(
+            (keys) => `direction is in ${keys.join(", ")}`,
+            allValues,
+            selectedValues,
+            getValueDirectionKey,
+            (value) => ({
+                type: "equal",
+                children: [
+                    {
+                        type: "operation",
+                        children: [],
+                        identifier: "direction",
+                    },
+                    {
+                        type: "raw",
+                        value: getValueDirectionKey(value),
+                    },
+                ],
+            })
+        ),
 }
 
-export const patterns: Array<SelectionPattern<Primitive, any>> = [directionSelectionPattern, idSelectionPattern]
+export const patterns: Array<PatternType<Primitive, any>> = [
+    allPatternType,
+    indexModuloPatternType,
+    directionSelectionPattern,
+    idPatternType,
+]

@@ -31,8 +31,8 @@ import {
     globalizeNoun,
     removeUnusedNouns,
     isNounOfDescription,
-    SelectionPattern,
-    ConditionSelector,
+    Pattern,
+    PatternSelector,
     getIndexRelation,
     HierarchicalRelation,
     AbstractParsedGrammarDefinition,
@@ -41,6 +41,9 @@ import {
     copyNoun,
     removeHierarchicalFromDescription,
     parse,
+    Selections,
+    autoSelectPattern,
+    PatternType,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -89,10 +92,10 @@ export type TuiIncorrectState = {
     grammar: ParsedGrammarDefinition
 }
 
-export function createBaseState(operations: Operations<any, any>, patterns: Array<SelectionPattern<any, any>>) {
+export function createBaseState(operations: Operations<any, any>, patternTypes: Array<PatternType<any, any>>) {
     return create(
         subscribeWithSelector(
-            combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations, patterns))
+            combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations, patternTypes))
         )
     ) as UseBaseStore
 }
@@ -117,7 +120,7 @@ function createBaseStateInitial(): BaseState {
 
 function createBaseStateFunctions(
     operations: Operations<any, any>,
-    patterns: Array<SelectionPattern<any, any>>,
+    patternTypes: Array<PatternType<any, any>>,
     set: SetState<BaseState>,
     get: GetState<BaseState>
 ) {
@@ -141,7 +144,7 @@ function createBaseStateFunctions(
             },
         })
     }
-    const selectCondition: ConditionSelector = (conditions) =>
+    const selectPattern: PatternSelector = (conditions) =>
         new Promise((resolve) => request("select-condition", resolve, conditions))
     return {
         import: (data: string) => {
@@ -237,8 +240,8 @@ function createBaseStateFunctions(
                     state.selectionsList.filter((selections) =>
                         compareSelectedStepsPath(selections.steps, step, joinedPath)
                     ),
-                    patterns,
-                    selectCondition,
+                    patternTypes,
+                    selectPattern,
                     () => ({ type: "symbol", identifier: globalizeNoun(localNounName, state.selectedDescription) }),
                     state.grammar.concat(copiedNouns)
                 )
@@ -388,6 +391,21 @@ function createBaseStateFunctions(
             }
             set(editIndices(state.valueMap, state.selectionsList, state.hovered, values, add))
         },
+        autoSelectPattern: async (selections: Selections<any, any>) => {
+            const state = get()
+            if (state.type != "gui") {
+                return
+            }
+            set({
+                selectionsList: await autoSelectPattern(
+                    state.selectionsList,
+                    state.valueMap,
+                    selections,
+                    patternTypes,
+                    selectPattern
+                ),
+            })
+        },
         select: (steps: SelectedSteps, value?: FullValue, type?: "replace" | "add" | "remove" | "toggle") => {
             const state = get()
             if (state.type != "gui") {
@@ -492,8 +510,8 @@ function createBaseStateFunctions(
                 await insert(
                     state.valueMap,
                     state.selectionsList,
-                    patterns,
-                    selectCondition,
+                    patternTypes,
+                    selectPattern,
                     type,
                     stepGenerator,
                     state.grammar
@@ -509,8 +527,8 @@ function createBaseStateFunctions(
                 await removeStep(
                     state.valueMap,
                     state.selectionsList,
-                    patterns,
-                    selectCondition,
+                    patternTypes,
+                    selectPattern,
                     operations,
                     state.grammar
                 )
@@ -521,7 +539,9 @@ function createBaseStateFunctions(
             if (state.type != "gui") {
                 return
             }
-            set(await renameNoun(state.valueMap, state.selectionsList, patterns, selectCondition, name, state.grammar))
+            set(
+                await renameNoun(state.valueMap, state.selectionsList, patternTypes, selectPattern, name, state.grammar)
+            )
         },
         setName: async (name: string, descriptionName: string) => {
             const state = get()
@@ -532,8 +552,8 @@ function createBaseStateFunctions(
                 await setName(
                     state.valueMap,
                     state.selectionsList,
-                    patterns,
-                    selectCondition,
+                    patternTypes,
+                    selectPattern,
                     globalizeStepsSerializer(descriptionName, name) ?? name,
                     state.grammar
                 )
@@ -556,8 +576,8 @@ function createBaseStateFunctions(
                         : state.selectionsList.filter((selections) =>
                               compareSelectedStepsPath(selections.steps, steps, joinedPath)
                           ),
-                    patterns,
-                    selectCondition,
+                    patternTypes,
+                    selectPattern,
                     replaceWith as any,
                     state.grammar
                 )

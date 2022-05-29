@@ -1,7 +1,7 @@
 import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition } from ".."
 import type { EditorState } from "."
 import { Draft, freeze, original, produce } from "immer"
-import { ConditionSelector, getSelectionCondition, SelectionPattern } from "./pattern"
+import { PatternSelector, getMatchingCondition, PatternType } from "./pattern"
 import {
     computeDependencies,
     getAtPath,
@@ -33,8 +33,8 @@ export function getSelectedStepsUpwardsPaths(
 export async function replace<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
-    patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: ConditionSelector,
+    patterns: Array<PatternType<T, A>>,
+    selectCondition: PatternSelector,
     replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
@@ -54,13 +54,13 @@ export async function replace<T, A>(
 export async function replaceOnDraft<T, A>(
     valueMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
-    patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: ConditionSelector,
+    patterns: Array<PatternType<T, A>>,
+    selectCondition: PatternSelector,
     replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition,
     newSelectionsList?: SelectionsList
 ) {
-    for (const { values, steps } of selectionsList) {
+    for (const { values, steps, generatePatternCondition } of selectionsList) {
         for (const path of getSelectedStepsUpwardsPaths(steps, grammar)) {
             const joinedPath = path.join(",")
             const all = valueMap[joinedPath] ?? []
@@ -76,7 +76,8 @@ export async function replaceOnDraft<T, A>(
                 replaceWith,
                 path,
                 translatedPath,
-                newSelectionsList
+                newSelectionsList,
+                generatePatternCondition
             )
         }
     }
@@ -91,12 +92,13 @@ export type ReplaceWith = (
 export async function replaceAtPathOnDraft<T, A>(
     all: Array<Value<T, A>>,
     selected: Array<Value<T, A>>,
-    patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: ConditionSelector,
+    patterns: Array<PatternType<T, A>>,
+    selectCondition: PatternSelector,
     replaceWith: ReplaceWith,
     path: HierarchicalPath,
     translatedPath: TranslatedPath<HierarchicalInfo>,
-    newSelectionsList?: SelectionsList
+    newSelectionsList: SelectionsList | undefined,
+    generatePatternCondition: (() => ParsedSteps) | undefined
 ): Promise<void> {
     if (all.length > 0 && selected.length === 0) {
         return
@@ -105,10 +107,11 @@ export async function replaceAtPathOnDraft<T, A>(
 
     const newSteps = replaceWith(currentSteps, path, translatedPath) ?? currentSteps
     const oldSteps = original(currentSteps)!
-    const selectionCondition = await getSelectionCondition(all, selected, patterns, selectCondition)
+    const generateCondition =
+        generatePatternCondition ?? (await getMatchingCondition(all, selected, patterns, selectCondition)).generateStep
 
     const translatedSteps: ParsedSteps =
-        selectionCondition == null ? newSteps : { type: "if", children: [selectionCondition, newSteps, oldSteps] }
+        generateCondition == null ? newSteps : { type: "if", children: [generateCondition(), newSteps, oldSteps] }
 
     setAtPath(path, translatedPath, path.length - 1, translatedSteps)
 

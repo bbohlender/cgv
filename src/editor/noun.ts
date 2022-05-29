@@ -1,5 +1,5 @@
 import produce, { freeze, original } from "immer"
-import { EditorState, ValueMap, SelectionsList, SelectionPattern, ConditionSelector } from "."
+import { EditorState, ValueMap, SelectionsList, PatternType, PatternSelector } from "."
 import {
     toHierarchicalSteps,
     AbstractParsedSymbol,
@@ -56,8 +56,8 @@ export function removeUnusedNouns<T>(
 export async function setName<T, A>(
     indicesMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
-    patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: ConditionSelector,
+    patterns: Array<PatternType<T, A>>,
+    selectCondition: PatternSelector,
     name: string,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
@@ -139,8 +139,8 @@ export function copyNoun(
 export async function renameNoun<T, A>(
     indicesMap: ValueMap<T, A>,
     selectionsList: SelectionsList<T, A>,
-    patterns: Array<SelectionPattern<T, A>>,
-    selectCondition: ConditionSelector,
+    patterns: Array<PatternType<T, A>>,
+    selectCondition: PatternSelector,
     newName: string,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {

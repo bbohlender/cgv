@@ -15,14 +15,19 @@ import {
     translatePath,
     parseDescription,
     localizeStepsSerializer,
-    getSelectionCondition,
+    getMatchingCondition,
     Value,
     ParsedSteps,
-    idSelectionPattern,
-    ConditionSelector,
+    idPatternType,
+    PatternSelector,
     copyNoun,
     parse,
-    computeDependencies,
+    computePattern,
+    patternIsMatching,
+    indexModuloPatternType,
+    getContainingCondition,
+    generateAllPattern,
+    allPatternType,
 } from "../src"
 import { validateHierarchical } from "./hierarchical"
 
@@ -60,8 +65,7 @@ function getLastStepInPath(
     return getAtPath(translatedPath, path.length - 1)
 }
 
-const defaultConditionSelection: ConditionSelector = (conditions) =>
-    Promise.resolve(conditions == null ? undefined : conditions[0])
+const defaultConditionSelection: PatternSelector = ([condition]) => Promise.resolve(condition)
 
 describe("editor", () => {
     it("should multi insert after at substep", async () => {
@@ -72,7 +76,7 @@ describe("editor", () => {
                 { steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] },
                 { steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] },
             ],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "after",
             () =>
@@ -95,7 +99,7 @@ describe("editor", () => {
         const { grammar } = await insert(
             {},
             [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "after",
             () =>
@@ -129,7 +133,7 @@ describe("editor", () => {
                     values: [{ after: v1, before: v1 }],
                 },
             ],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "after",
             () =>
@@ -202,7 +206,7 @@ describe("editor", () => {
                 ],
             },
             [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "after",
             () =>
@@ -225,7 +229,7 @@ describe("editor", () => {
         const { grammar } = await insert(
             {},
             [{ steps: getLastStepInPath(["a@test"], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "before",
             () =>
@@ -248,7 +252,7 @@ describe("editor", () => {
         const { grammar } = await insert(
             {},
             [{ steps: getLastStepInPath(["a@test", 1, 0], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "before",
             () =>
@@ -271,7 +275,7 @@ describe("editor", () => {
         const { grammar } = await insert(
             {},
             [{ steps: getLastStepInPath(["a@test"], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "parallel",
             () =>
@@ -294,7 +298,7 @@ describe("editor", () => {
         const { grammar } = await insert(
             {},
             [{ steps: getLastStepInPath(["a@test"], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "parallel",
             () =>
@@ -317,7 +321,7 @@ describe("editor", () => {
         const { grammar } = await replace(
             {},
             [{ steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             () => ({
                 type: "this",
@@ -346,7 +350,7 @@ describe("editor", () => {
                     values: [{ after: v2, before: v2 }],
                 },
             ],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             () => ({
                 type: "this",
@@ -367,7 +371,7 @@ describe("editor", () => {
                 { steps: getLastStepInPath(["a@test", 1, 0, 1], inputGrammar), values: [] },
                 { steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] },
             ],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             () => ({
                 type: "this",
@@ -385,7 +389,7 @@ describe("editor", () => {
         const { grammar } = await removeStep(
             {},
             [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -412,7 +416,7 @@ describe("editor", () => {
                     values: [{ after: v1, before: v1 }],
                 },
             ],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -428,7 +432,7 @@ describe("editor", () => {
         const { grammar } = await removeStep(
             {},
             [{ steps: getLastStepInPath(["a@test", 1], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -445,7 +449,7 @@ describe("editor", () => {
                 { steps: getLastStepInPath(["a@test", 1], inputGrammar), values: [] },
                 { steps: getLastStepInPath(["a@test", 2], inputGrammar), values: [] },
             ],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -459,7 +463,7 @@ describe("editor", () => {
         const { grammar } = await removeStep(
             {},
             [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -477,7 +481,7 @@ describe("editor", () => {
         const { grammar } = await removeStep(
             {},
             [{ steps: getLastStepInPath(["a@test", 1, 1], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {
                 operation: {
@@ -501,7 +505,7 @@ describe("editor", () => {
         const { grammar } = await removeStep(
             {},
             [{ steps: getLastStepInPath(["a@test", 1, 0, 1, 1], inputGrammar), values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -517,7 +521,7 @@ describe("editor", () => {
         const { grammar } = await removeStep(
             {},
             [{ steps: "b@test", values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             {},
             inputGrammar
@@ -533,7 +537,7 @@ describe("noun", () => {
         const { grammar } = await renameNoun(
             {},
             [{ steps: "b@test", values: [] }],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection,
             "xyz@test",
             inputGrammar
@@ -565,8 +569,10 @@ describe("noun", () => {
 
 describe("pattern", () => {
     it("should get undefined as selection condition as all values are selected", async () => {
-        const condition = await getSelectionCondition([], [], [idSelectionPattern], () => Promise.resolve(undefined))
-        expect(condition).to.be.undefined
+        const condition = await getMatchingCondition([], [], [allPatternType, idPatternType], () =>
+            Promise.resolve(generateAllPattern())
+        )
+        expect(condition.generateStep).to.be.undefined
     })
 
     it("should get undefined as selection condition as no pattern matched", async () => {
@@ -605,13 +611,13 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(
+        const condition = await getMatchingCondition(
             values,
             [values[1]],
-            [idSelectionPattern],
+            [allPatternType, idPatternType],
             defaultConditionSelection
         )
-        expect(condition).to.be.undefined
+        expect(condition.generateStep).to.be.undefined
     })
 
     it("should get undefined as selection condition as no value was selected", async () => {
@@ -628,8 +634,13 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(values, [], [idSelectionPattern], defaultConditionSelection)
-        expect(condition).to.be.undefined
+        const condition = await getMatchingCondition(
+            values,
+            [],
+            [allPatternType, idPatternType],
+            defaultConditionSelection
+        )
+        expect(condition.generateStep).to.be.undefined
     })
 
     it("should get undefined as selection condition as no condition was selected", async () => {
@@ -657,13 +668,13 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(
+        const condition = await getMatchingCondition(
             values,
             [values[0], values[1]],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection
         )
-        expect(condition).to.be.undefined
+        expect(condition.generateStep).to.be.undefined
     })
 
     it("should get id selection condition", async () => {
@@ -713,13 +724,13 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(
+        const condition = await getMatchingCondition(
             values,
             [values[0], values[1]],
-            [idSelectionPattern],
+            [idPatternType],
             defaultConditionSelection
         )
-        expect(condition).to.be.deep.equal({
+        expect(condition.generateStep!()).to.be.deep.equal({
             type: "equal",
             children: [
                 {
@@ -730,6 +741,162 @@ describe("pattern", () => {
                 {
                     type: "raw",
                     value: "0",
+                },
+            ],
+        })
+    })
+
+    it("should get matching modulo index selection condition", async () => {
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [2],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [3],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getMatchingCondition(
+            values,
+            [values[1], values[3]],
+            [indexModuloPatternType],
+            defaultConditionSelection
+        )
+        expect(condition.generateStep!()).to.be.deep.equal({
+            type: "equal",
+            children: [
+                {
+                    type: "modulo",
+                    children: [
+                        {
+                            type: "operation",
+                            identifier: "index",
+                            children: [],
+                        },
+                        {
+                            type: "raw",
+                            value: 2,
+                        },
+                    ],
+                },
+                {
+                    type: "raw",
+                    value: 1,
+                },
+            ],
+        })
+    })
+
+    it("should get containing modulo index selection condition", async () => {
+        const values: Array<Value<undefined, undefined>> = [
+            {
+                annotation: undefined,
+                index: [0],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [1],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [2],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+            {
+                annotation: undefined,
+                index: [3],
+                invalid: {
+                    observable: EMPTY,
+                    value: false,
+                },
+                raw: undefined,
+                symbolDepth: {},
+                variables: {},
+            },
+        ]
+        const condition = await getContainingCondition(
+            values,
+            [values[1]],
+            [indexModuloPatternType],
+            defaultConditionSelection
+        )
+        expect(condition.generateStep!()).to.be.deep.equal({
+            type: "equal",
+            children: [
+                {
+                    type: "modulo",
+                    children: [
+                        {
+                            type: "operation",
+                            identifier: "index",
+                            children: [],
+                        },
+                        {
+                            type: "raw",
+                            value: 2,
+                        },
+                    ],
+                },
+                {
+                    type: "raw",
+                    value: 1,
                 },
             ],
         })
@@ -775,10 +942,14 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(values, [values[1], values[2]], [idSelectionPattern], () =>
-            Promise.resolve(customCondition)
+        const condition = await getMatchingCondition(values, [values[1], values[2]], [idPatternType], () =>
+            Promise.resolve({
+                generateStep: () => customCondition,
+                description: "",
+                isSelected: () => true,
+            })
         )
-        expect(condition).to.be.deep.equal(customCondition)
+        expect(condition.generateStep!()).to.be.deep.equal(customCondition)
     })
 
     it("should get selection condition based on domain specific pattern", async () => {
@@ -828,30 +999,40 @@ describe("pattern", () => {
                 variables: {},
             },
         ]
-        const condition = await getSelectionCondition(
+        const condition = await getMatchingCondition(
             values,
             [values[0], values[2], values[3]],
             [
-                idSelectionPattern,
+                idPatternType,
                 {
-                    getConditionKey: (value) => value.raw,
-                    getConditionStep: (value) => ({
-                        type: "equal",
-                        children: [
-                            {
-                                type: "this",
-                            },
-                            {
-                                type: "raw",
-                                value: value.raw,
-                            },
-                        ],
-                    }),
+                    generateMatching: (allValues, selectedValues) =>
+                        computePattern(
+                            () => "test",
+                            allValues,
+                            selectedValues,
+                            (value) => value.raw,
+                            (value) => ({
+                                type: "equal",
+                                children: [
+                                    {
+                                        type: "this",
+                                    },
+                                    {
+                                        type: "raw",
+                                        value: value.raw,
+                                    },
+                                ],
+                            }),
+                            (newSelectionValues) => patternIsMatching(allValues, selectedValues, newSelectionValues)
+                        ),
+                    generateContaining: () => {
+                        throw new Error("method not implemented")
+                    },
                 },
             ],
             defaultConditionSelection
         )
-        expect(condition).to.be.deep.equal({
+        expect(condition.generateStep!()).to.be.deep.equal({
             type: "or",
             children: [
                 {

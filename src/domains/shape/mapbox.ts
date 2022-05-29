@@ -263,8 +263,8 @@ function convertPolygonLotToSteps(
     outside: "exclude" | "include",
     extent: number
 ): ParsedSteps | undefined {
-    const children = new Array<ParsedSteps>(geometry.length)
-    for (let i = 0; i < geometry.length; i++) {
+    const children = new Array<ParsedSteps>(geometry.length - 1)
+    for (let i = 0; i < geometry.length - 1; i++) {
         const { x, y } = geometry[i]
         if (outside === "exclude" && !isInTile(x, y, extent)) {
             return undefined
