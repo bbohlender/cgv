@@ -35,7 +35,7 @@ export type ViewerState = (
     | CombineEmpty<PanoramaViewerState, TopDownViewerState>
 ) &
     ResultViewerState & {
-        showBackground: boolean
+        visualType: number
     }
 
 export function eulerToTuple(q: Euler): Vector3Tuple {
@@ -58,8 +58,16 @@ export function createViewerStateInitial(): ViewerState {
         viewType: "2d",
         position: [lon2tile(locations[0].lon, 0), DEFAULT_Y, lat2tile(locations[0].lat, 0)],
         error: undefined,
-        showBackground: false,
+        visualType: 0,
     }
+}
+
+export function getForegroundOpacity(visualType: number): number {
+    return Math.min(visualType * 2 - 1, 1)
+}
+
+export function getBackgroundOpacity(visualType: number): number {
+    return Math.max(visualType * 2, 0)
 }
 
 export function clip(v: number, min: number, max: number) {
@@ -125,8 +133,8 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         setError: (error: string | undefined) => {
             set({ error })
         },
-        toggleBackground: () => {
-            set({ showBackground: !get().showBackground })
+        setVisualType: (visualType: number) => {
+            set({ visualType })
         },
     }
 }

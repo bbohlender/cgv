@@ -1,8 +1,9 @@
 import { PerspectiveCamera } from "@react-three/drei"
-import { useEffect } from "react"
+import { PropsWithChildren, ReactChildren, useEffect } from "react"
 import { animated, useSpring } from "@react-spring/three"
 import { Vector3Tuple } from "three"
 import { calculateRotation, FOV, getPosition, useViewerState, ViewerState } from "./state"
+import { PerspectiveCameraProps } from "@react-three/fiber"
 
 const APerspectiveCamera = animated(PerspectiveCamera)
 
@@ -14,7 +15,7 @@ function getInitialState() {
     }
 }
 
-export function ViewerCamera() {
+export function ViewerCamera({ children, ...props }: PropsWithChildren<PerspectiveCameraProps>) {
     const [{ position, rotation }] = useSpring(getInitialState)
 
     useEffect(() => {
@@ -34,11 +35,13 @@ export function ViewerCamera() {
 
     return (
         <APerspectiveCamera
+            {...props}
             fov={FOV}
             far={1000}
             near={10e-10}
             position={position}
             rotation-order="YXZ"
+            children={children}
             rotation={rotation as any}
             makeDefault
         />

@@ -1,11 +1,11 @@
 import { useLoader, useThree } from "@react-three/fiber"
 import { tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
-import { Suspense, useMemo } from "react"
+import { Component, FC, ReactComponentElement, ReactElement, Suspense, useMemo } from "react"
 import { DoubleSide, PlaneBufferGeometry, TextureLoader, Vector3Tuple } from "three"
-import { clip, FOV, getPosition, useViewerState } from "./state"
+import { clip, FOV, getBackgroundOpacity, getPosition, useViewerState } from "./state"
 import { shallowEqual } from "cgv"
 import { Descriptions } from "./description"
-import availableTiles, { getTileUrl } from "../available-tiles"
+import { getTileUrl } from "../available-tiles"
 
 type ViewBounds = [
     centerX: number,
@@ -41,7 +41,7 @@ function calculateTileViewBounds(
     return [centerX, centerY, minX, minY, maxX, maxY, zoom]
 }
 
-export function Tiles() {
+export function Tiles({ tile: Tile }: { tile: FC<{ highlighted: boolean; x: number; y: number; zoom: number }> }) {
     const { size } = useThree()
     const [centerX, centerY, minX, minY, maxX, maxY, zoom] = useViewerState((state) => {
         const [x, y, z] = getPosition(state)
@@ -60,9 +60,8 @@ export function Tiles() {
     )
 }
 
-export function Tile({ x, y, zoom, highlighted }: { highlighted: boolean; x: number; y: number; zoom: number }) {
-    const showGround = useViewerState((state) => state.showBackground && state.viewType === "2d")
-    const { position, scale } = useMemo<{ position: Vector3Tuple; scale: number }>(() => {
+function useTilePositionScale(x: number, y: number, zoom: number): { position: Vector3Tuple; scale: number } {
+    return useMemo<{ position: Vector3Tuple; scale: number }>(() => {
         const globalLocalRatio = tileZoomRatio(0, zoom)
         const xGlobal = x / globalLocalRatio
         const yGlobal = y / globalLocalRatio
@@ -73,15 +72,43 @@ export function Tile({ x, y, zoom, highlighted }: { highlighted: boolean; x: num
             scale,
         }
     }, [x, y, zoom])
-    const url = getTileUrl(zoom, x, y, "png")
+}
+
+export function DescriptionTile({ x, y, zoom }: { x: number; y: number; zoom: number }) {
+    const { position, scale } = useTilePositionScale(x, y, zoom)
+    if (zoom != 18) {
+        return null
+    }
     return (
         <group scale={scale} position={position}>
-            {zoom === 18 && <Descriptions x={x} y={y} />}
-            {showGround && url != null && (
-                <Suspense fallback={null}>
-                    <Ground highlighted={highlighted} url={url} y={y} zoom={zoom} />
-                </Suspense>
-            )}
+            <Descriptions x={x} y={y} />
+        </group>
+    )
+}
+
+export function BackgroundTile({
+    x,
+    y,
+    zoom,
+    highlighted,
+}: {
+    highlighted: boolean
+    x: number
+    y: number
+    zoom: number
+}) {
+    const visualType = useViewerState((state) => (state.viewType === "2d" ? state.visualType : 0))
+    const opacity = getBackgroundOpacity(visualType)
+    const { position, scale } = useTilePositionScale(x, y, zoom)
+    const url = getTileUrl(zoom, x, y, "png")
+    if (opacity === 0 || url == null) {
+        return null
+    }
+    return (
+        <group scale={scale} position={position}>
+            <Suspense fallback={null}>
+                <Ground highlighted={highlighted} url={url} y={y} zoom={zoom} />
+            </Suspense>
         </group>
     )
 }
@@ -94,7 +121,7 @@ function Ground({ url, y, zoom, highlighted }: { highlighted: boolean; url: stri
     const texture = useLoader(TextureLoader, url)
     const sizeInMeter = /**1 tile */ tileMeterRatio(y, zoom)
     return (
-        <mesh scale={[sizeInMeter, 1, sizeInMeter]} geometry={planeGeometry} renderOrder={-1} position={[0, 0, 0]}>
+        <mesh scale={[sizeInMeter, 1, sizeInMeter]} geometry={planeGeometry} position={[0, 0, 0]}>
             <meshBasicMaterial
                 color={highlighted ? 0xffffff : 0xbbbbbb}
                 side={DoubleSide}

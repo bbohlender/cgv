@@ -1,4 +1,5 @@
-import { Sphere, useContextBridge } from "@react-three/drei"
+import { RenderTexture, Sphere, useContextBridge, ScreenQuad, OrthographicCamera } from "@react-three/drei"
+
 import { Canvas } from "@react-three/fiber"
 import {
     convertLotsToSteps,
@@ -7,12 +8,12 @@ import {
     tileMeterRatio,
     tileZoomRatio,
 } from "cgv/domains/shape"
-import { HTMLProps, DragEvent } from "react"
+import { HTMLProps, DragEvent, ReactNode, useRef, useState } from "react"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
 import { ViewerCamera } from "./camera"
-import { getPosition, useViewerState } from "./state"
+import { getBackgroundOpacity, getForegroundOpacity, getPosition, useViewerState } from "./state"
 import { ViewControls } from "./view-controls"
 import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
@@ -22,10 +23,24 @@ import { DescriptionList } from "../../../gui/description-list"
 import { GUI } from "../../../gui"
 import { TextEditorToggle } from "../../../gui/toggles/text"
 import { GeoSearch } from "../geo-search"
-import { Tiles } from "./tile"
+import { BackgroundTile, DescriptionTile, Tiles } from "./tile"
 import { PanoramaView } from "./panorama"
 import { getTileUrl } from "../available-tiles"
 import { DownloadIcon } from "../../../icons/download"
+import { Display } from "./display"
+import {
+    AddEquation,
+    OneFactor,
+    OneMinusDstAlphaFactor,
+    OneMinusSrcAlphaFactor,
+    PixelFormat,
+    RGBAFormat,
+    RGBFormat,
+    SrcAlphaFactor,
+    Texture,
+    ZeroFactor,
+} from "three"
+import { VisualSelection } from "./visual-selection"
 
 export function tileDescriptionSuffix(x: number, y: number): string {
     return `_${x}_${y}`
@@ -42,6 +57,7 @@ function onDrop(store: UseBaseStore, e: DragEvent<HTMLDivElement>) {
 export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElement>) {
     const Bridge = useContextBridge(domainContext)
     const store = useBaseStore()
+    const [texture, setTexture] = useState<Texture>()
 
     return (
         <div
@@ -57,13 +73,20 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 }}
                 dpr={global.window == null ? 1 : window.devicePixelRatio}>
                 <Bridge>
-                    <ViewerCamera />
+                    <RenderTexture ref={setTexture} attach="map" {...({} as any)}>
+                        <ViewerCamera />
+                        <PanoramaView />
+                        <Tiles tile={BackgroundTile} />
+                    </RenderTexture>
                     <ViewControls />
                     <ambientLight intensity={0.5} />
                     <directionalLight position={[10, 10, 10]} intensity={0.5} />
-                    <PanoramaView />
                     <Panoramas />
-                    <Tiles />
+                    <Tiles tile={DescriptionTile} />
+                    <ViewerCamera>
+                        {texture != null && <Foreground texture={texture} />}
+                        {texture != null && <Background texture={texture} />}
+                    </ViewerCamera>
                 </Bridge>
             </Canvas>
             <div
@@ -94,7 +117,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <div className="flex-grow-1" />
                     <div style={{ pointerEvents: "all" }} className="d-flex flex-row">
                         <MultiSelectButton className="me-2" />
-                        <BackgroundToggle className="me-2" />
+                        <VisualSelection className="me-2" />
                         <BackButton className="me-2" />
                         <SpeedSelection className="me-2" />
                         <DownloadButton className="me-2" />
@@ -118,6 +141,31 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
             </div>
             {children}
         </div>
+    )
+}
+
+function Background({ texture }: { texture: Texture }) {
+    const visualType = useViewerState((state) => state.visualType)
+    const opacity = getBackgroundOpacity(visualType)
+    return (
+        <Display>
+            <meshBasicMaterial map={texture} depthTest={true} depthWrite={false} transparent opacity={opacity} />
+        </Display>
+    )
+}
+
+function Foreground({ texture }: { texture: Texture }) {
+    const visualType = useViewerState((state) => state.visualType)
+    const opacity = getForegroundOpacity(visualType)
+    return (
+        <Display renderOrder={2000}>
+            <meshBasicMaterial
+                map={texture}
+                depthTest={false}
+                depthWrite={false}
+                transparent
+                opacity={opacity}></meshBasicMaterial>
+        </Display>
     )
 }
 
@@ -188,20 +236,6 @@ function DownloadButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
             onClick={() => store.getState().download()}
             className={`${className} d-flex align-items-center justify-content-center btn btn-primary btn-sm `}>
             <DownloadIcon />
-        </div>
-    )
-}
-
-function BackgroundToggle({ className, ...rest }: HTMLProps<HTMLDivElement>) {
-    const showBackground = useViewerState((state) => state.showBackground)
-    return (
-        <div
-            {...rest}
-            onClick={() => useViewerState.getState().toggleBackground()}
-            className={`${className} d-flex align-items-center justify-content-center btn ${
-                showBackground ? "btn-primary" : "btn-secondary"
-            } btn-sm `}>
-            <ImageIcon />
         </div>
     )
 }

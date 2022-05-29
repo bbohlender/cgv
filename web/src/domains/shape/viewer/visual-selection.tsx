@@ -1,11 +1,10 @@
 import { HTMLProps, useState } from "react"
-import { useBaseStore } from "../global"
-import { SpeedIcon } from "../icons/speed"
+import { ImageIcon } from "../../../icons/image"
+import { useViewerState } from "./state"
 
-export function SpeedSelection({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+export function VisualSelection({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const [open, setOpen] = useState(false)
-    const store = useBaseStore()
-    const interpretationDelay = store((state) => state.interpretationDelay)
+    const interpretationDelay = useViewerState((state) => state.visualType)
     return (
         <div {...rest} className={`${className} d-flex flex-column align-items-center`}>
             {open && (
@@ -22,9 +21,10 @@ export function SpeedSelection({ className, ...rest }: HTMLProps<HTMLDivElement>
                         type="range"
                         value={interpretationDelay}
                         className="mb-0 mx-2 form-range"
-                        onChange={(e) => store.getState().setInterpretationDelay(e.target.valueAsNumber)}
+                        onChange={(e) => useViewerState.getState().setVisualType(e.target.valueAsNumber)}
                         min={0}
-                        max={200}
+                        step={0.01}
+                        max={1}
                     />
                     -
                 </div>
@@ -32,7 +32,7 @@ export function SpeedSelection({ className, ...rest }: HTMLProps<HTMLDivElement>
             <div
                 onClick={() => setOpen((open) => !open)}
                 className={`btn btn-sm ${open ? "btn-primary" : "btn-secondary"} d-flex align-items-center`}>
-                <SpeedIcon />
+                <ImageIcon />
             </div>
         </div>
     )

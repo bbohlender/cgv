@@ -246,7 +246,15 @@ function UnselectedDescription({ visible, name }: { visible: boolean; name: stri
     const store = useBaseStore()
     const unselectedDescription = useLocalDescription(store, name)
     useSimpleInterpretation(unselectedDescription, groupRef)
-    return <group visible={visible} onClick={() => store.getState().selectDescription(name)} ref={groupRef} />
+    return (
+        <group
+            visible={visible}
+            onClick={(e) => {
+                store.getState().selectDescription(name)
+            }}
+            ref={groupRef}
+        />
+    )
 }
 
 function SelectedDescription({ visible, name }: { visible: boolean; name: string }) {
