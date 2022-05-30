@@ -1,5 +1,6 @@
 import { AbstractParsedSwitch, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
 import { useBaseStore } from "../global"
+import { ArrowLeftRightIcon } from "../icons/arrow-left-right"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
 import { StartLabel } from "./label"
@@ -40,6 +41,11 @@ export function GUISwitchStep({
                             serializeStepString(child) //TODO: dont use serialize here
                         }
                     </div>
+                    <button
+                        onClick={() => store.getState().replace(() => child, step)}
+                        className="btn btn-sm btn-outline-primary ms-2">
+                        <ArrowLeftRightIcon />
+                    </button>
                     <div
                         onClick={() => {
                             store.getState().replace<"switch">((draft) => {

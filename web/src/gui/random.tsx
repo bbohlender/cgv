@@ -1,5 +1,6 @@
 import { AbstractParsedRandom, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
 import { useBaseStore } from "../global"
+import { ArrowLeftRightIcon } from "../icons/arrow-left-right"
 import { DeleteIcon } from "../icons/delete"
 import { BlurInput } from "./blur-input"
 
@@ -32,6 +33,11 @@ export function GUIRandomStep({
                             serializeStepString(child) //TODO: dont use serialize here
                         }
                     </div>
+                    <button
+                        onClick={() => store.getState().replace(() => child, step)}
+                        className="btn ms-2 btn-sm btn-outline-primary">
+                        <ArrowLeftRightIcon />
+                    </button>
                     <div
                         onClick={() =>
                             store.getState().replace<"random">((draft) => {

@@ -61,7 +61,7 @@ function computeModuloPattern(
     checkSelection?: (newSelectedValues: Array<Value<any, any>>) => boolean
 ) {
     return computePattern(
-        (keys) => `index % ${modulo} is in ${keys.join(", ")}`,
+        (keys) => keys == null ? `all indices` : `index % ${modulo} is in ${keys.join(", ")}`,
         allValues,
         selectedValues,
         (value) => getValueIndexModuloKey(value, modulo),
@@ -143,7 +143,7 @@ const getValueIdKey = (value: Value<any, any>) => value.index.join(",")
 export const idPatternType: PatternType<any, any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => `id is in ${keys.join(", ")}`,
+            (keys) => keys == null ? "all ids" : `id is in ${keys.join(", ")}`,
             allValues,
             selectedValues,
             getValueIdKey,
@@ -235,7 +235,7 @@ export function patternIsMatching<T, A>(
  * @returns undefined if it is not possible to match the selected values with the pattern
  */
 export function computePattern<T, A>(
-    getDescription: (keys: Array<string | number>) => string,
+    getDescription: (keys: Array<string | number> | undefined) => string,
     allValues: Array<Value<T, A>>,
     selectedValues: Array<Value<T, A>>,
     getValueKey: (value: Value<T, A>) => string | number,
@@ -253,9 +253,22 @@ export function computePattern<T, A>(
     const keys = Array.from(keyMap.keys())
 
     const newSelectedValues: Array<Value<T, A>> = []
+    let unselectedValues: number = 0
     for (const value of allValues) {
         if (keys.includes(getValueKey(value))) {
             newSelectedValues.push(value)
+        } else {
+            unselectedValues++
+        }
+    }
+
+    if (unselectedValues === 0) {
+        return {
+            description: getDescription(undefined),
+            generateStep: undefined,
+            isSelected: () => true,
+            keySize: 0,
+            selectionSize: newSelectedValues.length,
         }
     }
 

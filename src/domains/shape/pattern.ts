@@ -15,7 +15,7 @@ const getValueDirectionKey = (value: Value<Primitive, any>) => getDirection(valu
 export const directionSelectionPattern: PatternType<Primitive, any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => `direction is in ${keys.join(", ")}`,
+            (keys) => keys == null ? `all directions` : `direction is in ${keys.join(", ")}`,
             allValues,
             selectedValues,
             getValueDirectionKey,
@@ -38,7 +38,7 @@ export const directionSelectionPattern: PatternType<Primitive, any> = {
 
     generateContaining: (allValues, selectedValues) =>
         computePattern(
-            (keys) => `direction is in ${keys.join(", ")}`,
+            (keys) => keys == null ? "all directions" : `direction is in ${keys.join(", ")}`,
             allValues,
             selectedValues,
             getValueDirectionKey,
