@@ -79,10 +79,13 @@ export function DescriptionTile({ x, y, zoom }: { x: number; y: number; zoom: nu
     if (zoom != 18) {
         return null
     }
-    return (
-        <group scale={scale} position={position}>
-            <Descriptions x={x} y={y} />
-        </group>
+    return useMemo(
+        () => (
+            <group scale={scale} position={position}>
+                <Descriptions x={x} y={y} />
+            </group>
+        ),
+        [x, y, position, scale]
     )
 }
 

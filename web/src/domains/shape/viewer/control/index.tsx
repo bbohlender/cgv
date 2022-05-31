@@ -146,10 +146,9 @@ export function SplitControl({ value, step }: { step: AbstractParsedOperation<Hi
                 return (
                     <TransformControl
                         value={position}
-                        axis={axisMap[axis]}
+                        axes={axisMap[axis]}
                         matrix={value.matrix}
-                        mode="translate"
-                        set={(...newPosition) =>
+                        set={(newPosition) =>
                             store.getState().replace<"operation">((draft) => {
                                 draft.children[i + 2] = {
                                     type: "raw",
@@ -193,14 +192,9 @@ export function ExtrudeControl({ value, step }: { step: AbstractParsedOperation<
         return outline
     }, [value])
 
-    return (
-        <TransformControl
-            value={[x, extrusion + y, z]}
-            axis={axisY}
-            matrix={value.matrix}
-            mode="translate"
-            child={clonedOutline}
-            set={(x, extrusionAndY, z) =>
+    const set = useCallback(
+        () =>
+            ([x, extrusionAndY, z]: Vector3Tuple) =>
                 store.getState().replace((draft) => {
                     draft.children = [
                         {
@@ -208,8 +202,17 @@ export function ExtrudeControl({ value, step }: { step: AbstractParsedOperation<
                             value: extrusionAndY - y,
                         },
                     ]
-                }, step)
-            }
+                }, step),
+        [step, y]
+    )
+
+    return (
+        <TransformControl
+            value={[x, extrusion + y, z]}
+            axes={axisY}
+            matrix={value.matrix}
+            child={clonedOutline}
+            set={set}
         />
     )
 }

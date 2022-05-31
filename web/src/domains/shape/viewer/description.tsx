@@ -249,7 +249,7 @@ function UnselectedDescription({ visible, name }: { visible: boolean; name: stri
     return (
         <group
             visible={visible}
-            onClick={(e) => {
+            onPointerDown={(e) => {
                 store.getState().selectDescription(name)
             }}
             ref={groupRef}
@@ -292,7 +292,7 @@ function SelectedDescription({ visible, name }: { visible: boolean; name: string
                 }
                 store.getState().onEndHover(steps)
             }}
-            onClick={(e) => {
+            onPointerDown={(e) => {
                 e.stopPropagation()
                 const state = store.getState()
                 if (state.type != "gui") {
