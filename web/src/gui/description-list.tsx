@@ -39,31 +39,22 @@ export function DescriptionList({
             <div className="d-flex flex-column scroll">
                 {descriptions.map((description, i) => (
                     <div
-                        onClick={() => store.getState().selectDescription(description.name)}
-                        key={description.name}
+                        onClick={() => store.getState().selectDescription(description)}
+                        key={description}
                         className={`pointer py-2 ps-3 pe-2 d-flex flex-row align-items-center border-top border-1 ${
-                            selectedDescription === description.name ? "bg-primary text-light" : ""
+                            selectedDescription === description ? "bg-primary text-light" : ""
                         }`}>
                         <span className="overflow-hidden" style={{ textOverflow: "ellipsis" }}>
-                            {description.name}
+                            {description}
                         </span>
                         <div className="flex-grow-1" />
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
-                                store.getState().deleteDescription(description.name)
+                                store.getState().deleteDescription(description)
                             }}
                             className={`btn text-danger btn-sm`}>
                             <DeleteIcon />
-                        </button>
-                        <button
-                            style={{ color: "inherit" }}
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                store.getState().toggleDescriptionVisible(i)
-                            }}
-                            className={`btn btn-sm ${description.visible ? "" : "text-primary"}`}>
-                            <EyeSlashIcon />
                         </button>
                     </div>
                 ))}

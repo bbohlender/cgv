@@ -3,6 +3,7 @@ import { createPortal, useThree } from "@react-three/fiber"
 import { useRef, useEffect, useMemo, useState } from "react"
 import { Camera, Group, Matrix4, Object3D, Vector3Tuple } from "three"
 import type { TransformControls as TransformControlsImpl } from "three-stdlib"
+import { useViewerState } from "../state"
 
 export type TransformMode = "scale" | "rotate" | "translate"
 export type AxisEnabled = [boolean, boolean, boolean]
@@ -30,14 +31,22 @@ export function TransformControl({
         if (controls == null || object == null) {
             return
         }
-        const listener = () => {
+        const mouseDown = () => {
+            useViewerState.getState().setControlling(true)
+        }
+        const mouseUp = () => {
             if (ref.current != null) {
+                setTimeout(() => useViewerState.getState().setControlling(false))
                 const { x, y, z } = object[modeToPropertyMap[mode]]
                 set(x, y, z)
             }
         }
-        controls.addEventListener("mouseUp", listener)
-        return () => controls.removeEventListener("mouseUp", listener)
+        controls.addEventListener("mouseDown", mouseDown)
+        controls.addEventListener("mouseUp", mouseUp)
+        return () => {
+            controls.removeEventListener("mouseUp", mouseDown)
+            controls.removeEventListener("mouseDown", mouseUp)
+        }
     }, [set, mode, object])
 
     const [showX, showY, showZ] = axis

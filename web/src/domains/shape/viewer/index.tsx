@@ -1,6 +1,6 @@
 import { RenderTexture, Sphere, useContextBridge, ScreenQuad, OrthographicCamera } from "@react-three/drei"
 
-import { Canvas } from "@react-three/fiber"
+import { Canvas, events } from "@react-three/fiber"
 import {
     convertLotsToSteps,
     convertRoadsToSteps,
@@ -71,6 +71,16 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     userSelect: "none",
                     WebkitUserSelect: "none",
                 }}
+                events={(store) => ({
+                    ...events(store),
+                    priority: -1,
+                    filter: (intersections) => {
+                        if (useViewerState.getState().controlling) {
+                            return []
+                        }
+                        return intersections
+                    },
+                })}
                 dpr={global.window == null ? 1 : window.devicePixelRatio}>
                 <Bridge>
                     <RenderTexture ref={setTexture} attach="map" {...({} as any)}>

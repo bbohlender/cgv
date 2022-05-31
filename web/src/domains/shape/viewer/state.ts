@@ -36,6 +36,7 @@ export type ViewerState = (
 ) &
     ResultViewerState & {
         visualType: number
+        controlling: boolean
     }
 
 export function eulerToTuple(q: Euler): Vector3Tuple {
@@ -59,6 +60,7 @@ export function createViewerStateInitial(): ViewerState {
         position: [lon2tile(locations[0].lon, 0), DEFAULT_Y, lat2tile(locations[0].lat, 0)],
         error: undefined,
         visualType: 0,
+        controlling: false,
     }
 }
 
@@ -76,6 +78,7 @@ export function clip(v: number, min: number, max: number) {
 
 export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetState<ViewerState>) {
     return {
+        setControlling: (controlling: boolean) => set({ controlling }),
         setLatLon: (lat: number, lon: number) => {
             set({
                 viewType: "2d",

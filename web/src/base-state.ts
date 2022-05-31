@@ -52,10 +52,7 @@ import { UseBaseStore } from "./global"
 
 export type BaseState = (CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>) & {
     interpretationDelay: number
-    descriptions: Array<{
-        name: string
-        visible: boolean
-    }>
+    descriptions: Array<string>
     selectedDescription: string | undefined
     showTui: boolean
 }
@@ -156,7 +153,7 @@ function createBaseStateFunctions(
                     descriptionSet.add(descriptionName)
                 }
                 set({
-                    descriptions: Array.from(descriptionSet).map((name) => ({ name, visible: true })),
+                    descriptions: Array.from(descriptionSet),
                     grammar: parsedDescription,
                     selectedDescription: undefined,
                     selectionsList: [],
@@ -250,7 +247,7 @@ function createBaseStateFunctions(
         addDescriptions: (newDescriptions: Array<{ name: string; step?: ParsedSteps }>) => {
             let { descriptions, grammar, dependencyMap } = get()
             for (const newDescription of newDescriptions) {
-                if (descriptions.findIndex((description) => description.name === newDescription.name) !== -1) {
+                if (descriptions.findIndex((description) => description === newDescription.name) !== -1) {
                     continue
                 }
                 const newNounName = globalizeNoun("Start", newDescription.name)
@@ -261,12 +258,7 @@ function createBaseStateFunctions(
                         )
                     )
                 }
-                descriptions = [
-                    {
-                        name: newDescription.name,
-                        visible: true,
-                    },
-                ].concat(descriptions)
+                descriptions = [newDescription.name].concat(descriptions)
             }
             dependencyMap = computeDependencies(grammar)
             set({
@@ -277,23 +269,15 @@ function createBaseStateFunctions(
         },
         deleteDescription: (name: string) => {
             const { descriptions, selectedDescription, grammar, selectionsList } = get()
-            const newDescriptions = descriptions.filter((description) => description.name != name)
+            const newDescriptions = descriptions.filter((description) => description != name)
             set({
                 descriptions: newDescriptions,
                 selectedDescription: selectedDescription === name ? undefined : selectedDescription,
                 ...removeUnusedNouns(
                     grammar,
                     selectionsList ?? [],
-                    newDescriptions.map((description) => description.name)
+                    newDescriptions
                 ),
-            })
-        },
-        toggleDescriptionVisible: (index: number) => {
-            const { descriptions } = get()
-            set({
-                descriptions: produce(descriptions, (draft) => {
-                    draft[index].visible = !draft[index].visible
-                }),
             })
         },
         setText: (text: string) => {
