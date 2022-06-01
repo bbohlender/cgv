@@ -1,6 +1,8 @@
-import { AbstractParsedOperation, HierarchicalInfo, assureType } from "cgv"
-import { useBaseStore } from "../../../global"
+import { AbstractParsedOperation, HierarchicalInfo, assureType, SelectedSteps } from "cgv"
+import { tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
+import { UseBaseStore, useBaseStore } from "../../../global"
 import { DeleteIcon } from "../../../icons/delete"
+import { getPosition, useViewerState } from "../viewer/state"
 import { GUIVector2 } from "./vector"
 
 export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
@@ -28,22 +30,27 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                     </div>
                 </div>
             ))}
-            <div
-                className="btn btn-outline-success mb-3"
-                onClick={() =>
-                    store.getState().replace<"operation">((draft) => {
-                        draft.children.push({
-                            type: "operation",
-                            identifier: "point2",
-                            children: [
-                                { type: "raw", value: 0 },
-                                { type: "raw", value: 0 },
-                            ],
-                        })
-                    }, value)
-                }>
+            <div className="btn btn-outline-success mb-3" onClick={() => addPointToFace(store, value)}>
                 Add Point
             </div>
         </div>
     )
+}
+
+function addPointToFace(store: UseBaseStore, step: SelectedSteps) {
+    const [x, , y] = getPosition(useViewerState.getState())
+    const zoomRatio = tileZoomRatio(0, 18)
+    const meterRatio = tileMeterRatio(Math.round(y * zoomRatio), 18)
+    const xMeter = ((x * zoomRatio) % 1) * meterRatio
+    const yMeter = ((y * zoomRatio) % 1) * meterRatio
+    store.getState().replace<"operation">((draft) => {
+        draft.children.push({
+            type: "operation",
+            identifier: "point2",
+            children: [
+                { type: "raw", value: xMeter },
+                { type: "raw", value: yMeter },
+            ],
+        })
+    }, step)
 }

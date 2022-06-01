@@ -15,11 +15,13 @@ export function TransformControl({
     matrix,
     axis,
     child,
+    size,
 }: {
     mode: TransformMode
     value: Vector3Tuple
     matrix: Matrix4
     axis: AxisEnabled
+    size?: number
     set: (x: number, y: number, z: number) => void
     child?: Object3D
 }) {
@@ -44,6 +46,7 @@ export function TransformControl({
         controls.addEventListener("mouseDown", mouseDown)
         controls.addEventListener("mouseUp", mouseUp)
         return () => {
+            useViewerState.getState().setControlling(false)
             controls.removeEventListener("mouseUp", mouseDown)
             controls.removeEventListener("mouseDown", mouseUp)
         }
@@ -64,6 +67,7 @@ export function TransformControl({
                         showX={showX}
                         showY={showY}
                         showZ={showZ}
+                        size={size}
                         mode={mode}
                         space="local"
                         object={object}

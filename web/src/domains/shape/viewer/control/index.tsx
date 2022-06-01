@@ -8,11 +8,18 @@ import {
     ParsedSteps,
     SelectedSteps,
 } from "cgv"
-import { Axis, makeTranslationMatrix, Primitive, tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
+import {
+    Axis,
+    makeScaleMatrix,
+    makeTranslationMatrix,
+    Primitive,
+    tileMeterRatio,
+    tileZoomRatio,
+} from "cgv/domains/shape"
 import { Draft } from "immer"
-import { useCallback, useMemo } from "react"
-import { Box3, Matrix4, Vector3, Vector3Tuple } from "three"
-import { useBaseStore } from "../../../../global"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { Box3, Matrix4, Object3D, Vector3, Vector3Tuple } from "three"
+import { UseBaseStore, useBaseStore } from "../../../../global"
 import { MultiplePointControl } from "./multiple-points"
 import { Point2Control, Point3Control } from "./point"
 import { AxisEnabled, TransformControl } from "./transform-control"
@@ -125,9 +132,28 @@ export function SplitControl({ value, step }: { step: AbstractParsedOperation<Hi
 
     const axis: Axis = step.children[0].type === "raw" ? step.children[0].value : "x"
     const axisIndex = axisIndexMap[axis]
+    const axisEnabled = axisMap[axis]
 
-    const sizes = new Array<number>(step.children.length - 2)
-    const offsets = new Array<number>(step.children.length - 2)
+    const splitAmount = step.children.length - 2
+
+    const sizes = new Array<number>(splitAmount)
+    const offsets = new Array<number>(splitAmount)
+
+    const [x, y, z] = useMemo(() => {
+        value.getBoundingBox(boxHelper)
+        boxHelper.getCenter(vectorHelper)
+        vectorHelper[axis] = boxHelper.min[axis]
+        return vectorHelper.toArray()
+    }, [value])
+
+    const clonedOutline = useMemo(() => {
+        const outline = value.getOutline().clone()
+        outline.matrix.copy(makeTranslationMatrix(-x, -y, -z))
+        const scale: Vector3Tuple = [1, 1, 1]
+        scale[axisIndex] = 0
+        outline.matrix.multiply(makeScaleMatrix(...scale))
+        return outline
+    }, [value, axisIndex, x, y, z])
 
     let sum = 0
     for (let i = 0; i < step.children.length - 2; i++) {
@@ -138,30 +164,88 @@ export function SplitControl({ value, step }: { step: AbstractParsedOperation<Hi
         sum += size
     }
 
+    const clones = useRef<Array<Object3D>>([])
+
+    useEffect(() => {
+        while (clones.current.length < splitAmount) {
+            clones.current.push(clonedOutline.clone())
+        }
+        clones.current.splice(splitAmount, Number.MAX_SAFE_INTEGER)
+    }, [clonedOutline, splitAmount])
+
     return (
         <>
-            {sizes.map((size, i) => {
-                const position: Vector3Tuple = [0, 0, 0]
-                position[axisIndex] = size + offsets[i]
-                return (
-                    <TransformControl
-                        value={position}
-                        axis={axisMap[axis]}
-                        matrix={value.matrix}
-                        mode="translate"
-                        set={(...newPosition) =>
-                            store.getState().replace<"operation">((draft) => {
-                                draft.children[i + 2] = {
-                                    type: "raw",
-                                    value: newPosition[axisIndex] - offsets[i],
-                                }
-                            }, step)
-                        }
-                    />
-                )
-            })}
+            {sizes.map((size, i) => (
+                <SingleSplitControl
+                    index={i}
+                    axisEnabled={axisEnabled}
+                    axisIndex={axisIndex}
+                    matrix={value.matrix}
+                    offset={offsets[i]}
+                    outline={clonedOutline}
+                    size={size}
+                    step={step}
+                    store={store}
+                    x={x}
+                    y={y}
+                    z={z}
+                    key={i}
+                />
+            ))}
         </>
     )
+}
+
+function SingleSplitControl({
+    size,
+    offset,
+    x,
+    y,
+    z,
+    axisEnabled,
+    axisIndex,
+    matrix,
+    outline,
+    store,
+    step,
+    index,
+}: {
+    index: number
+    step: SelectedSteps
+    store: UseBaseStore
+    matrix: Matrix4
+    outline: Object3D
+    axisIndex: number
+    axisEnabled: AxisEnabled
+    size: number
+    offset: number
+    x: number
+    y: number
+    z: number
+}) {
+    const clonedOutline = useMemo(() => outline.clone(), [outline])
+    return useMemo(() => {
+        const position: Vector3Tuple = [x, y, z]
+        position[axisIndex] += size + offset
+        return (
+            <TransformControl
+                size={0.3}
+                value={position}
+                axis={axisEnabled}
+                matrix={matrix}
+                child={clonedOutline}
+                mode="translate"
+                set={(...newPosition) =>
+                    store.getState().replace<"operation">((draft) => {
+                        draft.children[index + 2] = {
+                            type: "raw",
+                            value: Math.max(0, newPosition[axisIndex] - offset),
+                        }
+                    }, step)
+                }
+            />
+        )
+    }, [index, size, offset, x, y, z, axisEnabled, axisIndex, matrix, clonedOutline, store, step])
 }
 
 const axisIndexMap: { [axis in Axis]: number } = {
@@ -191,7 +275,7 @@ export function ExtrudeControl({ value, step }: { step: AbstractParsedOperation<
         const outline = value.getOutline().clone()
         outline.matrix.copy(makeTranslationMatrix(-x, -y, -z))
         return outline
-    }, [value])
+    }, [value, x, y, z])
 
     return (
         <TransformControl
