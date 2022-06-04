@@ -180,7 +180,7 @@ const grammar: Grammar = {
     {"name": "Step", "symbols": ["Conditional"], "postprocess": ([operation]) => operation},
     {"name": "Step", "symbols": [(lexer.has("returnSymbol") ? {type: "returnSymbol"} : returnSymbol)], "postprocess": () => ({ type: "return" })},
     {"name": "Step", "symbols": [(lexer.has("nullSymbol") ? {type: "nullSymbol"} : nullSymbol)], "postprocess": () => ({ type: "null" })},
-    {"name": "Step", "symbols": [(lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "Steps", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,steps]) => steps},
+    {"name": "Step", "symbols": [(lexer.has("openBracket") ? {type: "openBracket"} : openBracket), "ws", "Steps", "ws", (lexer.has("closedBracket") ? {type: "closedBracket"} : closedBracket)], "postprocess": ([,,steps]) => steps},
     {"name": "Step", "symbols": ["Random"], "postprocess": ([random]) => random},
     {"name": "Random$ebnf$1", "symbols": []},
     {"name": "Random$ebnf$1", "symbols": ["Random$ebnf$1", "RandomStep"], "postprocess": (d) => d[0].concat([d[1]])},

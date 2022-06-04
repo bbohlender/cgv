@@ -171,9 +171,9 @@ Roof --> color("#881111") -> extrude(30) -> gableRoof()
 
 Floor --> split("x", 20) -> WindowFrame
 
-WindowFrame --> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id() == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
+WindowFrame --> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id( ) == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
 
-Window --> if id() == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
+Window --> if id( ) == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
 ```
 
 `Task 2`
@@ -273,9 +273,9 @@ Roof --> color("#881111") -> extrude(5) -> gableRoof(-45)
 
 Floor --> split("x", 20) -> WindowFrame
 
-WindowFrame --> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id() == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
+WindowFrame --> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id( ) == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
 
-Window --> if id() == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
+Window --> if id( ) == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
 ```
 
 Street

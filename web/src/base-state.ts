@@ -44,6 +44,7 @@ import {
     Selections,
     autoSelectPattern,
     PatternType,
+    multilineStringWhitespace,
 } from "cgv"
 import produce, { Draft, freeze } from "immer"
 import create, { GetState, SetState } from "zustand"
@@ -111,7 +112,7 @@ function createBaseStateInitial(): BaseState {
         requested: undefined,
         shift: false,
         showTui: false,
-        graphVisualization: true,
+        graphVisualization: false,
     }
 }
 
@@ -171,7 +172,7 @@ function createBaseStateFunctions(
             const state = get()
             const unhierarchicalDescription =
                 state.type === "gui" ? removeHierarchicalFromDescription(state.grammar) : state.grammar
-            const string = serializeString(unhierarchicalDescription)
+            const string = serializeString(unhierarchicalDescription, undefined, multilineStringWhitespace)
             var a = document.createElement("a")
             a.href = window.URL.createObjectURL(new Blob([string], { type: "text/plain" }))
             a.download = "descriptions.cgv"
@@ -206,7 +207,8 @@ function createBaseStateFunctions(
                     selectedDescription: name,
                     text: serializeString(
                         getLocalDescription(state.grammar, undefined, name),
-                        localizeStepsSerializer.bind(null, name)
+                        localizeStepsSerializer.bind(null, name),
+                        multilineStringWhitespace
                     ),
                 })
             }
@@ -273,11 +275,7 @@ function createBaseStateFunctions(
             set({
                 descriptions: newDescriptions,
                 selectedDescription: selectedDescription === name ? undefined : selectedDescription,
-                ...removeUnusedNouns(
-                    grammar,
-                    selectionsList ?? [],
-                    newDescriptions
-                ),
+                ...removeUnusedNouns(grammar, selectionsList ?? [], newDescriptions),
             })
         },
         setText: (text: string) => {
@@ -331,7 +329,8 @@ function createBaseStateFunctions(
                         ? ""
                         : serializeString(
                               getLocalDescription(state.grammar, undefined, state.selectedDescription),
-                              localizeStepsSerializer.bind(null, state.selectedDescription)
+                              localizeStepsSerializer.bind(null, state.selectedDescription),
+                              multilineStringWhitespace
                           ),
                 correct: true,
             })

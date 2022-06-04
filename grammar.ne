@@ -121,7 +121,7 @@ Step                    ->  Operation                                           
                         |   Conditional                                                     {% ([operation]) => operation %}
                         |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
                         |   %nullSymbol                                                     {% () => ({ type: "null" }) %}
-                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => steps %}
+                        |   %openBracket ws Steps ws %closedBracket                            {% ([,,steps]) => steps %}
                         |   Random                                                          {% ([random]) => random %}
 
 Random                  ->  %openCurlyBracket RandomStep:* ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}

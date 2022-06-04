@@ -5,8 +5,8 @@ import { useBaseStoreState } from "../global"
 import { childrenSelectable, OperationGUIMap } from "../gui"
 import { nodeHeight, nodeWidth } from "./create-graph"
 
-const paddingValue = 16
-const fontSize = 24
+const paddingValue = 8
+const fontSize = 16
 
 export const nodeTypes: NodeTypes = {
     step: StepNodeType,

@@ -45,7 +45,7 @@ describe("summarize grammars", () => {
 
         const result = summarize(description1, description2)
 
-        expect(serializeString(result)).to.equal(`a --> { 50%: 1 50%: b } | this -> { 50%: 3 50%: b }\n\nb -> 1`)
+        expect(serializeString(result)).to.equal(`a --> { 50%: 1 50%: b } | this -> { 50%: 3 50%: b }\nb -> 1`)
     })
 
     it("should summarize steps unodered in a ParallelStep", () => {

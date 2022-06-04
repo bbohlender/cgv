@@ -52,14 +52,14 @@ describe("concretize grammars", () => {
         ]
         const indices = new Map<ParsedSteps, Array<[string, Array<number>]>>(indexMap)
         expect(serializeString(concretizeRandomDerivedIndices(description, indices))).to.equal(
-            `a --> switch id() { case 0: null case "0": 2 } | 3`
+            `a --> switch id( ) { case 0: null case "0": 2 } | 3`
         )
     })
 
     it("should concretize a conrete derivation as a description with id selection", () => {
         const [v_, v0_, v00_, v01_, v1_] = [[], [0], [0, 0], [0, 1], [1]]
         const [v, v0, v00, v01, v1] = [v_.join(","), v0_.join(","), v00_.join(","), v01_.join(","), v1_.join(",")]
-        const description = parse(`a --> (1 | 2) -> { 50%: 1 50%: 2 } | 3`)
+        const description = parse(`a --> ( 1 | 2 ) -> { 50%: 1 50%: 2 } | 3`)
         const indexMap: Array<[ParsedSteps, Array<[string, Array<number>]>]> = [
             [
                 description[0].step,
@@ -96,7 +96,7 @@ describe("concretize grammars", () => {
         ]
         const indices = new Map<ParsedSteps, Array<[string, Array<number>]>>(indexMap)
         expect(serializeString(concretizeRandomDerivedIndices(description, indices))).to.equal(
-            `a --> (1 | 2) -> switch id() { case "0,0": 1 case "0,1": 2 } | 3`
+            `a --> ( 1 | 2 ) -> switch id( ) { case "0,0": 1 case "0,1": 2 } | 3`
         )
     })
 

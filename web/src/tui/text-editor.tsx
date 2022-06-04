@@ -16,7 +16,7 @@ export function TextEditor() {
         <div className="d-flex position-relative flex-grow-1">
             <textarea
                 autoFocus
-                style={{ resize: "none", outline: 0, tabSize: 4 }}
+                style={{ resize: "none", outline: 0, tabSize: 2 }}
                 value={text}
                 onKeyDown={(e) => onKeyDown(e, store.getState().setText)}
                 spellCheck={false}

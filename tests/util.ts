@@ -84,7 +84,7 @@ describe("description", () => {
         const dependencies = computeDependencies(globalDescription)
         const localDescription = getLocalDescription(globalDescription, dependencies, "1")
         expect(serializeString(localDescription, localizeStepsSerializer.bind(null, "1"))).to.equal(
-            "a --> b@2 | a | 1 -> 2\n\nb@2 --> 33"
+            "a --> b@2 | a | 1 -> 2\nb@2 --> 33"
         )
     })
 
@@ -93,7 +93,7 @@ describe("description", () => {
         const dependencies = computeDependencies(globalDescription)
         const localDescription = getLocalDescription(globalDescription, dependencies, "1")
         expect(serializeString(localDescription, localizeStepsSerializer.bind(null, "1"))).to.equal(
-            "a --> b@2 | a | 1 -> 2\n\nb@2 --> k@4\n\nk@4 --> 22"
+            "a --> b@2 | a | 1 -> 2\nb@2 --> k@4\nk@4 --> 22"
         )
     })
 

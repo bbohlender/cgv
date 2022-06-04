@@ -40,8 +40,8 @@ export function createGraph(
 }
 
 const edgeSpace = 30
-export const nodeWidth = 140
-export const nodeHeight = 50
+export const nodeWidth = 100
+export const nodeHeight = 40
 
 function createGraphNode(
     allNodes: Array<Node>,

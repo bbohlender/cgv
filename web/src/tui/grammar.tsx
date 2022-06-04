@@ -1,12 +1,18 @@
 import {
+    createSerializer,
     getLocalDescription,
+    HierarchicalInfo,
     HierarchicalParsedSteps,
     localizeNoun,
     localizeStepsSerializer,
+    ParsedSteps,
     SelectedSteps,
+    serialize,
     serializeSteps,
     serializeStepString,
+    multilineStringWhitespace,
     shallowEqual,
+    descendantCount,
 } from "cgv"
 import { Fragment, useMemo } from "react"
 import { useBaseGlobal } from "../global"
@@ -36,12 +42,16 @@ export function Grammar() {
     if (localDescription == null) {
         return null
     }
+
     return (
         <div className="position-relative flex-grow-1">
-            <div className="m-3">
-                {localDescription.map(({ name, step }) => (
-                    <InteractableSteps description={selectedDescription} key={name} value={step} noun={name} />
-                ))}
+            <div
+                style={{
+                    whiteSpace: "pre-wrap",
+                    tabSize: 2,
+                }}
+                className="m-3">
+                {serialize(localDescription, createReactSerializer(selectedDescription))(0)}
                 <div
                     style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
                     className="d-flex flex-row align-items-center">
@@ -63,83 +73,88 @@ export function Grammar() {
 
 function InteractableSteps({
     value,
-    noun,
     description,
+    indentation,
 }: {
-    value: HierarchicalParsedSteps
-    noun?: string
+    value: HierarchicalParsedSteps | string
     description: string
+    indentation: number
 }): JSX.Element | null {
     const store = useBaseStore()
     const events = useMemo(() => {
         const { onEndHover, onStartHover, select } = store.getState()
         return {
-            onMouseLeave: onEndHover.bind(null, noun ?? value, undefined),
-            onMouseEnter: onStartHover.bind(null, noun ?? value, undefined),
-            onClick: select.bind(null, noun ?? value, undefined, undefined),
+            onMouseLeave: onEndHover.bind(null, value, undefined),
+            onMouseEnter: onStartHover.bind(null, value, undefined),
+            onClick: select.bind(null, value, undefined, undefined),
         }
-    }, [store, value, noun])
+    }, [store, value])
     const { operationGuiMap } = useBaseGlobal()
-    const cssClassName = store(computeCssClassName.bind(null, noun ?? value))
-    if (noun != null) {
+    const cssClassName = store(computeCssClassName.bind(null, value))
+
+    if (typeof value === "string") {
         return (
-            <>
-                <span className={cssClassName}>
-                    <span {...events}>{`${localizeNoun(noun, description)} --> `}</span>
-                    <InteractableSteps description={description} value={value} />
-                </span>
-                <br />
-                <br />
-            </>
+            <span {...events} className={cssClassName}>
+                {localizeNoun(value, description)}
+            </span>
         )
     }
+
+    if (value.type === "symbol") {
+        return (
+            <span {...events} className={cssClassName}>
+                {localizeNoun(value.identifier, description)}
+            </span>
+        )
+    }
+
     if (!childrenSelectable(operationGuiMap, value)) {
         return (
             <span {...events} className={cssClassName}>
-                <FlatSteps description={description} value={value} />
+                <FlatSteps indentation={indentation} description={description} value={value} />
             </span>
         )
     }
     return (
         <span className={cssClassName}>
-            <NestedSteps description={description} value={value} events={events} />
+            {serializeSteps(value, createReactSerializer(description), indentation)(0)}
         </span>
     )
 }
 
-function FlatSteps({ value, description }: { value: HierarchicalParsedSteps; description: string }): JSX.Element {
-    return <>{serializeStepString(value, localizeStepsSerializer.bind(null, description))}</>
+function FlatSteps({
+    value,
+    description,
+    indentation,
+}: {
+    indentation: number
+    value: HierarchicalParsedSteps
+    description: string
+}): JSX.Element {
+    return (
+        <>
+            {serializeStepString(
+                value,
+                indentation,
+                localizeStepsSerializer.bind(null, description),
+                multilineStringWhitespace
+            )}
+        </>
+    )
 }
 
-function NestedSteps({
-    value,
-    events,
-    description,
-}: {
-    description: string
-    value: HierarchicalParsedSteps
-    events: {
-        onMouseLeave: () => void
-        onMouseEnter: () => void
-        onClick: () => void
-    }
-}): JSX.Element {
-    if (value.type === "symbol") {
-        return <span {...events}>{localizeNoun(value.identifier, description)}</span>
-    }
-    return serializeSteps(
-        value,
-        (text) => (index: number) =>
-            (
-                <span key={index} {...events}>
-                    {text}
-                </span>
-            ),
-        (child) => (index) => <InteractableSteps description={description} key={index} value={child} />,
+function createReactSerializer(description: string) {
+    return createSerializer<(index: number) => JSX.Element, HierarchicalInfo>(
+        (text) => (index: number) => <span key={index}>{text}</span>,
+        (indentation, child) => (index) =>
+            <InteractableSteps indentation={indentation} description={description} key={index} value={child} />,
         (...values) =>
             (index) =>
-                <Fragment key={index}>{values.map((value, i) => value(i))}</Fragment>
-    )(0)
+                <Fragment key={index}>{values.map((value, i) => value(i))}</Fragment>,
+        (indentation, ...steps) =>
+            (index: number) =>
+                <span key={index}>{multilineStringWhitespace(indentation, ...steps)}</span>
+    )
 }
 
 function computeCssClassName(steps: SelectedSteps, state: BaseState): string | undefined {
