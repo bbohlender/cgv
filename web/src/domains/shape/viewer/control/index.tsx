@@ -229,7 +229,7 @@ function SingleSplitControl({
         position[axisIndex] += size + offset
         return (
             <TransformControl
-                size={0.3}
+                length={0.3}
                 value={position}
                 axis={axisEnabled}
                 matrix={matrix}

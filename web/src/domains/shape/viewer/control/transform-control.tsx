@@ -1,9 +1,8 @@
-import { TransformControls } from "@react-three/drei"
 import { createPortal, useThree } from "@react-three/fiber"
 import { useRef, useEffect, useMemo, useState } from "react"
 import { Camera, Group, Matrix4, Object3D, Vector3Tuple } from "three"
-import type { TransformControls as TransformControlsImpl } from "three-stdlib"
 import { useViewerState } from "../state"
+import { StdTransformControls } from "./std-transform-controls"
 
 export type TransformMode = "scale" | "rotate" | "translate"
 export type AxisEnabled = [boolean, boolean, boolean]
@@ -15,44 +14,51 @@ export function TransformControl({
     matrix,
     axis,
     child,
-    size,
+    length,
 }: {
+    length?: number
     mode: TransformMode
     value: Vector3Tuple
     matrix: Matrix4
     axis: AxisEnabled
-    size?: number
     set: (x: number, y: number, z: number) => void
     child?: Object3D
 }) {
-    const ref = useRef<TransformControlsImpl<Camera>>(null)
+    const params = useThree<[Camera, HTMLCanvasElement]>(({ camera, gl }) => [camera, gl.domElement])
     const [object, setObject] = useState<Group | null>(null)
+    const [showX, showY, showZ] = axis
+    const transformControl = useMemo(() => new StdTransformControls(length ?? 1, ...params), [length, ...params])
 
     useEffect(() => {
-        const controls = ref.current
-        if (controls == null || object == null) {
+        if (object == null) {
+            return
+        }
+        transformControl.attach(object)
+        return () => {
+            transformControl.detach()
+        }
+    }, [object, transformControl])
+
+    useEffect(() => {
+        if (transformControl == null || object == null) {
             return
         }
         const mouseDown = () => {
             useViewerState.getState().setControlling(true)
         }
         const mouseUp = () => {
-            if (ref.current != null) {
-                setTimeout(() => useViewerState.getState().setControlling(false))
-                const { x, y, z } = object[modeToPropertyMap[mode]]
-                set(x, y, z)
-            }
+            setTimeout(() => useViewerState.getState().setControlling(false))
+            const { x, y, z } = object[modeToPropertyMap[mode]]
+            set(x, y, z)
         }
-        controls.addEventListener("mouseDown", mouseDown)
-        controls.addEventListener("mouseUp", mouseUp)
+        transformControl.addEventListener("mouseDown", mouseDown)
+        transformControl.addEventListener("mouseUp", mouseUp)
         return () => {
             useViewerState.getState().setControlling(false)
-            controls.removeEventListener("mouseUp", mouseDown)
-            controls.removeEventListener("mouseDown", mouseUp)
+            transformControl.removeEventListener("mouseUp", mouseDown)
+            transformControl.removeEventListener("mouseDown", mouseUp)
         }
     }, [set, mode, object])
-
-    const [showX, showY, showZ] = axis
 
     if (object != null) {
         object[modeToPropertyMap[mode]].fromArray(value)
@@ -63,15 +69,13 @@ export function TransformControl({
         <group matrixAutoUpdate={false} matrix={matrix}>
             {object != null &&
                 createPortal(
-                    <TransformControls
+                    <primitive
                         showX={showX}
                         showY={showY}
                         showZ={showZ}
-                        size={size}
                         mode={mode}
-                        space="local"
-                        object={object}
-                        ref={ref}
+                        space={"local"}
+                        object={transformControl}
                     />,
                     scene
                 )}
