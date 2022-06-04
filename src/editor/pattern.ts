@@ -61,7 +61,7 @@ function computeModuloPattern(
     checkSelection?: (newSelectedValues: Array<Value<any, any>>) => boolean
 ) {
     return computePattern(
-        (keys) => keys == null ? `all indices` : `index % ${modulo} is in ${keys.join(", ")}`,
+        (keys) => (keys == null ? `all indices` : `index % ${modulo} is in ${keys.join(", ")}`),
         allValues,
         selectedValues,
         (value) => getValueIndexModuloKey(value, modulo),
@@ -140,10 +140,56 @@ export const indexModuloPatternType: PatternType<any, any> = {
 
 const getValueIdKey = (value: Value<any, any>) => value.index.join(",")
 
+export const indexPatternType: PatternType<any, any> = {
+    generateMatching: (allValues, selectedValues) =>
+        computePattern(
+            (keys) => (keys == null ? "all indices" : `index is in ${keys.join(", ")}`),
+            allValues,
+            selectedValues,
+            getValueIndex,
+            (value) => ({
+                type: "equal",
+                children: [
+                    {
+                        type: "operation",
+                        children: [],
+                        identifier: "index",
+                    },
+                    {
+                        type: "raw",
+                        value: getValueIndex(value),
+                    },
+                ],
+            }),
+            (newSelectedValues) => patternIsMatching(allValues, selectedValues, newSelectedValues)
+        ),
+    generateContaining: (allValues, selectedValues) =>
+        computePattern(
+            (keys) => (keys == null ? "all indices" : `index is in ${keys.join(", ")}`),
+            allValues,
+            selectedValues,
+            getValueIndex,
+            (value) => ({
+                type: "equal",
+                children: [
+                    {
+                        type: "operation",
+                        children: [],
+                        identifier: "index",
+                    },
+                    {
+                        type: "raw",
+                        value: getValueIndex(value),
+                    },
+                ],
+            })
+        ),
+}
+
 export const idPatternType: PatternType<any, any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => keys == null ? "all ids" : `id is in ${keys.join(", ")}`,
+            (keys) => (keys == null ? "all ids" : `id is in ${keys.join(", ")}`),
             allValues,
             selectedValues,
             getValueIdKey,

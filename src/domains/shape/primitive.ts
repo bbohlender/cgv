@@ -18,6 +18,7 @@ import {
     Path,
     Points,
     PointsMaterial,
+    Quaternion,
     Shape,
     ShapeBufferGeometry,
     ShapeUtils,
@@ -28,6 +29,7 @@ import { mergeBufferGeometries } from "three-stdlib/utils/BufferGeometryUtils"
 import { computeDirectionMatrix, makeRotationMatrix, makeTranslationMatrix, YAXIS } from "."
 import { filterNull } from "../../util"
 import { distributeOverSizes, makeScaleMatrix } from "./math"
+import { XAXIS, ZAXIS } from "./primitive-utils"
 import { sampleGeometry } from "./sample"
 
 export type MaterialGenerator = (type: ObjectType) => Material
@@ -47,6 +49,7 @@ export function createPhongMaterialGenerator(color: Color): MaterialGenerator {
 
 const helperMatrix = new Matrix4()
 const helperVector = new Vector3()
+const helperQuaternion = new Quaternion()
 
 function setupObject3D(object: Object3D, matrix: Matrix4): Object3D {
     object.matrixAutoUpdate = false
@@ -147,7 +150,12 @@ export class PointPrimitive extends Primitive {
     }
 
     extrude(by: number): Primitive {
-        return new LinePrimitive(this.matrix, by, this.materialGenerator)
+        return LinePrimitive.fromPoints(
+            this.matrix.clone(),
+            new Vector3(0, 0, 0),
+            new Vector3(0, by, 0),
+            this.materialGenerator
+        )
     }
 
     components(type: "points" | "lines" | "faces"): Primitive[] {
@@ -243,7 +251,9 @@ export class LinePrimitive extends Primitive {
         matrix.multiply(makeTranslationMatrix(p1.x, p1.y, p1.z))
         helperVector.copy(p2).sub(p1)
         const length = helperVector.length()
-        matrix.multiply(computeDirectionMatrix(helperVector.normalize(), YAXIS))
+        helperQuaternion.setFromUnitVectors(XAXIS, helperVector.divideScalar(length))
+        helperMatrix.makeRotationFromQuaternion(helperQuaternion)
+        matrix.multiply(helperMatrix)
         return new LinePrimitive(matrix, length, materialGenerator)
     }
 
@@ -257,7 +267,7 @@ export class LinePrimitive extends Primitive {
     }
 
     extrude(by: number): Primitive {
-        return FacePrimitive.fromLengthAndHeight(this.matrix, this.length, by, true, this.materialGenerator)
+        return FacePrimitive.fromLengthAndHeight(this.matrix.clone(), this.length, by, YAXIS, this.materialGenerator)
     }
 
     components(type: "points" | "lines" | "faces"): Primitive[] {
@@ -355,14 +365,14 @@ export class FacePrimitive extends Primitive {
         matrix: Matrix4,
         x: number,
         z: number,
-        yUp: boolean,
+        direction: Vector3,
         materialGenerator: (type: ObjectType) => Material
     ): FacePrimitive {
-        if (yUp) {
-            matrix.multiply(helperMatrix.makeRotationX(-Math.PI / 2))
-        }
         const points = [new Vector2(x, 0), new Vector2(x, z), new Vector2(0, z), new Vector2(0, 0)]
         const shape = new Shape(points)
+        helperQuaternion.setFromUnitVectors(ZAXIS, direction)
+        helperMatrix.makeRotationFromQuaternion(helperQuaternion)
+        matrix.multiply(helperMatrix)
         return new FacePrimitive(matrix, shape, materialGenerator)
     }
 
@@ -400,7 +410,13 @@ export class FacePrimitive extends Primitive {
                 const length = helperVector.length()
                 const matrix = makeTranslationMatrix(p1.x, 0, p1.y, new Matrix4())
                 matrix.multiply(computeDirectionMatrix(helperVector.normalize(), YAXIS))
-                const result = FacePrimitive.fromLengthAndHeight(matrix, length, by, true, this.materialGenerator)
+                const result = FacePrimitive.fromLengthAndHeight(
+                    matrix,
+                    length,
+                    by,
+                    YAXIS,
+                    this.materialGenerator
+                )
                 if (by < 0) {
                     return result.invert()
                 }
@@ -454,7 +470,7 @@ export class FacePrimitive extends Primitive {
             new MeshBasicMaterial({
                 transparent: true,
                 opacity: 0.5,
-                color: 0xffffff
+                color: 0xffffff,
             })
         )
         result.add(faceHighlight)
@@ -472,7 +488,7 @@ export class FacePrimitive extends Primitive {
             geometry,
             new MeshBasicMaterial({
                 color: 0,
-                transparent: true
+                transparent: true,
             })
         )
     }

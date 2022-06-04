@@ -219,8 +219,9 @@ export function expandGraph(
 const globalToLocal = new Matrix4()
 const quaternionHelper = new Quaternion()
 
+export const XAXIS = new Vector3(1, 0, 0)
 export const YAXIS = new Vector3(0, 1, 0)
-export const ZAXIS = new Vector3(0, 1, 0)
+export const ZAXIS = new Vector3(0, 0, 1)
 
 export function generateFaces(
     graph: Graph,
@@ -239,7 +240,6 @@ export function generateFaces(
     const nextPoint = graph.points[otherPointIndex]
     vectorHelper.copy(nextPoint).sub(currentPoint).setY(0).normalize()
     matrix.makeBasis(vectorHelper, YAXIS, new Vector3().crossVectors(vectorHelper, YAXIS))
-    //quaternionHelper.setFromUnitVectors(ZAXIS, vectorHelper)
     matrix.premultiply(makeTranslationMatrix(currentPoint.x, currentPoint.y, currentPoint.z))
 
     globalToLocal.copy(matrix).invert()

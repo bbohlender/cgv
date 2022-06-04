@@ -3,6 +3,7 @@ import {
     computePattern,
     idPatternType,
     indexModuloPatternType,
+    indexPatternType,
     patternIsMatching,
     PatternType,
 } from "../../editor"
@@ -15,7 +16,7 @@ const getValueDirectionKey = (value: Value<Primitive, any>) => getDirection(valu
 export const directionSelectionPattern: PatternType<Primitive, any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => keys == null ? `all directions` : `direction is in ${keys.join(", ")}`,
+            (keys) => (keys == null ? `all directions` : `direction is in ${keys.join(", ")}`),
             allValues,
             selectedValues,
             getValueDirectionKey,
@@ -38,7 +39,7 @@ export const directionSelectionPattern: PatternType<Primitive, any> = {
 
     generateContaining: (allValues, selectedValues) =>
         computePattern(
-            (keys) => keys == null ? "all directions" : `direction is in ${keys.join(", ")}`,
+            (keys) => (keys == null ? "all directions" : `direction is in ${keys.join(", ")}`),
             allValues,
             selectedValues,
             getValueDirectionKey,
@@ -64,4 +65,5 @@ export const patterns: Array<PatternType<Primitive, any>> = [
     indexModuloPatternType,
     directionSelectionPattern,
     idPatternType,
+    indexPatternType,
 ]

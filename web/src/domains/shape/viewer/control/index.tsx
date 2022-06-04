@@ -25,6 +25,7 @@ import { Point2Control, Point3Control } from "./point"
 import { AxisEnabled, TransformControl } from "./transform-control"
 
 const axisY: AxisEnabled = [false, true, false]
+const allAxis: AxisEnabled = [true, true, true]
 
 export function Control() {
     const store = useBaseStore()
@@ -96,6 +97,14 @@ function OperationControl({ step, values }: { values: Array<FullValue<any, any>>
                 <>
                     {primitiveValues.map((value, i) => (
                         <MultiplePointControl key={i} matrix={value.matrix} valueRef={valueRef} value={step} />
+                    ))}
+                </>
+            )
+        case "translate":
+            return (
+                <>
+                    {primitiveValues.map((value, i) => (
+                        <TranslateControl key={i} value={value} step={step} />
                     ))}
                 </>
             )
@@ -290,6 +299,60 @@ export function ExtrudeControl({ value, step }: { step: AbstractParsedOperation<
                         {
                             type: "raw",
                             value: extrusionAndY - y,
+                        },
+                    ]
+                }, step)
+            }
+        />
+    )
+}
+
+export function TranslateControl({
+    value,
+    step,
+}: {
+    step: AbstractParsedOperation<HierarchicalInfo>
+    value: Primitive
+}) {
+    const store = useBaseStore()
+
+    const x = step.children[0].type === "raw" ? step.children[0].value : 0
+    const y = step.children[1].type === "raw" ? step.children[1].value : 0
+    const z = step.children[2].type === "raw" ? step.children[2].value : 0
+
+    const [xCenter, yCenter, zCenter] = useMemo(() => {
+        value.getBoundingBox(boxHelper)
+        boxHelper.getCenter(vectorHelper)
+        return vectorHelper.toArray()
+    }, [value])
+
+    const clonedOutline = useMemo(() => {
+        const outline = value.getOutline().clone()
+        outline.matrix.copy(makeTranslationMatrix(-xCenter, -yCenter, -zCenter))
+        return outline
+    }, [value, xCenter, yCenter, zCenter])
+
+    return (
+        <TransformControl
+            value={[xCenter + x, yCenter + y, zCenter + z]}
+            axis={allAxis}
+            matrix={value.matrix}
+            mode="translate"
+            child={clonedOutline}
+            set={(x, y, z) =>
+                store.getState().replace((draft) => {
+                    draft.children = [
+                        {
+                            type: "raw",
+                            value: x - xCenter,
+                        },
+                        {
+                            type: "raw",
+                            value: y - yCenter,
+                        },
+                        {
+                            type: "raw",
+                            value: z - zCenter,
                         },
                     ]
                 }, step)

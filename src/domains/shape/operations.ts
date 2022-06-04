@@ -18,7 +18,7 @@ import { ObjectPrimitive } from "./primitive"
 import { GLTFLoader } from "three-stdlib/loaders/GLTFLoader"
 import { DRACOLoader } from "three-stdlib/loaders/DRACOLoader"
 import { computeGableRoof } from "./roof"
-import { createGraph, expandGraph, getDirection, YAXIS } from "./primitive-utils"
+import { createGraph, expandGraph, getDirection, YAXIS, ZAXIS } from "./primitive-utils"
 
 function computeGraphExpand(
     instance: Primitive,
@@ -163,9 +163,9 @@ function computeSplit(
         if ((repetitions === false && repetitionIndex == 0) || repetitions === true || repetitionIndex < repetitions) {
             const sizeX = axis === "x" ? Math.min(size, x) : x
             const sizeZ = axis === "z" ? Math.min(size, z) : z
-            return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, false, instance.materialGenerator)
+            return FacePrimitive.fromLengthAndHeight(matrix, sizeX, sizeZ, ZAXIS, instance.materialGenerator)
         } else {
-            return FacePrimitive.fromLengthAndHeight(matrix, x, z, false, instance.materialGenerator)
+            return FacePrimitive.fromLengthAndHeight(matrix, x, z, ZAXIS, instance.materialGenerator)
         }
     })
     return of(splits)
