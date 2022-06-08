@@ -69,7 +69,9 @@ function RightHandSide() {
     }
 
     return (
-        <div className="scroll text-editor text-light flex-basis-0 flex-grow-1 bg-dark d-flex">
+        <div
+            style={{ maxWidth: "30%" }}
+            className="scroll text-editor text-light flex-basis-0 flex-grow-1 bg-dark d-flex">
             <Component />
         </div>
     )
