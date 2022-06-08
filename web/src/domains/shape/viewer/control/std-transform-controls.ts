@@ -106,13 +106,13 @@ export class StdTransformControls<TCamera extends Camera = Camera> extends Objec
     private mouseUpEvent = { type: "mouseUp", mode: this.mode }
     private objectChangeEvent = { type: "objectChange" }
 
-    constructor(length: number, camera: TCamera, domElement: HTMLElement | undefined) {
+    constructor(length: number, camera: TCamera, domElement: HTMLElement | undefined, depth = false) {
         super()
 
         this.domElement = domElement
         this.camera = camera
 
-        this.gizmo = new TransformControlsGizmo(length)
+        this.gizmo = new TransformControlsGizmo(length, depth)
         this.add(this.gizmo)
 
         this.plane = new TransformControlsPlane()
@@ -688,12 +688,12 @@ class TransformControlsGizmo extends Object3D {
     private showY = true
     private showZ = true
 
-    constructor(length: number) {
+    constructor(length: number, depth: boolean) {
         super()
 
         const gizmoMaterial = new MeshBasicMaterial({
-            depthTest: false,
-            depthWrite: false,
+            depthTest: depth,
+            depthWrite: depth,
             transparent: true,
             side: DoubleSide,
             fog: false,
@@ -701,8 +701,8 @@ class TransformControlsGizmo extends Object3D {
         })
 
         const gizmoLineMaterial = new LineBasicMaterial({
-            depthTest: false,
-            depthWrite: false,
+            depthTest: depth,
+            depthWrite: depth,
             transparent: true,
             linewidth: 1,
             fog: false,
@@ -849,16 +849,16 @@ class TransformControlsGizmo extends Object3D {
         const pickerTranslate = {
             X: [
                 [
-                    new Mesh(new CylinderGeometry(0.2, 0, 1, 4, 1, false), matInvisible),
-                    [0.6, 0, 0],
+                    new Mesh(new CylinderGeometry(0.1, 0, length, 4, 1, false), matInvisible),
+                    [0.6 * length, 0, 0],
                     [0, 0, -Math.PI / 2],
                 ],
             ],
-            Y: [[new Mesh(new CylinderGeometry(0.2, 0, 1, 4, 1, false), matInvisible), [0, 0.6, 0]]],
+            Y: [[new Mesh(new CylinderGeometry(0.1, 0, length, 4, 1, false), matInvisible), [0, 0.6 * length, 0]]],
             Z: [
                 [
-                    new Mesh(new CylinderGeometry(0.2, 0, 1, 4, 1, false), matInvisible),
-                    [0, 0, 0.6],
+                    new Mesh(new CylinderGeometry(0.1, 0, length, 4, 1, false), matInvisible),
+                    [0, 0, 0.6 * length],
                     [Math.PI / 2, 0, 0],
                 ],
             ],

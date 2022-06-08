@@ -17,6 +17,7 @@ function getNeutralStep(
             type: "this",
         }
     }
+    const child = parent.children![childIndex]
     switch (parent.type) {
         case "operation": {
             const operation = operations[parent.identifier]
@@ -36,18 +37,22 @@ function getNeutralStep(
         case "parallel":
         case "random":
             return {
-                type: "null",
+                type: child.type === "this" ? "null" : "this",
             }
         case "switch":
             if (childIndex === 0) {
                 break
             }
-            return { type: "null" }
+            return {
+                type: child.type === "this" ? "null" : "this",
+            }
         case "if":
             if (childIndex === 0) {
                 break
             }
-            return { type: "null" }
+            return {
+                type: child.type === "this" ? "null" : "this",
+            }
     }
     return undefined
 }
@@ -96,6 +101,9 @@ function simplifyStepOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSte
 }
 
 function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {
+    if (step.type === "if" && step.children[1].type === "this" && step.children[1].type === "this") {
+        return { type: "this" }
+    }
     if ((step.type === "parallel" || step.type === "sequential") && step.children.length === 1) {
         return step.children[0]
     }

@@ -77,15 +77,15 @@ function getDistinctSortedIndices(selectedValues: Array<Value<any, any>>) {
         .sort((v1, v2) => v1 - v2)
 }
 
-export const generateAllPattern = (): Pattern<any, any> => ({
-    description: "all",
+export const generateAllPattern = (description: string = "all"): Pattern<any, any> => ({
+    description,
     isSelected: () => true,
     generateStep: undefined,
 })
 
 export const allPatternType: PatternType<any, any> = {
-    generateContaining: generateAllPattern,
-    generateMatching: generateAllPattern,
+    generateContaining: generateAllPattern.bind(null, undefined),
+    generateMatching: generateAllPattern.bind(null, undefined),
 }
 
 function selectBestPattern(
@@ -186,6 +186,81 @@ export const indexPatternType: PatternType<any, any> = {
         ),
 }
 
+function computeIndexComparisonPattern(
+    compare: (comparator: number, index: number) => boolean,
+    getDescription: (comparator: number) => string,
+    type: "greaterEqual" | "greater" | "smaller" | "smallerEqual",
+    comparator: number
+): Pattern<any, any> {
+    return {
+        description: getDescription(comparator),
+        isSelected: (value) => compare(comparator, getValueIndex(value)),
+        generateStep: () => ({
+            type,
+            children: [
+                {
+                    type: "operation",
+                    children: [],
+                    identifier: "index",
+                },
+                {
+                    type: "raw",
+                    value: comparator,
+                },
+            ],
+        }),
+    }
+}
+
+const computeIndexGreaterEqual = computeIndexComparisonPattern.bind(
+    null,
+    (comparator: number, index: number) => index >= comparator,
+    (comparator: number) => `index >= ${comparator}`,
+    "greaterEqual"
+)
+const computeIndexSmallerEqual = computeIndexComparisonPattern.bind(
+    null,
+    (comparator: number, index: number) => index <= comparator,
+    (comparator: number) => `index <= ${comparator}`,
+    "smallerEqual"
+)
+
+export const indexSmallerEqualPatternType: PatternType<any, any> = {
+    generateMatching: (allValues, selectedValues) => {
+        const max = Math.max(...selectedValues.map(getValueIndex))
+        const newSelectedValues = allValues.filter((value) => getValueIndex(value) <= max)
+        if (newSelectedValues.length === allValues.length) {
+            return generateAllPattern(`all (index <= ${max})`)
+        }
+        if (!patternIsMatching(allValues, selectedValues, newSelectedValues)) {
+            return undefined
+        }
+        return computeIndexSmallerEqual(max)
+    },
+    generateContaining: (allValues, selectedValues) => {
+        const max = Math.max(...selectedValues.map(getValueIndex))
+        return computeIndexSmallerEqual(max)
+    },
+}
+
+export const indexGreaterEqualPatternType: PatternType<any, any> = {
+    generateMatching: (allValues, selectedValues) => {
+        const min = Math.min(...selectedValues.map(getValueIndex))
+        const newSelectedValues = allValues.filter((value) => getValueIndex(value) >= min)
+        if (newSelectedValues.length === allValues.length) {
+            return generateAllPattern(`all (index >= ${min})`)
+        }
+        if (!patternIsMatching(allValues, selectedValues, newSelectedValues)) {
+            return undefined
+        }
+        return computeIndexGreaterEqual(min)
+    },
+    generateContaining: (allValues, selectedValues) => {
+        const min = Math.min(...selectedValues.map(getValueIndex))
+        return computeIndexGreaterEqual(min)
+    },
+}
+
 export const idPatternType: PatternType<any, any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
@@ -212,6 +287,15 @@ export const idPatternType: PatternType<any, any> = {
     generateContaining: () => undefined,
 }
 
+function allPatternsMatchAll(patterns: Array<Pattern<any, any>>): boolean {
+    for (const pattern of patterns) {
+        if (pattern.generateStep != null) {
+            return false
+        }
+    }
+    return true
+}
+
 /**
  * @returns undefined if all should be selected
  */
@@ -231,6 +315,10 @@ export async function getMatchingCondition<T, A>(
 
     if (patterns.length === 0) {
         throw new Error(`no pattern found (missing the allPatternType?)`)
+    }
+
+    if (allPatternsMatchAll(patterns)) {
+        return generateAllPattern()
     }
 
     return selectPattern(patterns)
@@ -298,17 +386,9 @@ export function computePattern<T, A>(
 
     const keys = Array.from(keyMap.keys())
 
-    const newSelectedValues: Array<Value<T, A>> = []
-    let unselectedValues: number = 0
-    for (const value of allValues) {
-        if (keys.includes(getValueKey(value))) {
-            newSelectedValues.push(value)
-        } else {
-            unselectedValues++
-        }
-    }
+    const newSelectedValues = allValues.filter((value) => keys.includes(getValueKey(value)))
 
-    if (unselectedValues === 0) {
+    if (newSelectedValues.length === allValues.length) {
         return {
             description: getDescription(undefined),
             generateStep: undefined,

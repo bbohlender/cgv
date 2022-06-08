@@ -117,7 +117,7 @@ function InteractableSteps({
     }
     return (
         <span className={cssClassName}>
-            {serializeSteps(value, createReactSerializer(description), indentation)(0)}
+            {serializeSteps(value, createReactSerializer(description), indentation)(0, events)}
         </span>
     )
 }
@@ -143,17 +143,23 @@ function FlatSteps({
     )
 }
 
+type Events = {
+    onMouseLeave: () => void;
+    onMouseEnter: () => void;
+    onClick: () => void;
+}
+
 function createReactSerializer(description: string) {
-    return createSerializer<(index: number) => JSX.Element, HierarchicalInfo>(
-        (text) => (index: number) => <span key={index}>{text}</span>,
+    return createSerializer<(index: number, events?: Events) => JSX.Element, HierarchicalInfo>(
+        (text) => (index: number, events) => <span {...events} key={index}>{text}</span>,
         (indentation, child) => (index) =>
             <InteractableSteps indentation={indentation} description={description} key={index} value={child} />,
         (...values) =>
-            (index) =>
-                <Fragment key={index}>{values.map((value, i) => value(i))}</Fragment>,
+            (index, events) =>
+                <Fragment key={index}>{values.map((value, i) => value(i, events))}</Fragment>,
         (indentation, ...steps) =>
-            (index: number) =>
-                <span key={index}>{multilineStringWhitespace(indentation, ...steps)}</span>
+            (index: number, events) =>
+                <span {...events} key={index}>{multilineStringWhitespace(indentation, ...steps)}</span>
     )
 }
 

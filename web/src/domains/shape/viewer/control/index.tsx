@@ -242,6 +242,7 @@ function SingleSplitControl({
                 value={position}
                 axis={axisEnabled}
                 matrix={matrix}
+                depth={true}
                 child={clonedOutline}
                 mode="translate"
                 set={(...newPosition) =>

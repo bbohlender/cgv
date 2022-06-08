@@ -2,8 +2,10 @@ import {
     allPatternType,
     computePattern,
     idPatternType,
+    indexGreaterEqualPatternType,
     indexModuloPatternType,
     indexPatternType,
+    indexSmallerEqualPatternType,
     patternIsMatching,
     PatternType,
 } from "../../editor"
@@ -63,6 +65,8 @@ export const directionSelectionPattern: PatternType<Primitive, any> = {
 export const patterns: Array<PatternType<Primitive, any>> = [
     allPatternType,
     indexModuloPatternType,
+    indexGreaterEqualPatternType,
+    indexSmallerEqualPatternType,
     directionSelectionPattern,
     idPatternType,
     indexPatternType,

@@ -15,7 +15,9 @@ export function TransformControl({
     axis,
     child,
     length,
+    depth,
 }: {
+    depth?: boolean
     length?: number
     mode: TransformMode
     value: Vector3Tuple
@@ -27,7 +29,7 @@ export function TransformControl({
     const params = useThree<[Camera, HTMLCanvasElement]>(({ camera, gl }) => [camera, gl.domElement])
     const [object, setObject] = useState<Group | null>(null)
     const [showX, showY, showZ] = axis
-    const transformControl = useMemo(() => new StdTransformControls(length ?? 1, ...params), [length, ...params])
+    const transformControl = useMemo(() => new StdTransformControls(length ?? 1, ...params, depth), [depth, length, ...params])
 
     useEffect(() => {
         if (object == null) {
