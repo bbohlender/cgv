@@ -1,7 +1,51 @@
 import { expect } from "chai"
 import { parse, serializeString, summarize, unifyNested } from "../src"
+import { align } from "../src/summarizer/group"
+
+describe("group arrays", () => {
+    it("should align a compatible array", () => {
+        const result = align(
+            [
+                [1, 2, 3, 3, 3, 4, 4, 5],
+                [0, 1, 3, 3, 4],
+            ],
+            () => -1,
+            (v1, v2) => v1 === v2
+        )
+        expect(result).to.deep.equal([
+            [-1, 1, 2, 3, 3, 3, 4, 4, 5],
+            [0, 1, -1, 3, 3, -1, 4, -1, -1],
+        ])
+    })
+
+    it("should miss align a incompatible array", () => {
+        const result = align(
+            [
+                [0, 1, 2, 3],
+                [4, 5, 6, 7],
+            ],
+            () => -1,
+            (v1, v2) => v1 === v2
+        )
+        expect(result).to.deep.equal([
+            [0, 1, 2, 3, -1, -1, -1, -1],
+            [-1, -1, -1, -1, 4, 5, 6, 7],
+        ])
+    })
+
+    it("should group similar vertically", () => {})
+
+    it("should group similar nested", () => {
+
+    })
+})
 
 describe("summarize grammars", () => {
+    
+    it("should translate nested group to steps", () => {
+        
+    })
+
     it("should unify and group nested random", () => {
         const steps = parse(`a --> { 50%: { 25%: 1 50%: 2 25%: 3 } 50%: { 10%: 2 30%: 3 60%: 1 } }`)[0].step
         const result = unifyNested(steps)
@@ -126,7 +170,9 @@ describe("summarize grammars", () => {
         const description2 = parse(`s1 --> if this == false then { 1 } else { 2 }`)
         const description4 = parse(`s1 --> if this == false then { 1 } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2, description3, description4)
-        expect(serializeString(summarizedGrammar)).to.equal(`s1 -> if (this == false) then { 25%: 2 75%: 1 } else { 2 }`)
+        expect(serializeString(summarizedGrammar)).to.equal(
+            `s1 -> if (this == false) then { 25%: 2 75%: 1 } else { 2 }`
+        )
     })
 
     it("should only summarize grammars with same operation identifier", () => {
