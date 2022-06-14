@@ -2,104 +2,53 @@ import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
 import { NestedGroup } from "./group"
 import { LinearizedStep } from "./linearize"
 
-export function translateNestedGroup(group: NestedGroup<LinearizedStep>): ParsedSteps {
-    if (Array.isArray(group)) {
-        return {
-            type: "sequential",
-            children: group.map<ParsedSteps>((verticalGroup) => ({
-                type: "parallel",
-                children: verticalGroup.map(translateNestedGroup),
-            })),
+export type Horizontal<T> = Array<T>
+export type Vertical<T> = Array<T>
+
+export function translateNestedGroup(group: NestedGroup<ParsedSteps>): ParsedSteps {
+    if (!Array.isArray(group.value)) {
+        return group.value
+    }
+
+    const sequentialSteps = group.value.map<ParsedSteps>((verticalGroup) => {
+        const parallelSteps = verticalGroup.map(translateNestedGroup)
+
+        if (parallelSteps.length === 1) {
+            return parallelSteps[0]
         }
+
+        return {
+            type: "parallel",
+            children: parallelSteps,
+        }
+    })
+
+    if (sequentialSteps.length === 1) {
+        return sequentialSteps[0]
     }
-    if(group.type === "filter-conditional" ||group.type === "filter-random") {
-        throw new Error(`"${group.type}" can't be translated as root step`)
+
+    return {
+        type: "sequential",
+        children: sequentialSteps,
     }
-    return group
 }
 
-function replaceFilter(nestedSteps: Array<Array<NestedGroup<LinearizedStep>>>): Array<ParsedSteps> {
-    for(const verticalSteps of nestedSteps) {
-        for(const step of verticalSteps) {
-            
-            if(Array.isArray(step)) {
-
-            } else if(step.type === "filter-conditional") {
-                return 
-            } else if(step.type === "filter-random") {
-
-            }
-        }
-    }
+export function randomize(
+    matrix: Vertical<Horizontal<LinearizedStep>>,
+    isCombineable: (v1: LinearizedStep, v2: LinearizedStep) => boolean
+): Vertical<Horizontal<LinearizedStep>> {
+    throw new Error("method not implemented")
 }
 
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
     throw new Error("method not implemented")
+    /*linearize()
+    align()
+    replaceFilter()
+    combine()
+    nestGroups()
+    translateNestedGroup()*/
 }
-
-export function unifyNested(steps: ParsedSteps): ParsedSteps {
-    throw new Error("method not implemented")
-}
-
-
-
-function isSimilar(s1: LinearizedStep | ParsedSteps, s2: LinearizedStep | ParsedSteps): boolean {
-    if(s1.type !== s2.type) {
-        return false
-    }
-    switch(s1.type) {
-        case "null":
-        case "this":
-        case "return":
-        case "filter-random":
-            return true
-        case "filter-conditional":
-            return s1.value === (s2 as typeof s1).value
-        case "getVariable":
-            return s1.identifier === (s2 as typeof s1).identifier
-        case "random":
-            return allUnordered(s1.children, (s2 as typeof s1).children, isSimilar)
-        case "if":
-            return allOrdered(s1.children, (s2 as typeof s1).children, isSimilar)
-        case "sequential":
-            return allOrdered(s1.children, (s2 as typeof s1).children, isSimilar)
-        case "parallel":
-            return allUnordered(s1.children, (s2 as typeof s1).children, isSimilar)
-        case "switch":
-            return allUnordered(s1.children, (s2 as typeof s1).children, isSimilar, (i1, i2) => s1.cases[i1] === (s2 as typeof s1).cases[i2])
-        case "symbol":
-            return isSimilar(..., ...)
-        case "raw":
-            return s1.value === (s2 as typeof s1).value 
-        case "setVariable":
-            return s1.identifier === (s2 as typeof s1).identifier && isSimilar(s1.children[0], (s2 as typeof s1).children[0])
-        case "operation":
-            return s1.identifier === (s2 as typeof s1).identifier && childrenAreSimilar(s1.children, (s2 as typeof s1).children)
-        default:
-            return childrenAreSimilar(s1.children, (s2 as typeof s1).children)
-    }
-}
-
-function allOrdered<T>(a1: Array<T>, a2: Array<T>, fn: (v1: T, v2: T) => boolean): boolean {
-    if(a1.length != a2.length) {
-        return false
-    }
-    for(let i = 0; i < a1.length; i++) {
-        if(!fn(a1[i], a2[i])) {
-            return false
-        }
-    }
-    return true
-}
-
-function allUnordered(): boolean {
-
-}
-
-function childrenAreSimilar(children1: Array<ParsedSteps>, children2: Array<ParsedSteps>): boolean {
-
-}
-
 //TODO: keep grammar symbol names
 /*
 export function summarize(grammarDefinitions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {

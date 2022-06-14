@@ -385,7 +385,7 @@ describe("editor", () => {
     })
 
     it("should remove step from parallel", async () => {
-        const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\nb --> 2`, "test"))
+        const inputGrammar = toHierarchical(parseDescription(`a --> this | b * 2 -> this + 3\nb --> 2`, "test"))
         const { grammar } = await removeStep(
             {},
             [{ steps: getLastStepInPath(["a@test", 0], inputGrammar), values: [] }],

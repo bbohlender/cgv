@@ -1,8 +1,12 @@
 import { expect } from "chai"
-import { parse, serializeString, summarize, unifyNested } from "../src"
-import { align } from "../src/summarizer/group"
+import { Horizontal, parse, ParsedSteps, serializeString, summarize, translateNestedGroup, Vertical } from "../src"
+import { align, NestedGroup, nestGroups as nestGroup } from "../src/summarizer/group"
+import { linearize, LinearizedStep } from "../src/summarizer/linearize"
+import { filterMap } from "../src/summarizer/filter"
+import { parsedAndUnparsedGrammarPairs } from "./test-data"
+import { combine, isCombineable } from "../src/summarizer/combine"
 
-describe("group arrays", () => {
+describe("align, group and combine matrices", () => {
     it("should align a compatible array", () => {
         const result = align(
             [
@@ -12,10 +16,11 @@ describe("group arrays", () => {
             () => -1,
             (v1, v2) => v1 === v2
         )
-        expect(result).to.deep.equal([
+        expect(result.aligned).to.deep.equal([
             [-1, 1, 2, 3, 3, 3, 4, 4, 5],
             [0, 1, -1, 3, 3, -1, 4, -1, -1],
         ])
+        expect(result.merged).to.deep.equal([0, 1, 2, 3, 3, 3, 4, 4, 5])
     })
 
     it("should miss align a incompatible array", () => {
@@ -27,41 +32,211 @@ describe("group arrays", () => {
             () => -1,
             (v1, v2) => v1 === v2
         )
-        expect(result).to.deep.equal([
+        expect(result.aligned).to.deep.equal([
             [0, 1, 2, 3, -1, -1, -1, -1],
             [-1, -1, -1, -1, 4, 5, 6, 7],
         ])
+        expect(result.merged).to.deep.equal([0, 1, 2, 3, 4, 5, 6, 7])
     })
 
-    it("should group similar vertically", () => {})
+    it("should nest groups", () => {
+        const matrix: Array<Array<number>> = [
+            [1, 2, 3, 4],
+            [1, 5, 5, 6],
+            [7, 10, 11, 8],
+            [9, 5, 5, 12],
+        ]
+        const nested = nestGroup(
+            matrix,
+            (v1, x1, y1, v2, x2, y2) => v1 === v2,
+            (values) => values[0][0]
+        )
+        const expected: NestedGroup<number> = {
+            height: 4,
+            value: [
+                [
+                    { height: 2, value: 1 },
+                    { height: 1, value: 7 },
+                    { height: 1, value: 9 },
+                ],
+                [
+                    {
+                        height: 1,
+                        value: [[{ height: 1, value: 2 }], [{ height: 1, value: 3 }]],
+                    },
+                    { height: 2, value: 5 },
+                    {
+                        height: 1,
+                        value: [[{ height: 1, value: 10 }], [{ height: 1, value: 11 }]],
+                    },
+                ],
+                [
+                    { height: 1, value: 4 },
+                    { height: 1, value: 6 },
+                    { height: 1, value: 8 },
+                    { height: 1, value: 12 },
+                ],
+            ],
+        }
+        expect(nested).to.deep.equal(expected)
+    })
 
-    it("should group similar nested", () => {
-
+    it("should combine similar vertically", () => {
+        const matrix: Array<Array<number>> = [
+            [2, 4, 6, 8],
+            [3, 11, 10, 12],
+            [18, 20, 21, 24],
+            [8, 10, 11, 16],
+        ]
+        const result = nestGroup(
+            matrix,
+            (v1, x1, y1, v2, x2, y2) => Math.floor(v1 / 2) === Math.floor(v2 / 2),
+            (value) => Math.floor(value[0][0] / 2) * 2
+        )
+        const expected: NestedGroup<number> = {
+            height: 4,
+            value: [
+                [
+                    { height: 2, value: 2 },
+                    { height: 1, value: 18 },
+                    { height: 1, value: 8 },
+                ],
+                [
+                    {
+                        height: 1,
+                        value: [[{ height: 1, value: 4 }], [{ height: 1, value: 6 }]],
+                    },
+                    { height: 2, value: 10 },
+                    {
+                        height: 1,
+                        value: 20,
+                    },
+                ],
+                [
+                    { height: 1, value: 8 },
+                    { height: 1, value: 12 },
+                    { height: 1, value: 24 },
+                    { height: 1, value: 16 },
+                ],
+            ],
+        }
+        expect(result).to.deep.equal(expected)
     })
 })
 
 describe("summarize grammars", () => {
-    
+    it("should replace filter", () => {
+        const matrix: Vertical<Horizontal<LinearizedStep>> = [
+            [
+                { type: "filter-conditional", condition: { type: "raw", value: false }, value: true },
+                { type: "raw", value: 0 },
+                { type: "raw", value: 0 },
+                { type: "raw", value: 0 },
+            ],
+            [
+                { type: "raw", value: 2 },
+                { type: "filter-conditional", condition: { type: "raw", value: true }, value: true },
+                { type: "raw", value: 1 },
+                { type: "raw", value: 0 },
+            ],
+            [
+                { type: "filter-conditional", condition: { type: "raw", value: false }, value: false },
+                { type: "raw", value: 0 },
+                { type: "raw", value: 0 },
+                { type: "raw", value: 0 },
+            ],
+            [
+                { type: "raw", value: 0 },
+                {
+                    type: "filter-conditional",
+                    condition: { type: "raw", value: true },
+                    value: false,
+                },
+                { type: "raw", value: 0 },
+                { type: "raw", value: 0 },
+            ],
+        ]
+        const result = filterMap(matrix)
+        expect(result).to.deep.equal([
+            [1, 1, 0, 0],
+            [0, 2, 2, 0],
+            [1, 1, 0, 0],
+            [0, 2, 2, 0],
+        ])
+    })
+
     it("should translate nested group to steps", () => {
-        
+        const input: NestedGroup<ParsedSteps> = {
+            height: 4,
+            value: [
+                [
+                    { height: 1, value: { type: "raw", value: 0 } },
+                    { height: 1, value: { type: "raw", value: 0 } },
+                    { height: 1, value: { type: "raw", value: 0 } },
+                    { height: 1, value: { type: "raw", value: 0 } },
+                ],
+                [
+                    {
+                        height: 1,
+                        value: [
+                            [{ height: 1, value: { type: "raw", value: 0 } }],
+                            [{ height: 1, value: { type: "raw", value: 0 } }],
+                        ],
+                    },
+                    {
+                        height: 2,
+                        value: {
+                            type: "if",
+                            children: [
+                                { type: "raw", value: true },
+                                { type: "raw", value: 1 },
+                                { type: "raw", value: 0 },
+                            ],
+                        },
+                    },
+                    {
+                        height: 1,
+                        value: [
+                            [{ height: 1, value: { type: "raw", value: 0 } }],
+                            [{ height: 1, value: { type: "raw", value: 0 } }],
+                        ],
+                    },
+                ],
+                [
+                    { height: 1, value: { type: "raw", value: 0 } },
+                    { height: 1, value: { type: "raw", value: 0 } },
+                    { height: 1, value: { type: "raw", value: 0 } },
+                    { height: 1, value: { type: "raw", value: 0 } },
+                ],
+            ],
+        }
+        const result = translateNestedGroup(input)
+        expect(serializeString([{ name: "a", step: result }])).to.deep.equal(
+            `a --> ( 0 | 0 | 0 | 0 ) -> ( 0 -> 0 | if true then { 1 } else { 0 } | 0 -> 0 ) -> ( 0 | 0 | 0 | 0 )`
+        )
     })
 
-    it("should unify and group nested random", () => {
-        const steps = parse(`a --> { 50%: { 25%: 1 50%: 2 25%: 3 } 50%: { 10%: 2 30%: 3 60%: 1 } }`)[0].step
-        const result = unifyNested(steps)
-        expect(serializeString([{ name: "a", step: result }])).to.equal(`a --> { 42.5%: 1 30%: 2 27.5%: 3 }`)
+    it("should randomize aligned linearized steps", () => {
+        //problem: filter?
     })
 
-    it("should unify nested random", () => {
-        const steps = parse(`a --> { 50%: { 25%: 1 50%: 2 25%: 3 } 50%: 4 }`)[0].step
-        const result = unifyNested(steps)
-        expect(serializeString([{ name: "a", step: result }])).to.equal(`a --> { 12.5%: 1 25%: 2 12.5%: 3 50%: 4 }`)
-    })
-
-    it("should unify nested random with brackets", () => {
-        const steps = parse(`a --> { 50%: ({ 25%: 1 50%: 2 25%: 3 }) 50%: 2 }`)[0].step
-        const result = unifyNested(steps)
-        expect(serializeString([{ name: "a", step: result }])).to.equal(`a --> { 12.5%: 1 75%: 2 12.5%: 3 }`)
+    it("should linearize and de-linearize", () => {
+        for (const { unparsed } of parsedAndUnparsedGrammarPairs) {
+            const step = parse(unparsed)[0].step
+            const linearized = linearize(step)
+            const map = filterMap(linearized)
+            const nestedGroup = nestGroup<LinearizedStep, ParsedSteps>(
+                linearized,
+                (v1, x1, y1, v2, x2, y2) => {
+                    if (map[y1][x1] != map[y2][x2]) {
+                        return false
+                    }
+                    return isCombineable(v1, v2)
+                },
+                combine
+            )
+            expect(serializeString([{ name: "a", step: translateNestedGroup(nestedGroup) }])).to.equal(unparsed)
+        }
     })
 
     it("should summarize at inner steps with using a random step based on the operation type and at least one equal child", () => {

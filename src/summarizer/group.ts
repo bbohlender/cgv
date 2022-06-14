@@ -1,20 +1,20 @@
 import { diffArrays } from "diff"
-import { ParsedSteps } from "../parser"
-
-type Horizontal<T> = Array<T>
-type Vertical<T> = Array<T>
+import { Horizontal, Vertical } from "."
 
 export function align<T>(
-    unalignedLists: Vertical<Horizontal<T>>,
+    matrix: Vertical<Horizontal<T>>,
     generateFiller: () => T,
     isSimilar: (v1: T, v2: T) => boolean
-): Vertical<Horizontal<T>> {
-    const mergedList: Array<T> = [...unalignedLists[0]]
-    const alignedLists: Array<Array<T>> = [[...unalignedLists[0]]]
-    for (let i = 1; i < unalignedLists.length; i++) {
-        const alignedList = [...unalignedLists[i]]
+): {
+    aligned: Vertical<Horizontal<T>>
+    merged: Horizontal<T>
+} {
+    const merged: Horizontal<T> = [...matrix[0]]
+    const aligned: Vertical<Horizontal<T>> = [[...matrix[0]]]
+    for (let i = 1; i < matrix.length; i++) {
+        const alignedList = [...matrix[i]]
 
-        const changes = diffArrays<T, T>(mergedList, alignedList, {
+        const changes = diffArrays<T, T>(merged, alignedList, {
             comparator: isSimilar,
         })
 
@@ -23,8 +23,8 @@ export function align<T>(
             const length = change.value.length
 
             if (change.added) {
-                mergedList.splice(ii, 0, ...change.value)
-                for (const prevAlignedLinearization of alignedLists) {
+                merged.splice(ii, 0, ...change.value)
+                for (const prevAlignedLinearization of aligned) {
                     prevAlignedLinearization.splice(
                         ii,
                         0,
@@ -37,111 +37,117 @@ export function align<T>(
             ii += length
         }
 
-        alignedLists.push(alignedList)
+        aligned.push(alignedList)
     }
-    return alignedLists
+    return {
+        aligned,
+        merged,
+    }
 }
 
-type Groups = Array<Array<number>>
-
-function groupVertical<T>(combine: (v1: T, v2: T) => T): Horizontal<Groups> {
-    //TODO: group vertically
+export type NestedGroup<T> = {
+    height: number
+    value: Array<Vertical<NestedGroup<T>>> | T
 }
 
-export type NestedGroup<T> = Array<Array<NestedGroup<T>>> | T
-
-function groupNested<T>(verticalGroups: Horizontal<Groups>): NestedGroup<T> {
-    //group nested
+export function nestGroups<T, K>(
+    matrix: Vertical<Horizontal<T>>,
+    isSameInGroup: (v1: T, x1: number, y1: number, v2: T, x2: number, y2: number) => boolean,
+    combineGroup: (values: Horizontal<Vertical<T>>) => K,
+    xStart = 0,
+    xEnd = matrix[0].length,
+    yList = new Array(matrix.length).fill(undefined).map<number>((_, i) => i)
+): NestedGroup<K> {
+    let value: K | Horizontal<Vertical<NestedGroup<K>>> = multiSplitVer(
+        matrix,
+        isSameInGroup,
+        combineGroup,
+        xStart,
+        xEnd,
+        yList
+    )
+    if (value.length === 1 && value[0].length === 1) {
+        value = value[0][0].value
+    }
+    return {
+        height: yList.length,
+        value,
+    }
 }
 
-type Partition<T> = {
-    size: number,
-    parts: Horizontal<Vertical<T | Partition<T>>>
-}
-
-function partitionHorizontal<T>(groups: Horizontal<Groups>, ): Partition<T> {
-    const partitions: Array<Partition<T>> = []
-    let prevPartition: { x: number, groups: Array<Array<number>>, width: number } | undefined
-    for(let x = groups.length; x++) {
-        if(prevPartition == null || !groupsContainGroups(prevPartition.groups, groups[x])) {
-            prevPartition = {
-                x,
-                width: 1,
-                groups: groups[x]
+/**
+ * @param xStart inclusive
+ * @param yStart inclusive
+ * @param xEnd exclusive
+ * @param yEnd exclusive
+ */
+function multiSplitVer<T, K>(
+    matrix: Vertical<Horizontal<T>>,
+    isSameInGroup: (v1: T, x1: number, y1: number, v2: T, x2: number, y2: number) => boolean,
+    combineGroup: (values: Horizontal<Vertical<T>>) => K,
+    xStart: number,
+    xEnd: number,
+    yList: Array<number>
+): Horizontal<Vertical<NestedGroup<K>>> {
+    outer: for (let x = xStart; x < xEnd - 1; x++) {
+        for (const y of yList) {
+            if (isSameInGroup(matrix[y][x], x, y, matrix[y][x + 1], x + 1, y)) {
+                continue outer
             }
-        } else {
-            prevPartition.width += 1
         }
+        return [
+            multiSplitHor(matrix, isSameInGroup, combineGroup, xStart, x + 1, yList),
+            ...multiSplitVer(matrix, isSameInGroup, combineGroup, x + 1, xEnd, yList),
+        ]
     }
-    if(prevPartition != null) {
-
-    }
-    //TODO: if prev. partition is valid, include next steps
-    //TODO: if prev. partition is invalid, destroy partition and reform
+    return [multiSplitHor(matrix, isSameInGroup, combineGroup, xStart, xEnd, yList)]
 }
 
-function expandPartition(): void {
+function multiSplitHor<T, K>(
+    matrix: Vertical<Horizontal<T>>,
+    isSameInGroup: (v1: T, x1: number, y1: number, v2: T, x2: number, y2: number) => boolean,
+    combineGroup: (values: Horizontal<Vertical<T>>) => K,
+    xStart: number,
+    xEnd: number,
+    yList: Array<number>
+): Vertical<NestedGroup<K>> {
+    const partialMatchingGroups: Array<Array<number>> = []
+    let allInSameGroup = true
 
-}
-
-function groupsContainGroups(superGroups: Groups, subGroups: Groups): boolean {
-
-}
-
-function removeUnecassaryThis(): ParsedSteps {}
-
-/*
-function alignAndPartition(linearizations: Array<LinearizedSteps>): Array<Partition> {
-
-    const mergedLinearization: LinearizedSteps = [...linearizations[0]]
-
-    const similars = new Array(linearizations[0].length).fill(true)
-    const alignedLinearizations: Array<LinearizedSteps> = [
-        [...linearizations[0]]
-    ]
-    
-    for(let i = 1; i < linearizations.length; i++) {
-        const alignedLinearization = [...linearizations[i]]
-        const changes = diffArrays<LinearizedStep, LinearizedStep>(mergedLinearization, alignedLinearization, {
-            comparator: isSimilar
-        })
-        let i1 = 0
-        let i2 = 0
-        for(const change of changes) {
-            const length = change.value.length
-            //TODO: insert inton all alignedLinearizations and alignedLinearization
-            if(change.added) {
-                alignedLinearization.splice(i1, 0, ...new Array(length).fill(undefined).map<LinearizedStep>(() => ({ type: "this"})))
-                i1 += length
-            } else if(change.removed) {
-                mergedLinearization.splice(i2, 0, ...change.value)
-                for(const prevAlignedLinearization of alignedLinearizations) {
-                    prevAlignedLinearization.splice(i2, 0, ...new Array(length).fill(undefined).map<LinearizedStep>(() => ({ type: "this"})))
+    for (const y of yList) {
+        let group = partialMatchingGroups.find((group) => {
+            const y2 = group[0]
+            let partialMatchingGroup = false
+            for (let x = xStart; x < xEnd; x++) {
+                //we loop through everything to check if allInSameGroup is false
+                if (isSameInGroup(matrix[y][x], x, y, matrix[y2][x], x, y2)) {
+                    partialMatchingGroup = true
+                } else {
+                    allInSameGroup = false
                 }
-                i2 += length
-            } else {
-                i1 += length
-                i2 += length
+                //if not all in same group and partial matching group is the case, then nothing case change and we can return true
+                if (!allInSameGroup && partialMatchingGroup) {
+                    return true
+                }
             }
-            for(const prevAlignedLinearization of alignedLinearizations) {
-
-            }
-            alignedLinearizations.push(alignedLinearization)
+            return partialMatchingGroup
+        })
+        if (group == null) {
+            group = []
+            partialMatchingGroups.push(group)
         }
+        group.push(y)
+    }
+    if (allInSameGroup) {
+        return [{ height: yList.length, value: combineGroup(yList.map((y) => matrix[y].slice(xStart, xEnd))) }]
+    }
+    if (partialMatchingGroups.length === 1) {
+        const midPoint = Math.floor(yList.length / 2)
+        return [
+            nestGroups(matrix, isSameInGroup, combineGroup, xStart, xEnd, yList.slice(0, midPoint)),
+            nestGroups(matrix, isSameInGroup, combineGroup, xStart, xEnd, yList.slice(midPoint)),
+        ]
     }
 
-    const partitions: Array<Partition> = []
-    for(let i = 0; i < targetLinearization.length; i++) {
-        const lastPartionSimilar: boolean | undefined = partitions.length === 0 ? undefined : partitions[partitions.length - 1].similar
-        const currentPartionSimilar: boolean = similars[i]
-        if(lastPartionSimilar === currentPartionSimilar) {
-            partitions.push({
-                similar: currentPartionSimilar,
-                alignments: [alignedLinearizations.map((steps) => steps[i])]
-            })
-        } else {
-            partitions[partitions.length - 1].alignments.push(alignedLinearizations.map(steps => steps[i]))
-        }
-    }
-    return partitions
-}*/
+    return partialMatchingGroups.map((yList) => nestGroups(matrix, isSameInGroup, combineGroup, xStart, xEnd, yList))
+}

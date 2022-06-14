@@ -1,3 +1,4 @@
+import { Horizontal, Vertical } from "."
 import {
     ParsedIf,
     ParsedParallel,
@@ -7,9 +8,6 @@ import {
     ParsedSwitch,
     ParsedSymbol,
 } from "../parser"
-import { diffArrays } from "diff"
-
-
 
 export type LinearizedStep =
     | (ParsedSteps & {
@@ -18,9 +16,7 @@ export type LinearizedStep =
     | { type: "filter-conditional"; condition: ParsedSteps; value: any }
     | { type: "filter-random"; probability: number }
 
-type LinearizedSteps = Array<LinearizedStep>
-
-export function linearize(step: ParsedSteps): Array<LinearizedSteps> {
+export function linearize(step: ParsedSteps): Vertical<Horizontal<LinearizedStep>> {
     switch (step.type) {
         case "random":
             return linearizeRandom(step)
@@ -39,11 +35,11 @@ export function linearize(step: ParsedSteps): Array<LinearizedSteps> {
     }
 }
 
-function linearizeRandom(step: ParsedRandom): Array<LinearizedSteps> {
-    return step.children.reduce<Array<LinearizedSteps>>(
+function linearizeRandom(step: ParsedRandom): Vertical<Horizontal<LinearizedStep>> {
+    return step.children.reduce<Vertical<Horizontal<LinearizedStep>>>(
         (prev, childStep, i) => [
             ...prev,
-            ...linearize(childStep).map<LinearizedSteps>((nextSteps) => [
+            ...linearize(childStep).map<Horizontal<LinearizedStep>>((nextSteps) => [
                 {
                     type: "filter-random",
                     probability: step.probabilities[i],
@@ -55,9 +51,9 @@ function linearizeRandom(step: ParsedRandom): Array<LinearizedSteps> {
     )
 }
 
-function linearizeIf(step: ParsedIf): Array<LinearizedSteps> {
+function linearizeIf(step: ParsedIf): Vertical<Horizontal<LinearizedStep>> {
     return [
-        ...linearize(step.children[1]).map<LinearizedSteps>((nextSteps) => [
+        ...linearize(step.children[1]).map<Horizontal<LinearizedStep>>((nextSteps) => [
             {
                 type: "filter-conditional",
                 condition: step.children[0],
@@ -65,7 +61,7 @@ function linearizeIf(step: ParsedIf): Array<LinearizedSteps> {
             },
             ...nextSteps,
         ]),
-        ...linearize(step.children[2]).map<LinearizedSteps>((nextSteps) => [
+        ...linearize(step.children[2]).map<Horizontal<LinearizedStep>>((nextSteps) => [
             {
                 type: "filter-conditional",
                 condition: step.children[0],
@@ -76,22 +72,25 @@ function linearizeIf(step: ParsedIf): Array<LinearizedSteps> {
     ]
 }
 
-function linearizeSequential(step: ParsedSequantial): Array<LinearizedSteps> {
+function linearizeSequential(step: ParsedSequantial): Vertical<Horizontal<LinearizedStep>> {
     return step.children.slice(1).reduce((prev, step) => {
         const nextLinearizations = linearize(step)
-        return prev.reduce<Array<LinearizedSteps>>((result, steps) => result.concat(nextLinearizations.map((nextSteps) => [...steps, ...nextSteps])), [])
+        return prev.reduce<Vertical<Horizontal<LinearizedStep>>>(
+            (result, steps) => result.concat(nextLinearizations.map((nextSteps) => [...steps, ...nextSteps])),
+            []
+        )
     }, linearize(step.children[0]))
 }
 
-function linearizeParallel(step: ParsedParallel): Array<LinearizedSteps> {
-    return step.children.reduce<Array<LinearizedSteps>>((prev, step) => [...prev, ...linearize(step)], [])
+function linearizeParallel(step: ParsedParallel): Vertical<Horizontal<LinearizedStep>> {
+    return step.children.reduce<Vertical<Horizontal<LinearizedStep>>>((prev, step) => [...prev, ...linearize(step)], [])
 }
 
-function linearizeSwitch(step: ParsedSwitch): Array<LinearizedSteps> {
-    return step.children.slice(1).reduce<Array<LinearizedSteps>>(
+function linearizeSwitch(step: ParsedSwitch): Vertical<Horizontal<LinearizedStep>> {
+    return step.children.slice(1).reduce<Vertical<Horizontal<LinearizedStep>>>(
         (prev, childStep, i) => [
             ...prev,
-            ...linearize(childStep).map<LinearizedSteps>((nextSteps) => [
+            ...linearize(childStep).map<Horizontal<LinearizedStep>>((nextSteps) => [
                 {
                     type: "filter-conditional",
                     condition: step.children[0],
@@ -104,6 +103,6 @@ function linearizeSwitch(step: ParsedSwitch): Array<LinearizedSteps> {
     )
 }
 
-function linearizeSymbol(step: ParsedSymbol): Array<LinearizedSteps> {
+function linearizeSymbol(step: ParsedSymbol): Vertical<Horizontal<LinearizedStep>> {
     throw new Error("not implemented")
 }
