@@ -1,5 +1,6 @@
-import { Horizontal, Vertical } from "."
+import { Horizontal, summarizeSteps, Vertical } from "."
 import { ParsedSteps } from "../parser"
+import { Row } from "./group"
 import { LinearizedStep } from "./linearize"
 
 export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
@@ -7,8 +8,8 @@ export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
         return false
     }
     switch (s1.type) {
-        case "filter-conditional":
-            return typeof s1.value === typeof (s2 as typeof s1).value
+        case "filter":
+            return typeof s1.values[0] === typeof (s2 as typeof s1).values[0]
         case "setVariable":
         case "operation":
         case "getVariable":
@@ -20,47 +21,14 @@ export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
     }
 }
 
-export function combine(values: Vertical<Horizontal<LinearizedStep>>): ParsedSteps {
-    throw new Error("not implemented")
-    /*if (values.length === 0 || values[0].length === 0) {
+export function combine(vertical: Vertical<{ value: LinearizedStep; probability: number }>): ParsedSteps {
+    if (vertical.length === 0) {
         return { type: "this" }
     }
-    const firstStep = values[0][0]
+    const firstStep = vertical[0].value
     switch (firstStep.type) {
-        case "filter-conditional": {
-            const conditions: Array<ParsedSteps> = []
-            const valueMap = new Map<any, Array<Horizontal<LinearizedStep>>>()
-            for (let y = 0; y < values.length; y++) {
-                const value = (values[y][0] as typeof firstStep).value
-                let entry = valueMap.get(value)
-                if (entry == null) {
-                    entry = []
-                    valueMap.set(value, entry)
-                }
-                entry.push(values[y].slice(1))
-            }
-            if (typeof firstStep.value === "boolean") {
-                return {
-                    type: "if",
-                    children: [
-                        { type: "random", children: conditions, probabilities },
-                        combine(valueMap.get(true) ?? []),
-                        combine(valueMap.get(false) ?? []),
-                    ],
-                }
-            } else {
-                return {
-                    type: "switch",
-                    children: [
-                        { type: "random", children: conditions, probabilities },
-                        ...Array.from(valueMap.values()).map((caseStep) => combine(caseStep)),
-                    ],
-                    cases: Array.from(valueMap.keys()),
-                }
-            }
-        }
-        case "filter-random":
-            return //TBD
+        case "filter":
+            throw new Error("unable to combine filter directly (use splitFilter) before")
         case "this":
         case "null":
         case "raw":
@@ -69,7 +37,21 @@ export function combine(values: Vertical<Horizontal<LinearizedStep>>): ParsedSte
         default:
             return {
                 ...firstStep,
-                children: [],
+                children:
+                    firstStep.children == null
+                        ? undefined
+                        : summarizeChildren(
+                              vertical.map(({ value }) => (value as typeof firstStep).children),
+                              vertical.map(({ probability }) => probability)
+                          ),
             } as ParsedSteps
-    }*/
+    }
+}
+
+function summarizeChildren(childrenList: Array<Array<ParsedSteps>>, probabilities: Array<number>): Array<ParsedSteps> {
+    const length = Math.max(...childrenList.map((a) => a.length))
+    return new Array(length).fill(undefined).map<ParsedSteps>((_, i) => {
+        const iThChildrens = childrenList.map((children) => children[i] ?? { type: "null" })
+        return summarizeSteps(iThChildrens, probabilities)
+    })
 }

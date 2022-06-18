@@ -1,241 +1,307 @@
 import { expect } from "chai"
-import { Horizontal, parse, ParsedSteps, serializeString, summarize, translateNestedGroup, Vertical } from "../src"
-import { align, NestedGroup, nestGroups as nestGroup } from "../src/summarizer/group"
-import { linearize, LinearizedStep } from "../src/summarizer/linearize"
-import { filterMap } from "../src/summarizer/filter"
+import { parse, ParsedSteps, serializeString, summarize, summarizeSteps, translateNestedGroup, Vertical } from "../src"
+import { align, NestedGroup, nestGroups, Row } from "../src/summarizer/group"
+import { linearize, LinearizedRow, LinearizedStep } from "../src/summarizer/linearize"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
-import { combine, isCombineable } from "../src/summarizer/combine"
+import { isCombineable } from "../src/summarizer/combine"
 
 describe("align, group and combine matrices", () => {
     it("should align a compatible array", () => {
         const result = align(
             [
-                [1, 2, 3, 3, 3, 4, 4, 5],
-                [0, 1, 3, 3, 4],
+                { probability: 1, horizontal: [1, 2, 3, 3, 3, 4, 4, 5] },
+                { probability: 1, horizontal: [0, 1, 3, 3, 4] },
             ],
             () => -1,
             (v1, v2) => v1 === v2
         )
-        expect(result.aligned).to.deep.equal([
-            [-1, 1, 2, 3, 3, 3, 4, 4, 5],
-            [0, 1, -1, 3, 3, -1, 4, -1, -1],
+        expect(result).to.deep.equal([
+            { probability: 1, horizontal: [-1, 1, 2, 3, 3, 3, 4, 4, 5] },
+            { probability: 1, horizontal: [0, 1, -1, 3, 3, -1, 4, -1, -1] },
         ])
-        expect(result.merged).to.deep.equal([0, 1, 2, 3, 3, 3, 4, 4, 5])
     })
 
     it("should miss align a incompatible array", () => {
         const result = align(
             [
-                [0, 1, 2, 3],
-                [4, 5, 6, 7],
+                { probability: 1, horizontal: [0, 1, 2, 3] },
+                { probability: 1, horizontal: [4, 5, 6, 7] },
             ],
             () => -1,
             (v1, v2) => v1 === v2
         )
-        expect(result.aligned).to.deep.equal([
-            [0, 1, 2, 3, -1, -1, -1, -1],
-            [-1, -1, -1, -1, 4, 5, 6, 7],
+        expect(result).to.deep.equal([
+            { probability: 1, horizontal: [0, 1, 2, 3, -1, -1, -1, -1] },
+            { probability: 1, horizontal: [-1, -1, -1, -1, 4, 5, 6, 7] },
         ])
-        expect(result.merged).to.deep.equal([0, 1, 2, 3, 4, 5, 6, 7])
     })
 
     it("should nest groups", () => {
-        const matrix: Array<Array<number>> = [
-            [1, 2, 3, 4],
-            [1, 5, 5, 6],
-            [7, 10, 11, 8],
-            [9, 5, 5, 12],
+        const matrix: Array<Row<number>> = [
+            { horizontal: [1, 2, 3, 4], probability: 1 },
+            { horizontal: [1, 5, 5, 6], probability: 0.5 },
+            { horizontal: [7, 10, 11, 8], probability: 1 },
+            { horizontal: [9, 5, 5, 12], probability: 0.5 },
         ]
-        const nested = nestGroup(
+        const result = nestGroups(
             matrix,
-            (v1, x1, y1, v2, x2, y2) => v1 === v2,
-            (values) => values[0][0]
+            (v1, v2) => v1 === v2,
+            (values) => values[0].value,
+            (val) => val != 4,
+            () => -1
         )
-        const expected: NestedGroup<number> = {
-            height: 4,
-            value: [
-                [
-                    { height: 2, value: 1 },
-                    { height: 1, value: 7 },
-                    { height: 1, value: 9 },
-                ],
-                [
-                    {
-                        height: 1,
-                        value: [[{ height: 1, value: 2 }], [{ height: 1, value: 3 }]],
-                    },
-                    { height: 2, value: 5 },
-                    {
-                        height: 1,
-                        value: [[{ height: 1, value: 10 }], [{ height: 1, value: 11 }]],
-                    },
-                ],
-                [
-                    { height: 1, value: 4 },
-                    { height: 1, value: 6 },
-                    { height: 1, value: 8 },
-                    { height: 1, value: 12 },
-                ],
+        const expected: NestedGroup<number> = [
+            [
+                {
+                    group: [
+                        [
+                            { group: 9, probability: 0.5 },
+                            { group: 1, probability: 0.5 },
+                        ],
+                        [{ group: 5, probability: 1 }],
+                        [{ group: 5, probability: 1 }],
+                        [
+                            { group: 12, probability: 0.5 },
+                            { group: 6, probability: 0.5 },
+                        ],
+                    ],
+                    probability: 1,
+                },
+                {
+                    group: [
+                        [{ group: 7, probability: 1 }],
+                        [{ group: 10, probability: 1 }],
+                        [{ group: 11, probability: 1 }],
+                        [{ group: 8, probability: 1 }],
+                    ],
+                    probability: 1,
+                },
+                {
+                    group: [
+                        [{ group: 1, probability: 1 }],
+                        [{ group: 2, probability: 1 }],
+                        [{ group: 3, probability: 1 }],
+                    ],
+                    probability: 1,
+                },
             ],
-        }
-        expect(nested).to.deep.equal(expected)
+        ]
+        expect(result).to.deep.equal(expected)
     })
 
     it("should combine similar vertically", () => {
-        const matrix: Array<Array<number>> = [
-            [2, 4, 6, 8],
-            [3, 11, 10, 12],
-            [18, 20, 21, 24],
-            [8, 10, 11, 16],
+        const matrix: Array<Row<number>> = [
+            { horizontal: [2, 4, 6, 8], probability: 0.5 },
+            { horizontal: [3, 11, 10, 12], probability: 0.5 },
+            { horizontal: [18, 20, 21, 24], probability: 0.5 },
+            { horizontal: [8, 10, 11, 16], probability: 0.5 },
         ]
-        const result = nestGroup(
+        const result = nestGroups(
             matrix,
-            (v1, x1, y1, v2, x2, y2) => Math.floor(v1 / 2) === Math.floor(v2 / 2),
-            (value) => Math.floor(value[0][0] / 2) * 2
+            (v1, v2) => Math.floor(v1 / 2) === Math.floor(v2 / 2),
+            (value) => Math.floor(value[0].value / 2) * 2,
+            (val) => val != 8,
+            () => 0
         )
-        const expected: NestedGroup<number> = {
-            height: 4,
-            value: [
-                [
-                    { height: 2, value: 2 },
-                    { height: 1, value: 18 },
-                    { height: 1, value: 8 },
-                ],
-                [
-                    {
-                        height: 1,
-                        value: [[{ height: 1, value: 4 }], [{ height: 1, value: 6 }]],
-                    },
-                    { height: 2, value: 10 },
-                    {
-                        height: 1,
-                        value: 20,
-                    },
-                ],
-                [
-                    { height: 1, value: 8 },
-                    { height: 1, value: 12 },
-                    { height: 1, value: 24 },
-                    { height: 1, value: 16 },
-                ],
+        const expected: NestedGroup<number> = [
+            [
+                {
+                    group: [
+                        [{ group: 18, probability: 1 }],
+                        [{ group: 20, probability: 1 }],
+                        [{ group: 20, probability: 1 }],
+                        [{ group: 24, probability: 1 }],
+                    ],
+                    probability: 0.5,
+                },
+                {
+                    group: [
+                        [
+                            { group: 0, probability: 0.5 },
+                            { group: 2, probability: 0.5 },
+                        ],
+                        [{ group: 10, probability: 1 }],
+                        [{ group: 10, probability: 1 }],
+                        [
+                            { group: 16, probability: 0.5 },
+                            { group: 12, probability: 0.5 },
+                        ],
+                    ],
+                    probability: 1,
+                },
+                {
+                    group: [
+                        [{ group: 2, probability: 1 }],
+                        [{ group: 4, probability: 1 }],
+                        [{ group: 6, probability: 1 }],
+                    ],
+                    probability: 0.5,
+                },
             ],
-        }
+        ]
         expect(result).to.deep.equal(expected)
     })
 })
 
+describe("linearize steps", () => {
+    it("should linearize sequential steps", () => {
+        const s = parse(`a --> 1 -> 2 | 3`)[0].step
+        const expected: Vertical<LinearizedRow> = [
+            {
+                horizontal: [
+                    { type: "raw", value: 1 },
+                    { type: "raw", value: 2 },
+                ],
+                probability: 1,
+            },
+            { horizontal: [{ type: "raw", value: 3 }], probability: 1 },
+        ]
+        expect(linearize(s, 1)).to.deep.equal(expected)
+    })
+
+    it("should linearize conditional", () => {
+        const s = parse(`a --> if true then { 1 -> 3 } else { 2 }`)[0].step
+        const expected: Vertical<LinearizedRow> = [
+            {
+                horizontal: [
+                    { type: "filter", condition: { type: "raw", value: true }, values: [true] },
+                    { type: "raw", value: 1 },
+                    { type: "raw", value: 3 },
+                ],
+                probability: 0.5,
+            },
+            {
+                horizontal: [
+                    { type: "filter", condition: { type: "raw", value: true }, values: [false] },
+                    { type: "raw", value: 2 },
+                ],
+                probability: 0.5,
+            },
+        ]
+        expect(linearize(s, 1)).to.deep.equal(expected)
+    })
+
+    it("should linearize complex", () => {
+        const s = parse(`a --> { 50%: this * 3 / 5 50%: switch this { case 0: (4 * 4) } }`)[0].step
+        const expected: Vertical<LinearizedRow> = [
+            {
+                probability: 0.5,
+                horizontal: [
+                    {
+                        type: "divide",
+                        children: [
+                            { type: "multiply", children: [{ type: "this" }, { type: "raw", value: 3 }] },
+                            { type: "raw", value: 5 },
+                        ],
+                    },
+                ],
+            },
+            {
+                horizontal: [
+                    { type: "filter", condition: { type: "this" }, values: [0] },
+                    {
+                        type: "multiply",
+                        children: [
+                            { type: "raw", value: 4 },
+                            { type: "raw", value: 4 },
+                        ],
+                    },
+                ],
+                probability: 0.5,
+            },
+        ]
+        expect(linearize(s, 1)).to.deep.equal(expected)
+    })
+})
+
 describe("summarize grammars", () => {
-    it("should replace filter", () => {
-        const matrix: Vertical<Horizontal<LinearizedStep>> = [
+    it("should linearize and align", () => {
+        const s1 = parse(`a --> 1 -> 2 | 3`)[0].step
+        const s2 = parse(`a --> 1 | 2 | 3`)[0].step
+        const s3 = parse(`a --> { 50%: 2 50%: 3 }`)[0].step
+
+        const rows = [...linearize(s1, 1 / 3), ...linearize(s2, 1 / 3), ...linearize(s3, 1 / 3)]
+        const grid = align<LinearizedStep>(rows, () => ({ type: "this" }), isCombineable)
+
+        const expected: Vertical<LinearizedRow> = [
+            {
+                probability: 1 / 3,
+                horizontal: [{ type: "raw", value: 1 }, { type: "raw", value: 2 }, { type: "this" }],
+            },
+            { probability: 1 / 3, horizontal: [{ type: "this" }, { type: "this" }, { type: "raw", value: 3 }] },
+            { probability: 1 / 3, horizontal: [{ type: "raw", value: 1 }, { type: "this" }, { type: "this" }] },
+            { probability: 1 / 3, horizontal: [{ type: "this" }, { type: "raw", value: 2 }, { type: "this" }] },
+            { probability: 1 / 3, horizontal: [{ type: "this" }, { type: "this" }, { type: "raw", value: 3 }] },
+            { probability: 1 / 6, horizontal: [{ type: "this" }, { type: "raw", value: 2 }, { type: "this" }] },
+            { probability: 1 / 6, horizontal: [{ type: "this" }, { type: "this" }, { type: "raw", value: 3 }] },
+        ]
+
+        expect(grid).to.deep.equal(expected)
+    })
+
+    it("should translate nested group to random steps", () => {
+        const input: NestedGroup<ParsedSteps> = [
             [
-                { type: "filter-conditional", condition: { type: "raw", value: false }, value: true },
-                { type: "raw", value: 0 },
-                { type: "raw", value: 0 },
-                { type: "raw", value: 0 },
-            ],
-            [
-                { type: "raw", value: 2 },
-                { type: "filter-conditional", condition: { type: "raw", value: true }, value: true },
-                { type: "raw", value: 1 },
-                { type: "raw", value: 0 },
-            ],
-            [
-                { type: "filter-conditional", condition: { type: "raw", value: false }, value: false },
-                { type: "raw", value: 0 },
-                { type: "raw", value: 0 },
-                { type: "raw", value: 0 },
-            ],
-            [
-                { type: "raw", value: 0 },
-                {
-                    type: "filter-conditional",
-                    condition: { type: "raw", value: true },
-                    value: false,
-                },
-                { type: "raw", value: 0 },
-                { type: "raw", value: 0 },
+                { probability: 0.5, group: { type: "raw", value: 1 } },
+                { probability: 1, group: { type: "raw", value: 2 } },
+                { probability: 0.5, group: { type: "raw", value: 3 } },
             ],
         ]
-        const result = filterMap(matrix)
-        expect(result).to.deep.equal([
-            [1, 1, 0, 0],
-            [0, 2, 2, 0],
-            [1, 1, 0, 0],
-            [0, 2, 2, 0],
-        ])
+        const result = translateNestedGroup(input)
+        expect(serializeString([{ name: "a", step: result }])).to.deep.equal(`a --> { 50%: 1 50%: 3 } | 2`)
     })
 
     it("should translate nested group to steps", () => {
-        const input: NestedGroup<ParsedSteps> = {
-            height: 4,
-            value: [
-                [
-                    { height: 1, value: { type: "raw", value: 0 } },
-                    { height: 1, value: { type: "raw", value: 0 } },
-                    { height: 1, value: { type: "raw", value: 0 } },
-                    { height: 1, value: { type: "raw", value: 0 } },
-                ],
-                [
-                    {
-                        height: 1,
-                        value: [
-                            [{ height: 1, value: { type: "raw", value: 0 } }],
-                            [{ height: 1, value: { type: "raw", value: 0 } }],
-                        ],
-                    },
-                    {
-                        height: 2,
-                        value: {
-                            type: "if",
-                            children: [
-                                { type: "raw", value: true },
-                                { type: "raw", value: 1 },
-                                { type: "raw", value: 0 },
-                            ],
-                        },
-                    },
-                    {
-                        height: 1,
-                        value: [
-                            [{ height: 1, value: { type: "raw", value: 0 } }],
-                            [{ height: 1, value: { type: "raw", value: 0 } }],
-                        ],
-                    },
-                ],
-                [
-                    { height: 1, value: { type: "raw", value: 0 } },
-                    { height: 1, value: { type: "raw", value: 0 } },
-                    { height: 1, value: { type: "raw", value: 0 } },
-                    { height: 1, value: { type: "raw", value: 0 } },
-                ],
+        const input: NestedGroup<ParsedSteps> = [
+            [
+                { probability: 0.5, group: { type: "raw", value: 1 } },
+                { probability: 0.5, group: { type: "raw", value: 2 } },
+                { probability: 0.5, group: { type: "raw", value: 3 } },
+                { probability: 0.5, group: { type: "raw", value: 4 } },
             ],
-        }
+            [
+                {
+                    probability: 1,
+                    group: [
+                        [{ probability: 1, group: { type: "raw", value: 0 } }],
+                        [{ probability: 1, group: { type: "raw", value: 0 } }],
+                    ],
+                },
+                {
+                    probability: 1,
+                    group: {
+                        type: "if",
+                        children: [
+                            { type: "raw", value: true },
+                            { type: "raw", value: 1 },
+                            { type: "raw", value: 0 },
+                        ],
+                    },
+                },
+                {
+                    probability: 1,
+                    group: [
+                        [{ probability: 1, group: { type: "raw", value: 0 } }],
+                        [{ probability: 1, group: { type: "raw", value: 0 } }],
+                    ],
+                },
+            ],
+            [
+                { probability: 1, group: { type: "raw", value: 0 } },
+                { probability: 1, group: { type: "raw", value: 0 } },
+                { probability: 1, group: { type: "raw", value: 0 } },
+                { probability: 1, group: { type: "raw", value: 0 } },
+            ],
+        ]
         const result = translateNestedGroup(input)
         expect(serializeString([{ name: "a", step: result }])).to.deep.equal(
-            `a --> ( 0 | 0 | 0 | 0 ) -> ( 0 -> 0 | if true then { 1 } else { 0 } | 0 -> 0 ) -> ( 0 | 0 | 0 | 0 )`
+            `a --> ( { 50%: 1 50%: 2 } | { 50%: 3 50%: 4 } ) -> ( 0 -> 0 | if true then { 1 } else { 0 } | 0 -> 0 ) -> ( 0 | 0 | 0 | 0 )`
         )
     })
 
-    it("should randomize aligned linearized steps", () => {
-        //problem: filter?
-    })
-
     it("should linearize and de-linearize", () => {
-        for (const { unparsed } of parsedAndUnparsedGrammarPairs) {
-            const step = parse(unparsed)[0].step
-            const linearized = linearize(step)
-            const map = filterMap(linearized)
-            const nestedGroup = nestGroup<LinearizedStep, ParsedSteps>(
-                linearized,
-                (v1, x1, y1, v2, x2, y2) => {
-                    if (map[y1][x1] != map[y2][x2]) {
-                        return false
-                    }
-                    return isCombineable(v1, v2)
-                },
-                combine
-            )
-            expect(serializeString([{ name: "a", step: translateNestedGroup(nestedGroup) }])).to.equal(unparsed)
+        for (const { unparsed, parsed } of parsedAndUnparsedGrammarPairs) {
+            expect(serializeString([{ name: "a", step: summarizeSteps([parsed[0].step]) }])).to.equal(unparsed)
         }
     })
 
@@ -326,7 +392,7 @@ describe("summarize grammars", () => {
         const description2 = parse("s2 --> 1")
         const description3 = parse("s1 --> 2")
         const summarizedGrammar = summarize(description1, description2, description3)
-        expect(serializeString(summarizedGrammar)).to.equal("s1 --> { 66.67%: 1 33.33% 2 }")
+        expect(serializeString(summarizedGrammar)).to.equal("s1 --> { 66.67%: 1 33.33%: 2 }")
     })
 
     it("should summarize multiple grammars with outer and inner switches based on their similarity", () => {
