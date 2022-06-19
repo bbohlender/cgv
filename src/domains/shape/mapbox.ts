@@ -125,13 +125,14 @@ function convertPolygonStreetToSteps(
                         return undefined
                     }
                     break
-                case "clip":
+                case "clip": {
                     const result = clipLine(p1.x, p1.y, p2.x, p2.y, 0, 0, extent, extent)
                     if (result == null) {
                         return undefined
                     }
                     p1 = result.start
                     p2 = result.end
+                }
             }
 
             return {

@@ -57,11 +57,7 @@ export function serialize<T, K>(
 /**
  * @returns a array of strings that represents the text that fits between the children (text[0], children[0], text[1], children[1], text[2]) - the result start with a text and ends with a text and thus the length of text is equal to the amount of children plus 1
  */
-export function serializeSteps<T, K>(
-    steps: AbstractParsedSteps<K>,
-    serializer: Serializer<T, K>,
-    indentation: number = 0
-): T {
+export function serializeSteps<T, K>(steps: AbstractParsedSteps<K>, serializer: Serializer<T, K>, indentation = 0): T {
     switch (steps.type) {
         case "operation":
             return serializeOperation(steps, serializer, indentation)

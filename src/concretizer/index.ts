@@ -86,7 +86,7 @@ function concretizeRandomStep(
         const idList = step.children.map<Array<string>>(() => [])
         for (const [beforeIndex, afterIndex] of indices) {
             const lastIndex = afterIndex[afterIndex.length - 1]
-            let ids = idList[lastIndex]
+            const ids = idList[lastIndex]
             if (ids == null) {
                 throw new Error(`no child on random at index "${lastIndex}"`)
             }
@@ -113,28 +113,3 @@ function concretizeRandomStep(
         children: step.children.map((child) => concretizeRandomStep(child, indexMap)),
     } as ParsedSteps
 }
-
-/*async function concretize<T>(
-    grammar: ParsedGrammarDefinition,
-    operations: Operations<T, any>,
-    options: InterpreterOptions<T, any>
-): Promise<ParsedSteps> {
-    const values = await lastValueFrom(
-        EMPTY.pipe(
-            interprete<T, ParsedGrammarDefinition>(grammar, operations, {
-                ...options,
-                annotateBeforeStep: (value, step) => {
-                    //TODO
-                },
-                combineAnnotations: (values) => {
-                    //TODO
-                },
-            }),
-            toArray()
-        )
-    )
-    const grammars = values.map(({ annotation }) => annotation)
-    //TODO: unify commons of grammars (using summarize and parallel unifier)
-    return null as any
-}
-*/

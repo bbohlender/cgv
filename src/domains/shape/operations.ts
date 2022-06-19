@@ -11,7 +11,7 @@ import {
     Axis,
     Split,
 } from "."
-import { Box3, Color, Matrix4, Shape, ShapeUtils, Vector2, Vector3 } from "three"
+import { Box3, Color, Shape, ShapeUtils, Vector2, Vector3 } from "three"
 import * as THREE from "three"
 import { defaultOperations } from ".."
 import { ObjectPrimitive } from "./primitive"
@@ -39,17 +39,6 @@ function computeGraphExpand(
         )
     )
 }
-
-/*function computeMapbox(instance: Primitive [lat, lon]: ReadonlyArray<any>): Observable<Array<Primitive>> {
-    return from(loadMap(instance.materialGenerator)).pipe(
-        map(([roads, buildings]) => {
-            //TODO: forward parameters
-            const values = [...roads, ...buildings].map<Primitive>(([primitive, parameters], i) => primitive)
-            return values
-        }),
-        shareReplay({ bufferSize: 1, refCount: true })
-    )
-}*/
 
 THREE.Cache.enabled = true
 

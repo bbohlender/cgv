@@ -1,12 +1,10 @@
 import { ParsedGrammarDefinition, ParsedRandom, ParsedSteps } from "../parser"
 import { combine, isCombineable } from "./combine"
 import { align, NestedGroup, NestGroupConfig, nestGroups, nestVerticalGroups } from "./group"
-import { combineLinearizationResult, linearize, LinearizedStep } from "./linearize"
+import { combineLinearizationResult, LinearizationResult, linearize, LinearizedStep } from "./linearize"
 
 export type Horizontal<T> = Array<T>
 export type Vertical<T> = Array<T>
-
-//TODO: if compatible => still possible to be parallel (use algorithm like before)
 
 export function translateNestedGroup(group: NestedGroup<ParsedSteps> | ParsedSteps): ParsedSteps {
     if (!Array.isArray(group)) {
@@ -135,14 +133,14 @@ function findBestFittingRow(
     return best
 }
 
-/**
- * @param probabilities probability distribution => should sum up to one; if undefined equal distribution is used
- */
-export function summarizeSteps(steps: Array<ParsedSteps>, probabilities?: Array<number>): ParsedSteps {
-    const p = probabilities ?? new Array(steps.length).fill(1 / steps.length)
-    const { seperationMatrix, vertical } = steps
-        .map((step, i) => linearize(step, p[i]))
+function linearizeSteps(steps: Array<ParsedSteps>, nounResolvers: Array<(identifier: string) => ParsedSteps>) {
+    const probability = 1 / steps.length
+    return steps
+        .map((step, i) => linearize(step, nounResolvers[i], probability))
         .reduce((prev, result) => combineLinearizationResult(prev, result, true))
+}
+
+export function summarizeLinearization({ seperationMatrix, vertical }: LinearizationResult): ParsedSteps {
     const grid = align<LinearizedStep>(vertical, () => ({ type: "this" }), isCombineable)
     const config: NestGroupConfig<LinearizedStep, ParsedSteps> = {
         rows: grid,
@@ -158,14 +156,35 @@ export function summarizeSteps(steps: Array<ParsedSteps>, probabilities?: Array<
     return translateNestedGroup(nestedGroups)
 }
 
+/**
+ * @param probabilities probability distribution => should sum up to one; if undefined equal distribution is used
+ */
+export function summarizeSteps(
+    steps: Array<ParsedSteps>,
+    nounResolvers: Array<(identifier: string) => ParsedSteps>
+): ParsedSteps {
+    return summarizeLinearization(linearizeSteps(steps, nounResolvers))
+}
+
 /*const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps> = () => {
     throw new Error("method not implemented")
 }*/
 
-//TODO: keep grammar symbol names
+//function findFirstColumn(): number {}
+//TODO: multiply probability of the children of conditional steps with amount of filter outputs (for "if" that would be 2)
+
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
     const name = descriptions[0][0].name
-    const step = summarizeSteps(descriptions.map((description) => description[0].step))
+    const step = summarizeSteps(
+        descriptions.map((description) => description[0].step),
+        descriptions.map((description) => (identifier) => {
+            const noun = description.find(({ name }) => identifier === name)
+            if (noun == null) {
+                throw new Error(`unknown noun "${identifier}"`)
+            }
+            return noun.step
+        })
+    )
     return [
         {
             name,

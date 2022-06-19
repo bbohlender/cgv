@@ -77,7 +77,7 @@ function getDistinctSortedIndices(selectedValues: Array<Value<any, any>>) {
         .sort((v1, v2) => v1 - v2)
 }
 
-export const generateAllPattern = (description: string = "all"): Pattern<any, any> => ({
+export const generateAllPattern = (description = "all"): Pattern<any, any> => ({
     description,
     isSelected: () => true,
     generateStep: undefined,

@@ -49,7 +49,7 @@ export function serializeString(
 
 export function serializeStepString(
     step: ParsedSteps,
-    indentation: number = 0,
+    indentation = 0,
     customSerialize: (step: ParsedSteps | string) => string | undefined = () => undefined,
     getWhitespace: (identation: number, ...steps: (ParsedSteps | string)[]) => string = singleLineWhitespace
 ): string {

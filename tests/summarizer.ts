@@ -1,6 +1,6 @@
 import { expect } from "chai"
-import { parse, ParsedSteps, serializeString, summarize, summarizeSteps, translateNestedGroup, Vertical } from "../src"
-import { align, NestedGroup, NestGroupConfig, nestGroups, nestVerticalGroups, Row } from "../src/summarizer/group"
+import { parse, ParsedSteps, serializeString, summarize, translateNestedGroup, Vertical } from "../src"
+import { align, NestedGroup, NestGroupConfig, nestGroups, nestVerticalGroups } from "../src/summarizer/group"
 import { linearize, LinearizedRow, LinearizedStep } from "../src/summarizer/linearize"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
 import { isCombineable } from "../src/summarizer/combine"
@@ -199,7 +199,13 @@ describe("linearize steps", () => {
             },
             { horizontal: [{ type: "raw", value: 3 }], probability: 1 },
         ]
-        const { seperationMatrix, vertical } = linearize(s, 1)
+        const { seperationMatrix, vertical } = linearize(
+            s,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1
+        )
         expect(vertical).to.deep.equal(expected)
         expect(seperationMatrix).to.deep.equal([
             [true, false],
@@ -212,21 +218,43 @@ describe("linearize steps", () => {
         const expected: Vertical<LinearizedRow> = [
             {
                 horizontal: [
-                    { type: "filter", condition: { type: "raw", value: true }, values: [true] },
+                    {
+                        type: "filterStart",
+                        condition: {
+                            seperationMatrix: [[true]],
+                            vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
+                        },
+                        values: [true],
+                    },
                     { type: "raw", value: 1 },
                     { type: "raw", value: 3 },
+                    { type: "filterEnd" },
                 ],
                 probability: 0.5,
             },
             {
                 horizontal: [
-                    { type: "filter", condition: { type: "raw", value: true }, values: [false] },
+                    {
+                        type: "filterStart",
+                        condition: {
+                            seperationMatrix: [[true]],
+                            vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
+                        },
+                        values: [false],
+                    },
                     { type: "raw", value: 2 },
+                    { type: "filterEnd" },
                 ],
                 probability: 0.5,
             },
         ]
-        const { seperationMatrix, vertical } = linearize(s, 1)
+        const { seperationMatrix, vertical } = linearize(
+            s,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1
+        )
         expect(vertical).to.deep.equal(expected)
         expect(seperationMatrix).to.deep.equal([
             [true, true],
@@ -266,7 +294,13 @@ describe("linearize steps", () => {
                 probability: 0.5,
             },
         ]
-        const { seperationMatrix, vertical } = linearize(s, 1)
+        const { seperationMatrix, vertical } = linearize(
+            s,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1
+        )
         expect(vertical).to.deep.equal(expected)
         expect(seperationMatrix).to.deep.equal([
             [true, false, true, false],
@@ -285,27 +319,77 @@ describe("linearize steps", () => {
                     {
                         type: "divide",
                         children: [
-                            { type: "multiply", children: [{ type: "this" }, { type: "raw", value: 3 }] },
-                            { type: "raw", value: 5 },
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [
+                                    {
+                                        probability: 1,
+                                        horizontal: [
+                                            {
+                                                type: "multiply",
+                                                children: [
+                                                    {
+                                                        seperationMatrix: [[true]],
+                                                        vertical: [{ probability: 1, horizontal: [{ type: "this" }] }],
+                                                    },
+                                                    {
+                                                        seperationMatrix: [[true]],
+                                                        vertical: [
+                                                            { probability: 1, horizontal: [{ type: "raw", value: 3 }] },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [{ probability: 1, horizontal: [{ type: "raw", value: 5 }] }],
+                            },
                         ],
                     },
                 ],
             },
             {
                 horizontal: [
-                    { type: "filter", condition: { type: "this" }, values: [0] },
+                    {
+                        type: "filterStart",
+                        condition: {
+                            seperationMatrix: [[true]],
+                            vertical: [{ horizontal: [{ type: "this" }], probability: 1 }],
+                        },
+                        values: [0],
+                    },
                     {
                         type: "multiply",
                         children: [
-                            { type: "raw", value: 4 },
-                            { type: "raw", value: 4 },
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [{ probability: 1, horizontal: [{ type: "raw", value: 4 }] }],
+                            },
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [{ probability: 1, horizontal: [{ type: "raw", value: 4 }] }],
+                            },
                         ],
+                    },
+                    {
+                        type: "filterEnd",
                     },
                 ],
                 probability: 0.5,
             },
         ]
-        expect(linearize(s, 1).vertical).to.deep.equal(expected)
+        const result = linearize(
+            s,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1
+        ).vertical
+        expect(result).to.deep.equal(expected)
     })
 })
 
@@ -315,9 +399,27 @@ describe("summarize grammars", () => {
         const s2 = parse(`a --> 1 | 2 | 3`)[0].step
         const s3 = parse(`a --> { 50%: 2 50%: 3 }`)[0].step
 
-        const l1 = linearize(s1, 1 / 3)
-        const l2 = linearize(s2, 1 / 3)
-        const l3 = linearize(s3, 1 / 3)
+        const l1 = linearize(
+            s1,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1 / 3
+        )
+        const l2 = linearize(
+            s2,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1 / 3
+        )
+        const l3 = linearize(
+            s3,
+            (identifier) => {
+                throw new Error(`unknown noun "${identifier}"`)
+            },
+            1 / 3
+        )
 
         const rows = [...l1.vertical, ...l2.vertical, ...l3.vertical]
         const grid = align<LinearizedStep>(rows, () => ({ type: "this" }), isCombineable)
@@ -430,9 +532,9 @@ describe("summarize grammars", () => {
         )
     })
 
-    it("should linearize and de-linearize", () => {
+    it("should summarize a description to itself", () => {
         for (const { unparsed, parsed } of parsedAndUnparsedGrammarPairs) {
-            expect(serializeString([{ name: "a", step: summarizeSteps([parsed[0].step]) }])).to.equal(unparsed)
+            expect(serializeString(summarize(parsed))).to.equal(unparsed)
         }
     })
 
@@ -545,14 +647,25 @@ describe("summarize grammars", () => {
         )
     })
 
-    it("should only summarize grammars with same operation identifier", () => {
+    it("should summarize grammars with same operation identifier", () => {
+        const description3 = parse(`s1 --> 2 -> doOne(4, 2)`)
+        const description1 = parse(`s1 --> doOne(3)`)
+        const description2 = parse(`s1 --> 2 -> doOne(3, 1)`)
+        const description4 = parse(`s1 --> doOne(3)`)
+        const summarizedGrammar = summarize(description1, description2, description3, description4)
+        expect(serializeString(summarizedGrammar)).to.equal(
+            `s1 --> { 50%: this 50%: 2 } -> doOne( { 75%: 3 25%: 4 }, { 25%: 1 25%: 2 } )`
+        )
+    })
+
+    it("should only summarize complex grammars with same operation identifier", () => {
         const description3 = parse(`s1 --> if this == false then { doOne(4) } else { 2 }`)
         const description1 = parse(`s1 --> if this == false then { doOne(3) } else { 2 }`)
         const description2 = parse(`s1 --> if this == false then { doTwo(3) } else { 2 }`)
         const description4 = parse(`s1 --> if this == false then { doOne(4) } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2, description3, description4)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 --> if this == false then { 25%: doOne(3) 25%: doTwo(3) 50%: doOne(4) } else { 2 }`
+            `s1 --> if this == false then { 25%: doTwo(3) 75%: doOne({ 50%: 4 50%: 3 }) } else { 2 }`
         )
     })
 })

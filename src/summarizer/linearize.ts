@@ -1,20 +1,40 @@
 import { Vertical } from "."
 import {
+    ParsedBinaryOperator,
+    ParsedGetVariable,
     ParsedIf,
+    ParsedNull,
+    ParsedOperation,
     ParsedParallel,
     ParsedRandom,
+    ParsedRaw,
+    ParsedReturn,
     ParsedSequantial,
+    ParsedSetVariable,
     ParsedSteps,
     ParsedSwitch,
     ParsedSymbol,
+    ParsedThis,
+    ParsedUnaryOperator,
 } from "../parser"
 import { Row } from "./group"
 
 export type LinearizedStep =
-    | (ParsedSteps & {
-          type: Exclude<ParsedSteps["type"], "random" | "if" | "sequential" | "parallel" | "switch" | "symbol">
+    | (Omit<ParsedOperation | ParsedSetVariable, "children"> & {
+          children: Array<LinearizationResult>
       })
-    | { type: "filter"; condition: ParsedSteps; values: Array<any> }
+    | (Omit<ParsedBinaryOperator | ParsedUnaryOperator, "children"> & {
+          children: Array<LinearizationResult>
+      })
+    | ParsedRaw
+    | ParsedThis
+    | ParsedGetVariable
+    | ParsedReturn
+    | ParsedNull
+    | { type: "filterStart"; condition: LinearizationResult; values: Array<any> }
+    | { type: "filterEnd" }
+    | { type: "nounStart"; identifier: string }
+    | { type: "nounEnd" }
 
 export type LinearizedRow = Row<LinearizedStep>
 
@@ -23,23 +43,57 @@ export type LinearizationResult = {
     seperationMatrix: Array<Array<boolean>>
 }
 
-export function linearize(step: ParsedSteps, probability: number): LinearizationResult {
+export function linearize(
+    step: ParsedSteps,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
     switch (step.type) {
         case "random":
-            return linearizeRandom(step, probability)
+            return linearizeRandom(step, resolveNoun, probability)
         case "if":
-            return linearizeIf(step, probability)
+            return linearizeIf(step, resolveNoun, probability)
         case "sequential":
-            return linearizeSequential(step, probability)
+            return linearizeSequential(step, resolveNoun, probability)
         case "parallel":
-            return linearizeParallel(step, probability)
+            return linearizeParallel(step, resolveNoun, probability)
         case "switch":
-            return linearizeSwitch(step, probability)
+            return linearizeSwitch(step, resolveNoun, probability)
         case "symbol":
-            return linearizeSymbol(step, probability)
+            return linearizeNounRef(step, resolveNoun, probability)
         default:
-            return { seperationMatrix: [[true]], vertical: [{ probability, horizontal: [step] }] }
+            return {
+                seperationMatrix: [[true]],
+                vertical: [
+                    {
+                        probability,
+                        horizontal: [linearizeStepWithChildren(step, resolveNoun)],
+                    },
+                ],
+            }
     }
+}
+
+function linearizeStepWithChildren(
+    step:
+        | ParsedOperation
+        | ParsedBinaryOperator
+        | ParsedUnaryOperator
+        | ParsedSetVariable
+        | ParsedRaw
+        | ParsedThis
+        | ParsedGetVariable
+        | ParsedReturn
+        | ParsedNull,
+    resolveNoun: (identifier: string) => ParsedSteps
+): LinearizedStep {
+    if (step.children != null) {
+        return {
+            ...step,
+            children: step.children.map((child) => linearize(child, resolveNoun, 1)),
+        }
+    }
+    return step
 }
 
 export function combineLinearizationResult(
@@ -65,33 +119,47 @@ function mapLinearizationResult(
     }
 }
 
-function linearizeRandom(step: ParsedRandom, probability: number): LinearizationResult {
+function linearizeRandom(
+    step: ParsedRandom,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
     return step.children
-        .map((childStep, i) => linearize(childStep, step.probabilities[i] * probability))
+        .map((childStep, i) => linearize(childStep, resolveNoun, step.probabilities[i] * probability))
         .reduce((prev, result) => combineLinearizationResult(prev, result, true))
 }
 
-function linearizeIf(step: ParsedIf, probability: number): LinearizationResult {
+function linearizeIf(
+    step: ParsedIf,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
     return combineLinearizationResult(
-        mapLinearizationResult(linearize(step.children[1], probability / 2), (nextSteps) => ({
+        mapLinearizationResult(linearize(step.children[1], resolveNoun, probability / 2), (nextSteps) => ({
             horizontal: [
                 {
-                    type: "filter",
-                    condition: step.children[0],
+                    type: "filterStart",
+                    condition: linearize(step.children[0], resolveNoun, 1),
                     values: [true],
                 },
                 ...nextSteps.horizontal,
+                {
+                    type: "filterEnd",
+                },
             ],
             probability: nextSteps.probability,
         })),
-        mapLinearizationResult(linearize(step.children[2], probability / 2), (nextSteps) => ({
+        mapLinearizationResult(linearize(step.children[2], resolveNoun, probability / 2), (nextSteps) => ({
             horizontal: [
                 {
-                    type: "filter",
-                    condition: step.children[0],
+                    type: "filterStart",
+                    condition: linearize(step.children[0], resolveNoun, 1),
                     values: [false],
                 },
                 ...nextSteps.horizontal,
+                {
+                    type: "filterEnd",
+                },
             ],
             probability: nextSteps.probability,
         })),
@@ -99,9 +167,13 @@ function linearizeIf(step: ParsedIf, probability: number): LinearizationResult {
     )
 }
 
-function linearizeSequential(step: ParsedSequantial, probability: number): LinearizationResult {
+function linearizeSequential(
+    step: ParsedSequantial,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
     const { seperationMatrix, vertical } = step.children
-        .map((childStep) => linearize(childStep, 1))
+        .map((childStep) => linearize(childStep, resolveNoun, 1))
         .reduce((prev, result) => combineSequentialLinearization(prev, result))
     return {
         seperationMatrix,
@@ -145,25 +217,37 @@ function combineSequentialLinearization(l1: LinearizationResult, l2: Linearizati
     }
 }
 
-function linearizeParallel(step: ParsedParallel, probability: number): LinearizationResult {
+function linearizeParallel(
+    step: ParsedParallel,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
     return step.children
-        .map((childStep) => linearize(childStep, probability))
+        .map((childStep) => linearize(childStep, resolveNoun, probability))
         .reduce((prev, result) => combineLinearizationResult(prev, result, false))
 }
 
-function linearizeSwitch(step: ParsedSwitch, probability: number): LinearizationResult {
+function linearizeSwitch(
+    step: ParsedSwitch,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
     const p = probability / (step.children.length - 1)
+    const condition = linearize(step.children[0], resolveNoun, 1)
     return step.children
         .slice(1)
         .map((childStep, i) =>
-            mapLinearizationResult(linearize(childStep, p), (nextSteps) => ({
+            mapLinearizationResult(linearize(childStep, resolveNoun, p), (nextSteps) => ({
                 horizontal: [
                     {
-                        type: "filter",
-                        condition: step.children[0],
+                        type: "filterStart",
+                        condition,
                         values: step.cases[i],
                     },
                     ...nextSteps.horizontal,
+                    {
+                        type: "filterEnd",
+                    },
                 ],
                 probability: nextSteps.probability,
             }))
@@ -172,6 +256,22 @@ function linearizeSwitch(step: ParsedSwitch, probability: number): Linearization
         .reduce((prev, result) => combineLinearizationResult(prev, result, true))
 }
 
-function linearizeSymbol(step: ParsedSymbol, probability: number): LinearizationResult {
-    throw new Error("not implemented")
+function linearizeNounRef(
+    step: ParsedSymbol,
+    resolveNoun: (identifier: string) => ParsedSteps,
+    probability: number
+): LinearizationResult {
+    return mapLinearizationResult(linearize(resolveNoun(step.identifier), resolveNoun, probability), (nextSteps) => ({
+        horizontal: [
+            {
+                type: "nounStart",
+                identifier: step.identifier,
+            },
+            ...nextSteps.horizontal,
+            {
+                type: "nounEnd",
+            },
+        ],
+        probability: nextSteps.probability,
+    }))
 }

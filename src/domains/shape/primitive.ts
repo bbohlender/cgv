@@ -410,13 +410,7 @@ export class FacePrimitive extends Primitive {
                 const length = helperVector.length()
                 const matrix = makeTranslationMatrix(p1.x, 0, p1.y, new Matrix4())
                 matrix.multiply(computeDirectionMatrix(helperVector.normalize(), YAXIS))
-                const result = FacePrimitive.fromLengthAndHeight(
-                    matrix,
-                    length,
-                    by,
-                    YAXIS,
-                    this.materialGenerator
-                )
+                const result = FacePrimitive.fromLengthAndHeight(matrix, length, by, YAXIS, this.materialGenerator)
                 if (by < 0) {
                     return result.invert()
                 }
@@ -635,7 +629,7 @@ export class ObjectPrimitive extends Primitive {
 function getLocalBoundingBox(object: Object3D, target?: Box3): Box3 {
     target = target ?? new Box3()
     if (object instanceof Mesh) {
-        ;(object.geometry as BufferGeometry).computeBoundingBox()
+        (object.geometry as BufferGeometry).computeBoundingBox()
         target.copy((object.geometry as BufferGeometry).boundingBox!)
     } else {
         target.makeEmpty()
