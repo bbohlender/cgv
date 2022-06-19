@@ -43,6 +43,7 @@ export async function replace<T, A>(
         ({ grammar: draft, selectionsList: newSelections }) =>
             replaceOnDraft(valueMap, selectionsList, patterns, selectCondition, replaceWith, draft, newSelections)
     )
+
     return {
         ...partial,
         dependencyMap: computeDependencies(partial.grammar),

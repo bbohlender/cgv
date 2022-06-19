@@ -1,55 +1,81 @@
-import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
+import { ParsedGrammarDefinition, ParsedRandom, ParsedSteps } from "../parser"
 import { combine, isCombineable } from "./combine"
-import { align, NestedGroup, nestGroups } from "./group"
-import { linearize, LinearizedRow, LinearizedStep } from "./linearize"
+import { align, NestedGroup, NestGroupConfig, nestGroups, nestVerticalGroups } from "./group"
+import { combineLinearizationResult, linearize, LinearizedStep } from "./linearize"
 
 export type Horizontal<T> = Array<T>
 export type Vertical<T> = Array<T>
 
-export function translateNestedGroup(group: NestedGroup<ParsedSteps>): ParsedSteps {
+//TODO: if compatible => still possible to be parallel (use algorithm like before)
+
+export function translateNestedGroup(group: NestedGroup<ParsedSteps> | ParsedSteps): ParsedSteps {
     if (!Array.isArray(group)) {
         return group
     }
+    const sequentialSteps = group.map<ParsedSteps>((column) => {
+        const parallelSteps: Array<ParsedSteps> = []
 
-    const sequentialSteps = group.map<ParsedSteps>((vertical) => {
-        const randomGroups: Array<Array<ParsedSteps>> = []
-        const groupProbabilities: Array<Array<number>> = []
+        const workset = new Set(column.vertical)
 
-        let currentIndex = -1
+        let currentRandom: ParsedRandom | undefined
         let currentProbability: number | undefined
 
-        while (vertical.length > 0) {
-            const i = currentProbability == null ? undefined : findBestFitIndex(vertical, currentProbability)
-            const insertIndex = i ?? 0
-            const { group, probability } = vertical[insertIndex]
-            vertical.splice(insertIndex, 1)
-            const step = translateNestedGroup(group)
+        while (workset.size > 0) {
+            const [first] = workset
 
-            if (i == null) {
-                //no best group found => create new group
-                currentIndex++
-                const probabilities: Array<number> = []
-                const steps: Array<ParsedSteps> = []
-                groupProbabilities[currentIndex] = probabilities
-                randomGroups[currentIndex] = steps
+            let row:
+                | {
+                      probability: number
+                      group: ParsedSteps | NestedGroup<ParsedSteps>
+                  }
+                | undefined
 
-                probabilities.push(probability)
-                steps.push(step)
-                currentProbability = probability
-            } else {
-                groupProbabilities[currentIndex].push(probability)
-                randomGroups[currentIndex].push(step)
-                currentProbability = probability + (currentProbability ?? 0)
+            if (
+                column.compatible &&
+                currentRandom != null &&
+                currentProbability != null &&
+                (row = findBestFittingRow(workset, currentProbability)) != null
+            ) {
+                workset.delete(row)
+                currentRandom.children.push(translateNestedGroup(row.group))
+                currentRandom.probabilities.push(row.probability)
+                currentProbability += row.probability
+                continue
             }
+
+            workset.delete(first)
+            const step = translateNestedGroup(first.group)
+
+            if (!column.compatible) {
+                parallelSteps.push(wrapRandom(step, first.probability))
+                currentRandom = undefined
+                currentProbability = undefined
+                continue
+            }
+
+            if (first.probability === 1) {
+                parallelSteps.push(step)
+                currentRandom = undefined
+                currentProbability = undefined
+                continue
+            }
+
+            currentRandom = {
+                type: "random",
+                children: [step],
+                probabilities: [first.probability],
+            }
+            currentProbability = first.probability
+            parallelSteps.push(currentRandom)
         }
 
-        if (randomGroups.length === 1) {
-            return wrapRandom(randomGroups[0], groupProbabilities[0])
+        if (parallelSteps.length === 1) {
+            return parallelSteps[0]
         }
 
         return {
             type: "parallel",
-            children: randomGroups.map((group, i) => wrapRandom(group, groupProbabilities[i])),
+            children: parallelSteps,
         }
     })
 
@@ -67,42 +93,46 @@ export function translateNestedGroup(group: NestedGroup<ParsedSteps>): ParsedSte
     }
 }
 
-function findBestFitIndex(
-    vertical: Vertical<{
+function wrapRandom(step: ParsedSteps, probability: number): ParsedSteps {
+    if (probability == 1) {
+        return step
+    }
+    return { type: "random", children: [step], probabilities: [probability] }
+}
+
+function findBestFittingRow(
+    set: Set<{
         probability: number
-        group: NestedGroup<ParsedSteps>
+        group: ParsedSteps | NestedGroup<ParsedSteps>
     }>,
     probability: number
-): number | undefined {
+):
+    | {
+          probability: number
+          group: ParsedSteps | NestedGroup<ParsedSteps>
+      }
+    | undefined {
     if (probability === 1) {
         return undefined //short cut so we don't have to loop
     }
     const searchFor = 1 - probability
-    let bestIndex: number | undefined = undefined
-    let bestRestProbability: number | undefined = undefined
-    for (let i = 0; i < vertical.length; i++) {
-        const restProbability = vertical[i].probability % 1
-        if (restProbability > searchFor) {
+    let best:
+        | {
+              probability: number
+              group: ParsedSteps | NestedGroup<ParsedSteps>
+          }
+        | undefined
+    let highestFittingProbability: number | undefined = undefined
+    for (const entry of set) {
+        if (entry.probability > searchFor) {
             continue
         }
-        if (bestRestProbability == null || restProbability > bestRestProbability) {
-            bestRestProbability = restProbability
-            bestIndex = i
+        if (highestFittingProbability == null || entry.probability > highestFittingProbability) {
+            highestFittingProbability = entry.probability
+            best = entry
         }
     }
-    return bestIndex
-}
-
-function wrapRandom(steps: Array<ParsedSteps>, probabilies: Array<number>): ParsedSteps {
-    if (probabilies.length === 1 && probabilies[0] === 1) {
-        return steps[0]
-    }
-    return { type: "random", children: steps, probabilities: probabilies }
-}
-
-export function splitFilter(grid: Vertical<LinearizedRow>): NestedGroup<ParsedSteps> {
-    //TODO
-    throw new Error("method not implemented")
+    return best
 }
 
 /**
@@ -110,17 +140,27 @@ export function splitFilter(grid: Vertical<LinearizedRow>): NestedGroup<ParsedSt
  */
 export function summarizeSteps(steps: Array<ParsedSteps>, probabilities?: Array<number>): ParsedSteps {
     const p = probabilities ?? new Array(steps.length).fill(1 / steps.length)
-    const rows = steps.reduce<Array<LinearizedRow>>((prev, step, i) => prev.concat(linearize(step, p[i])), [])
-    const grid = align<LinearizedStep>(rows, () => ({ type: "this" }), isCombineable)
-    const nestedGroups = nestGroups<LinearizedStep, ParsedSteps>(
-        grid,
-        isCombineable,
-        combine,
-        (step) => step.type != "this",
-        () => ({ type: "this" })
-    )
+    const { seperationMatrix, vertical } = steps
+        .map((step, i) => linearize(step, p[i]))
+        .reduce((prev, result) => combineLinearizationResult(prev, result, true))
+    const grid = align<LinearizedStep>(vertical, () => ({ type: "this" }), isCombineable)
+    const config: NestGroupConfig<LinearizedStep, ParsedSteps> = {
+        rows: grid,
+        combineGroup: combine,
+        customNestVerticalGroups: nestVerticalGroups,
+        filter: (step) => step.type != "this",
+        isSameInGroup: isCombineable,
+        minRowSimilarity: 0.3,
+        rowsCombineableMatrix: seperationMatrix,
+    }
+
+    const nestedGroups = nestGroups(config)
     return translateNestedGroup(nestedGroups)
 }
+
+/*const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps> = () => {
+    throw new Error("method not implemented")
+}*/
 
 //TODO: keep grammar symbol names
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {

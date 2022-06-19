@@ -1,7 +1,9 @@
 import { diffArrays } from "diff"
-import { Horizontal, Vertical } from "."
+import { Horizontal, Vertical } from ".."
 
-export type Row<T> = { probability: number; horizontal: Horizontal<T> }
+export type Row<T> = { probability: number; horizontal: Array<T> }
+
+export type Column<T> = { compatible: boolean; vertical: Array<T> }
 
 export function align<T>(
     rows: Array<Row<T>>,
@@ -43,319 +45,388 @@ export function align<T>(
     return aligned
 }
 
-export type NestedGroup<T> =
-    | Horizontal<
-          Vertical<{
-              probability: number
-              group: NestedGroup<T>
-          }>
-      >
-    | T
+export type NestedGroup<T> = Horizontal<
+    Column<{
+        probability: number
+        group: NestedGroup<T> | T
+    }>
+>
 
-export function nestGroups<T, K>(
-    rows: Array<Row<T>>,
-    isSameInGroup: (v1: T, v2: T) => boolean,
-    rowsCombineableMatrix: Array<Array<boolean>>,
-    combineGroup: (values: Vertical<{ probability: number; value: T }>) => K,
-    filter: (val: K) => boolean,
-    generateNeutral: () => K,
-    xStart = 0,
-    xEnd = rows[0].horizontal.length,
-    yList = new Array(rows.length).fill(undefined).map<number>((_, i) => i),
-    probability = 1
-): NestedGroup<K> {
-    const sumProbability = yList.reduce<number>((prev, y) => prev + rows[y].probability, 0) * probability
-
-    if (sumProbability > 1 && yList.length > 1) {
-        return [
-            splitHorizontal(
-                rows,
-                isSameInGroup,
-                rowsCombineableMatrix,
-                combineGroup,
-                filter,
-                generateNeutral,
-                xStart,
-                xEnd,
-                yList,
-                probability
-            ),
-        ]
-    }
-
-    const horizontal: NestedGroup<K> = []
-    let mismatchStart: number | undefined
-    for (let x = xStart; x < xEnd; x++) {
-        const currentInGroup: boolean = isColumnInGroup(rows, isSameInGroup, x, yList)
-        if (currentInGroup) {
-            if (mismatchStart != null) {
-                horizontal.push(
-                    splitHorizontal(
-                        rows,
-                        isSameInGroup,
-                        rowsCombineableMatrix,
-                        combineGroup,
-                        filter,
-                        generateNeutral,
-                        mismatchStart,
-                        xEnd,
-                        yList,
-                        probability
-                    )
-                )
-            }
-            horizontal.push([
-                {
-                    group: combineGroup(
-                        yList.map((y) => ({
-                            value: rows[y].horizontal[x],
-                            probability: rows[y].probability / sumProbability,
-                        }))
-                    ),
-                    probability: sumProbability,
-                },
-            ])
-            mismatchStart = undefined
-        } else if (mismatchStart == null) {
-            mismatchStart = x
-        }
-    }
-    if (mismatchStart != null) {
-        horizontal.push(
-            splitHorizontal(
-                rows,
-                isSameInGroup,
-                rowsCombineableMatrix,
-                combineGroup,
-                filter,
-                generateNeutral,
-                mismatchStart,
-                xEnd,
-                yList,
-                probability
-            )
-        )
-    }
-    const flattened = flattenVerticalSplits(horizontal, filter)
-    if (flattened.length === 0) {
-        const neutral = generateNeutral()
-        return probability === 1 ? neutral : [[{ group: neutral, probability: sumProbability }]]
-    }
-    return flattened
-}
-
-function isColumnInGroup<T>(
-    rows: Array<Row<T>>,
-    isSameInGroup: (v1: T, v2: T) => boolean,
-    x: number,
-    yList: Array<number>
-): boolean {
-    let prev: T | undefined
-    for (const y of yList) {
-        const value = rows[y].horizontal[x]
-        if (prev != null && !isSameInGroup(prev, value)) {
-            return false
-        }
-        prev = value
-    }
-    return true
-}
-
-function splitHorizontal<T, K>(
-    rows: Array<Row<T>>,
-    isSameInGroup: (v1: T, v2: T) => boolean,
-    rowsCombineableMatrix: Array<Array<boolean>>,
-    combineGroup: (values: Vertical<{ probability: number; value: T }>) => K,
-    filter: (val: K) => boolean,
-    generateNeutral: () => K,
+export type NestVerticalGroups<T, K> = (
+    config: NestGroupConfig<T, K>,
     xStart: number,
     xEnd: number,
     yList: Array<number>,
     probability: number
-): Vertical<{
+) => NestedGroup<K>
+
+export type NestGroupConfig<T, K> = {
+    rows: Array<Row<T>>
+    isSameInGroup: (v1: T, v2: T) => boolean
+    combineGroup: (
+        vertical: Vertical<{
+            value: T
+            probability: number
+        }>
+    ) => K
+    rowsCombineableMatrix: Array<Array<boolean>>
+    filter: (val: T | K) => boolean
+    customNestVerticalGroups: NestVerticalGroups<T, K>
+    minRowSimilarity: number //0: very much random but unstructured, 1: no random but very structured, 0.5: half of the steps must be equal to be stochastically mixed
+}
+
+class SimilarityMatrix {
+    private matrix: Array<Array<number>> = []
+
+    set(x: number, y: number, similarity: number): void {
+        if (y > x) {
+            const temp = y
+            y = x
+            x = temp
+        }
+        let row = this.matrix[y]
+        if (row == null) {
+            row = []
+            this.matrix[y] = row
+        }
+        row[x] = similarity
+    }
+
+    get(x: number, y: number): number {
+        if (y > x) {
+            const temp = y
+            y = x
+            x = temp
+        }
+        return this.matrix[y][x]
+    }
+}
+
+export function nestGroups<T, K>(
+    config: NestGroupConfig<T, K>,
+    xStart = 0,
+    xEnd = config.rows[0].horizontal.length,
+    yList = new Array(config.rows.length).fill(undefined).map<number>((_, i) => i),
+    probability = 1
+): NestedGroup<K> {
+    if (yList.length === 0) {
+        throw new Error("unable to nest group with a height 0 zero (yList.length == 0)")
+    }
+
+    if (yList.length === 1) {
+        return flattenVerticalSplits(
+            config.customNestVerticalGroups(config, xStart, xEnd, yList, probability),
+            config.filter
+        )
+    }
+
+    //get lowest row similarity & index
+    let lowestRowSimilarityIndex1: number | undefined
+    let lowestRowSimilarityIndex2: number | undefined
+    let lowestRowSimilarity: number | undefined
+    const rowSimilarityMatrix = new SimilarityMatrix()
+    for (const y1 of yList) {
+        for (const y2 of yList) {
+            if (y2 <= y1) {
+                continue
+            }
+            const similarity = rowSimilarity(config, probability, xStart, xEnd, y1, y2) //making sure we split where rows are incompatible and unsimilar
+            rowSimilarityMatrix.set(y1, y2, similarity)
+            if (lowestRowSimilarity == null || similarity < lowestRowSimilarity) {
+                lowestRowSimilarityIndex1 = y1
+                lowestRowSimilarityIndex2 = y2
+                lowestRowSimilarity = similarity
+            }
+        }
+    }
+
+    if (lowestRowSimilarity! < config.minRowSimilarity) {
+        return [
+            flattenHorizontalSplits(
+                splitHorizontal(
+                    config,
+                    rowSimilarityMatrix,
+                    lowestRowSimilarityIndex1!,
+                    lowestRowSimilarityIndex2!,
+                    lowestRowSimilarity! >= 0,
+                    xStart,
+                    xEnd,
+                    yList,
+                    probability
+                )
+            ),
+        ]
+    } else {
+        return flattenVerticalSplits(
+            config.customNestVerticalGroups(config, xStart, xEnd, yList, probability),
+            config.filter
+        )
+    }
+}
+
+export function nestVerticalGroups<T, K>(
+    config: NestGroupConfig<T, K>,
+    xStart: number,
+    xEnd: number,
+    yList: Array<number>,
+    probability: number
+) {
+    if (xEnd - xStart <= 0) {
+        throw new Error("unable to nest vertical groups with with <= 0")
+    }
+
+    let leastGroupsInColumn = groupVertical(config, xStart, yList)
+    let leastGroupsInColumnX = xStart
+    for (let x = xStart + 1; x < xEnd; x++) {
+        const groups = groupVertical(config, x, yList)
+        if (groups.length < leastGroupsInColumn.length) {
+            leastGroupsInColumn = groups
+            leastGroupsInColumnX = x
+        }
+    }
+
+    const result: NestedGroup<K> = []
+
+    if (leastGroupsInColumnX - xStart > 0) {
+        result.push(...nestGroups(config, xStart, leastGroupsInColumnX, yList, probability))
+    }
+
+    const column: Column<{
+        probability: number
+        group: NestedGroup<K> | K
+    }> = {
+        compatible: true,
+        vertical: [],
+    }
+    result.push(column)
+    for (const group of leastGroupsInColumn) {
+        const probabilitySum = group.reduce((prev, y) => prev + config.rows[y].probability, 0)
+        const parentProbability = probabilitySum * probability
+        column.vertical.push({
+            group: config.combineGroup(
+                group.map((y) => ({
+                    value: config.rows[y].horizontal[leastGroupsInColumnX],
+                    probability: config.rows[y].probability / parentProbability,
+                }))
+            ),
+            probability: parentProbability,
+        })
+    }
+
+    if (xEnd - (leastGroupsInColumnX + 1) > 0) {
+        result.push(...nestGroups(config, leastGroupsInColumnX + 1, xEnd, yList, probability))
+    }
+
+    return result
+}
+
+function groupVertical<T>(config: NestGroupConfig<T, any>, x: number, yList: Array<number>): Array<Array<number>> {
+    const groups: Array<Array<number>> = []
+    for (const y of yList) {
+        let group = groups.find((group) =>
+            config.isSameInGroup(config.rows[group[0]].horizontal[x], config.rows[y].horizontal[x])
+        )
+        if (group == null) {
+            group = []
+            groups.push(group)
+        }
+        group.push(y)
+    }
+    return groups
+}
+
+function splitHorizontal<T, K>(
+    config: NestGroupConfig<T, K>,
+    rowSimilarityMatrix: SimilarityMatrix,
+    y1: number,
+    y2: number,
+    compatible: boolean,
+    xStart: number,
+    xEnd: number,
+    yList: Array<number>,
+    probability: number
+): Column<{
     probability: number
     group: NestedGroup<K>
 }> {
-    //find best horizontal split (find 2 rows w. biggest distance => group based on the two rows) => horizontal split => repeat
-    let currentY1 = yList[0]
-    let currentY2 = yList[1]
-    let highestDistance = 0
-    for (const y1 of yList) {
-        for (const y2 of yList) {
-            if (y2 >= y1) {
-                continue
-            }
-            const distance = rowDistance(rows, isSameInGroup, rowsCombineableMatrix, xStart, xEnd, y1, y2)
-            if (distance > highestDistance) {
-                currentY1 = y1
-                currentY2 = y2
-                highestDistance = distance
-            }
-        }
-    }
+    const yList1 = [y1]
+    const yList2 = [y2]
 
-    const yList1 = [currentY1]
-    const yList2 = [currentY2]
+    const workset = new Set(yList)
+    workset.delete(y1)
+    workset.delete(y2)
 
-    let probabilitySum1 = rows[currentY1].probability
-    let probabilitySum2 = rows[currentY2].probability
+    let probabilitySum1 = config.rows[y1].probability
+    let probabilitySum2 = config.rows[y2].probability
 
-    for (const y of yList) {
-        if (y === currentY1 || y === currentY2) {
-            continue
-        }
-        const probability = rows[y].probability
-        const d1 = rowDistance(rows, isSameInGroup, rowsCombineableMatrix, xStart, xEnd, currentY1, y)
-        const d2 = rowDistance(rows, isSameInGroup, rowsCombineableMatrix, xStart, xEnd, currentY2, y)
+    //the following maximizes the similarity per group
+    while (workset.size > 0) {
+        const { similarity: s1, y: y1 } = getHighestAvgSimilarity(yList1, workset, rowSimilarityMatrix)
+        const { similarity: s2, y: y2 } = getHighestAvgSimilarity(yList2, workset, rowSimilarityMatrix)
 
-        if (d1 < d2) {
-            yList1.push(y)
-            probabilitySum1 += probability
+        if (s1 >= s2) {
+            yList1.push(y1)
+            workset.delete(y1)
+            probabilitySum1 += config.rows[y1].probability
         } else {
-            yList2.push(y)
-            probabilitySum2 += probability
+            yList2.push(y2)
+            workset.delete(y2)
+            probabilitySum2 += config.rows[y2].probability
         }
     }
+    yList1.sort()
+    yList2.sort()
 
-    let childP1 = probability
-    let childP2 = probability
+    const { child: childP1, parent: parentP1 } = calculateHierachicalProbability(probabilitySum1, probability)
+    const { child: childP2, parent: parentP2 } = calculateHierachicalProbability(probabilitySum2, probability)
 
-    let parentP1 = 1
-    let parentP2 = 1
-
-    if (probability * (probabilitySum1 + probabilitySum2) <= 1) {
-        childP1 = 1 / (probabilitySum1 * probability)
-        childP2 = 1 / (probabilitySum2 * probability)
-
-        parentP1 = probabilitySum1 * probability
-        parentP2 = probabilitySum2 * probability
+    return {
+        compatible,
+        vertical: [
+            {
+                group: nestGroups(config, xStart, xEnd, yList1, childP1),
+                probability: parentP1,
+            },
+            {
+                group: nestGroups(config, xStart, xEnd, yList2, childP2),
+                probability: parentP2,
+            },
+        ],
     }
-
-    return flattenHorizontalSplits([
-        {
-            group: nestGroups(
-                rows,
-                isSameInGroup,
-                rowsCombineableMatrix,
-                combineGroup,
-                filter,
-                generateNeutral,
-                xStart,
-                xEnd,
-                yList1,
-                childP1
-            ),
-            probability: parentP1,
-        },
-        {
-            group: nestGroups(
-                rows,
-                isSameInGroup,
-                rowsCombineableMatrix,
-                combineGroup,
-                filter,
-                generateNeutral,
-                xStart,
-                xEnd,
-                yList2,
-                childP2
-            ),
-            probability: parentP2,
-        },
-    ])
 }
 
-function rowDistance<T>(
-    rows: Array<Row<T>>,
-    isSameInGroup: (v1: T, v2: T) => boolean,
-    rowsCombineableMatrix: Array<Array<boolean>>,
+function getHighestAvgSimilarity(
+    yList: Array<number>,
+    searchSet: Set<number>,
+    rowSimilarityMatrix: SimilarityMatrix
+): { similarity: number; y: number } {
+    let maxAvgSimilarity: number | undefined
+    let maxAvgSimilarityY: number | undefined
+    for (const y1 of searchSet) {
+        let avgSimilarity = 0
+        for (const y2 of yList) {
+            avgSimilarity += rowSimilarityMatrix.get(y1, y2)
+        }
+        avgSimilarity /= yList.length
+        if (maxAvgSimilarity == null || avgSimilarity > maxAvgSimilarity) {
+            maxAvgSimilarity = avgSimilarity
+            maxAvgSimilarityY = y1
+        }
+    }
+    return {
+        similarity: maxAvgSimilarity!,
+        y: maxAvgSimilarityY!,
+    }
+}
+
+function calculateHierachicalProbability(sum: number, probability: number): { parent: number; child: number } {
+    if (probability * sum <= 1) {
+        return {
+            parent: sum * probability,
+            child: 1 / sum,
+        }
+    }
+    return {
+        parent: 1,
+        child: probability,
+    }
+}
+
+/**
+ * @returns value between 0 and 1 expressing the similarity
+ */
+function rowSimilarity<T>(
+    config: NestGroupConfig<T, any>,
+    probability: number,
     xStart: number,
     xEnd: number,
     y1: number,
     y2: number
 ): number {
-    if (!rowsCombineableMatrix[y1][y2]) {
-        return xEnd - xStart //max length
-    }
-    const sumProbability = rows[y1].probability + rows[y2].probability
-    if (sumProbability > 1) {
-        return xEnd - xStart //max length
-    }
-    let different = 0
+    let similarity = 0
+    let length = 0
     for (let x = xStart; x < xEnd; x++) {
-        if (!isSameInGroup(rows[y1].horizontal[x], rows[y2].horizontal[x])) {
-            ++different
+        const v1 = config.rows[y1].horizontal[x]
+        const v2 = config.rows[y2].horizontal[x]
+        if (!config.filter(v1) && !config.filter(v2)) {
+            continue
+        }
+        ++length
+        if (config.isSameInGroup(v1, v2)) {
+            similarity++
         }
     }
-    return different
+
+    if (length === 0) {
+        similarity = 1 //only "this" is very similar
+    } else {
+        similarity /= length
+    }
+
+    if (!config.rowsCombineableMatrix[y1][y2]) {
+        similarity = -3 //similarity can now only be between -3 and -2 => which should be smaller then minRowSimilarity => leads to a horizontal split until no incompatibilities left
+    } else if ((config.rows[y1].probability + config.rows[y2].probability) * probability > 1) {
+        similarity = -1.5 //same for here only that the range is in between -1.5 and -0.5
+    }
+
+    return similarity
 }
 
 function flattenHorizontalSplits<T>(
-    vertical: Vertical<{
+    column: Column<{
         probability: number
-        group: NestedGroup<T>
+        group: NestedGroup<T> | T
     }>,
     parentProbability = 1
-): Vertical<{
+): Column<{
     probability: number
-    group: NestedGroup<T>
+    group: NestedGroup<T> | T
 }> {
-    return vertical.reduce<
-        Vertical<{
-            probability: number
-            group: NestedGroup<T>
-        }>
-    >((prev, { group, probability: groupProbability }) => {
-        const probability = groupProbability * parentProbability
-        if (Array.isArray(group) && group.length === 1) {
-            return prev.concat(flattenHorizontalSplits(group[0], probability))
-        }
-        return prev.concat({
-            group,
-            probability,
-        })
-    }, [])
+    return {
+        vertical: column.vertical.reduce<
+            Vertical<{
+                probability: number
+                group: NestedGroup<T> | T
+            }>
+        >((prev, { group, probability: groupProbability }) => {
+            const probability = groupProbability * parentProbability
+            if (Array.isArray(group) && group.length === 1 && group[0].compatible === column.compatible) {
+                return prev.concat(flattenHorizontalSplits(group[0], probability).vertical)
+            }
+            return prev.concat({
+                group,
+                probability,
+            })
+        }, []),
+        compatible: column.compatible,
+    }
 }
 
 function flattenVerticalSplits<T>(
-    group: Horizontal<
-        Vertical<{
-            probability: number
-            group: NestedGroup<T>
-        }>
-    >,
+    group: NestedGroup<T>,
     filter: (value: T) => boolean,
     parentProbability = 1
-): Horizontal<
-    Vertical<{
-        probability: number
-        group: NestedGroup<T>
-    }>
-> {
-    return group.reduce<
-        Horizontal<
-            Vertical<{
-                probability: number
-                group: NestedGroup<T>
-            }>
-        >
-    >((prev, vertical) => {
-        if (vertical.length === 1) {
-            const { group, probability: groupProbability } = vertical[0]
+): NestedGroup<T> {
+    return group.reduce<NestedGroup<T>>((prev, column) => {
+        if (column.vertical.length === 1) {
+            const { group, probability: groupProbability } = column.vertical[0]
             if (Array.isArray(group)) {
                 const probability = groupProbability * parentProbability
-                return [...prev, ...flattenVerticalSplits(group, filter, probability)]
-            }
-            if (!filter(group)) {
+                const flattened = flattenVerticalSplits(group, filter, probability)
+                return [...prev, ...flattened]
+            } else if (!filter(group)) {
                 return prev
             }
         }
         return [
             ...prev,
-            vertical.map(({ group, probability: groupProbability }) => ({
-                group,
-                probability: groupProbability * parentProbability,
-            })),
+            {
+                vertical: column.vertical.map(({ group, probability: groupProbability }) => ({
+                    group,
+                    probability: groupProbability * parentProbability,
+                })),
+                compatible: column.compatible,
+            },
         ]
     }, [])
 }

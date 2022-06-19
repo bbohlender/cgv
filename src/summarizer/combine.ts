@@ -1,6 +1,5 @@
-import { Horizontal, summarizeSteps, Vertical } from "."
+import { summarizeSteps, Vertical } from "."
 import { ParsedSteps } from "../parser"
-import { Row } from "./group"
 import { LinearizedStep } from "./linearize"
 
 export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {

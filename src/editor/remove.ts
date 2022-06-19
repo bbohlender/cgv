@@ -101,7 +101,7 @@ function simplifyStepOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSte
 }
 
 function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {
-    if (step.type === "if" && step.children[1].type === "this" && step.children[1].type === "this") {
+    if (step.type === "if" && step.children[1].type === "this" && step.children[2].type === "this") {
         return { type: "this" }
     }
     if ((step.type === "parallel" || step.type === "sequential") && step.children.length === 1) {

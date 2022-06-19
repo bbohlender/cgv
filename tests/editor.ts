@@ -401,7 +401,7 @@ describe("editor", () => {
     })
 
     it("should remove step with selection", async () => {
-        const inputGrammar = toHierarchical(parseDescription(`a --> 1 | b * 2 -> this + 3\nb --> 2`, "test"))
+        const inputGrammar = toHierarchical(parseDescription(`a --> this | b * 2 -> this + 3\nb --> 2`, "test"))
         const [v1, v2] = [mockValue([0]), mockValue([2, 1])]
         const { grammar } = await removeStep(
             {
@@ -423,7 +423,7 @@ describe("editor", () => {
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a --> if id( ) == "0" then { null } else { 1 } | b * 2 -> this + 3\nb --> 2`
+            `a --> if id( ) == "0" then { null } else { this } | b * 2 -> this + 3\nb --> 2`
         )
     })
 
@@ -512,7 +512,7 @@ describe("editor", () => {
         )
         expect(() => validateHierarchical(grammar)).to.not.throw()
         expect(serializeString(grammar, localizeStepsSerializer.bind(null, "test"))).to.equal(
-            `a --> 1 | b * if true then { null } else { 3 } -> this + 3\nb --> 2`
+            `a --> 1 | b * if true then { this } else { 3 } -> this + 3\nb --> 2`
         )
     })
 
