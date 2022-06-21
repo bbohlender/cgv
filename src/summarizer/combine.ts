@@ -1,6 +1,7 @@
 import { Horizontal, summarizeLinearization, Vertical } from "."
-import { ParsedSteps } from "../parser"
+import { AbstractParsedNoun, ParsedSteps } from "../parser"
 import { filterNull } from "../util"
+import { NestGroupConfig } from "./group"
 import { combineLinearizationResult, LinearizationResult, LinearizedStep } from "./linearize"
 
 export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
@@ -22,7 +23,10 @@ export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
     }
 }
 
-export function combine(vertical: Vertical<{ value: LinearizedStep; probability: number }>): ParsedSteps {
+export function combine(
+    config: NestGroupConfig<LinearizedStep, ParsedSteps>,
+    vertical: Vertical<{ value: LinearizedStep; probability: number }>
+): ParsedSteps {
     if (vertical.length === 0) {
         return { type: "this" }
     }
@@ -46,7 +50,8 @@ export function combine(vertical: Vertical<{ value: LinearizedStep; probability:
                         ? undefined
                         : summarizeChildren(
                               vertical.map(({ value }) => (value as typeof firstStep).children),
-                              vertical.map(({ probability }) => probability)
+                              vertical.map(({ probability }) => probability),
+                              config.createNoun
                           ),
             } as ParsedSteps
     }
@@ -54,7 +59,8 @@ export function combine(vertical: Vertical<{ value: LinearizedStep; probability:
 
 function summarizeChildren(
     childrenList: Vertical<Horizontal<LinearizationResult>>,
-    probabilities: Array<number>
+    probabilities: Array<number>,
+    createNoun: (identifier: string) => AbstractParsedNoun<unknown>
 ): Array<ParsedSteps> {
     const length = Math.max(...childrenList.map((a) => a.length))
     return new Array(length).fill(undefined).map<ParsedSteps>((_, x) =>
@@ -69,7 +75,8 @@ function summarizeChildren(
                     return applyProbability(child, probability)
                 })
                 .filter(filterNull)
-                .reduce((prev, current) => combineLinearizationResult(prev, current, true))
+                .reduce((prev, current) => combineLinearizationResult(prev, current, true)),
+            createNoun
         )
     )
 }

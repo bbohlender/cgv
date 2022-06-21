@@ -1,5 +1,5 @@
 import { diffArrays } from "diff"
-import { Horizontal, Vertical } from ".."
+import { AbstractParsedNoun, Horizontal, ParsedSteps, Vertical } from ".."
 
 export type Row<T> = { probability: number; horizontal: Array<T> }
 
@@ -61,9 +61,14 @@ export type NestVerticalGroups<T, K> = (
 ) => NestedGroup<K>
 
 export type NestGroupConfig<T, K> = {
+    /**
+     * TODO: this could be done more generic (related to groups without reference to the "noun" concept)
+     */
+    createNoun: (identifier: string) => AbstractParsedNoun<unknown>
     rows: Array<Row<T>>
     isSameInGroup: (v1: T, v2: T) => boolean
     combineGroup: (
+        config: NestGroupConfig<T, K>,
         vertical: Vertical<{
             value: T
             probability: number
@@ -204,6 +209,7 @@ export function nestVerticalGroups<T, K>(
         const parentProbability = probabilitySum * probability
         column.vertical.push({
             group: config.combineGroup(
+                config,
                 group.map((y) => ({
                     value: config.rows[y].horizontal[leastGroupsInColumnX],
                     probability: config.rows[y].probability / parentProbability,

@@ -44,7 +44,10 @@ describe("align, group and combine matrices", () => {
                 { horizontal: [7, 10, 11, 8], probability: 0.25 },
                 { horizontal: [9, 5, 5, 12], probability: 0.25 },
             ],
-            combineGroup: ([{ value }]) => value,
+            createNoun: () => {
+                throw new Error("unable to create noun")
+            },
+            combineGroup: (config, [{ value }]) => value,
             customNestVerticalGroups: nestVerticalGroups,
             filter: (val) => val != 4,
             isSameInGroup: (v1, v2) => v1 === v2,
@@ -124,7 +127,11 @@ describe("align, group and combine matrices", () => {
                 { horizontal: [18, 20, 21, 24], probability: 0.5 },
                 { horizontal: [8, 10, 11, 16], probability: 0.5 },
             ],
-            combineGroup: ([{ value }]) => Math.floor(value / 2) * 2,
+
+            createNoun: () => {
+                throw new Error("unable to create noun")
+            },
+            combineGroup: (config, [{ value }]) => Math.floor(value / 2) * 2,
             customNestVerticalGroups: nestVerticalGroups,
             filter: (val) => val != 8,
             isSameInGroup: (v1, v2) => Math.floor(v1 / 2) === Math.floor(v2 / 2),
@@ -224,6 +231,7 @@ describe("linearize steps", () => {
                             seperationMatrix: [[true]],
                             vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
                         },
+                        options: 2,
                         values: [true],
                     },
                     { type: "raw", value: 1 },
@@ -240,6 +248,7 @@ describe("linearize steps", () => {
                             seperationMatrix: [[true]],
                             vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
                         },
+                        options: 2,
                         values: [false],
                     },
                     { type: "raw", value: 2 },
@@ -360,6 +369,7 @@ describe("linearize steps", () => {
                             seperationMatrix: [[true]],
                             vertical: [{ horizontal: [{ type: "this" }], probability: 1 }],
                         },
+                        options: 1,
                         values: [0],
                     },
                     {

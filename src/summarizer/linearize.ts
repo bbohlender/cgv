@@ -31,7 +31,7 @@ export type LinearizedStep =
     | ParsedGetVariable
     | ParsedReturn
     | ParsedNull
-    | { type: "filterStart"; condition: LinearizationResult; values: Array<any> }
+    | { type: "filterStart"; condition: LinearizationResult; values: Array<any>; options: number }
     | { type: "filterEnd" }
     | { type: "nounStart"; identifier: string }
     | { type: "nounEnd" }
@@ -141,6 +141,7 @@ function linearizeIf(
                     type: "filterStart",
                     condition: linearize(step.children[0], resolveNoun, 1),
                     values: [true],
+                    options: 2,
                 },
                 ...nextSteps.horizontal,
                 {
@@ -155,6 +156,7 @@ function linearizeIf(
                     type: "filterStart",
                     condition: linearize(step.children[0], resolveNoun, 1),
                     values: [false],
+                    options: 2,
                 },
                 ...nextSteps.horizontal,
                 {
@@ -243,6 +245,7 @@ function linearizeSwitch(
                         type: "filterStart",
                         condition,
                         values: step.cases[i],
+                        options: step.children.length - 1,
                     },
                     ...nextSteps.horizontal,
                     {

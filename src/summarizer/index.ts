@@ -1,6 +1,13 @@
-import { ParsedGrammarDefinition, ParsedRandom, ParsedSteps } from "../parser"
+import { AbstractParsedNoun, ParsedGrammarDefinition, ParsedRandom, ParsedSteps } from "../parser"
 import { combine, isCombineable } from "./combine"
-import { align, NestedGroup, NestGroupConfig, nestGroups, nestVerticalGroups } from "./group"
+import {
+    align,
+    NestedGroup,
+    NestGroupConfig,
+    nestGroups,
+    NestVerticalGroups,
+    nestVerticalGroups as defaultNestVerticalGroups,
+} from "./group"
 import { combineLinearizationResult, LinearizationResult, linearize, LinearizedStep } from "./linearize"
 
 export type Horizontal<T> = Array<T>
@@ -140,9 +147,13 @@ function linearizeSteps(steps: Array<ParsedSteps>, nounResolvers: Array<(identif
         .reduce((prev, result) => combineLinearizationResult(prev, result, true))
 }
 
-export function summarizeLinearization({ seperationMatrix, vertical }: LinearizationResult): ParsedSteps {
+export function summarizeLinearization(
+    { seperationMatrix, vertical }: LinearizationResult,
+    createNoun: (identifier: string) => AbstractParsedNoun<unknown>
+): ParsedSteps {
     const grid = align<LinearizedStep>(vertical, () => ({ type: "this" }), isCombineable)
     const config: NestGroupConfig<LinearizedStep, ParsedSteps> = {
+        createNoun,
         rows: grid,
         combineGroup: combine,
         customNestVerticalGroups: nestVerticalGroups,
@@ -161,22 +172,120 @@ export function summarizeLinearization({ seperationMatrix, vertical }: Lineariza
  */
 export function summarizeSteps(
     steps: Array<ParsedSteps>,
+    createNoun: (identifier: string) => AbstractParsedNoun<unknown>,
     nounResolvers: Array<(identifier: string) => ParsedSteps>
 ): ParsedSteps {
-    return summarizeLinearization(linearizeSteps(steps, nounResolvers))
+    return summarizeLinearization(linearizeSteps(steps, nounResolvers), createNoun)
 }
 
-/*const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps> = () => {
-    throw new Error("method not implemented")
-}*/
+const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps> = (
+    config,
+    xStart,
+    xEnd,
+    yList,
+    probability
+) => {
+    //find first occurance in columns of filter / noun
+    let xStartSubsection: number | undefined
+    let startStep:
+        | { type: "filterStart"; condition: LinearizationResult; values: Array<any> }
+        | { type: "nounStart"; identifier: string }
+        | undefined
+    outer: for (let x = xStart; x < xEnd; x++) {
+        for (const y of yList) {
+            const step = config.rows[y].horizontal[x]
+            if (step.type === "filterStart" || step.type === "nounStart") {
+                xStartSubsection = x
+                startStep = step
+                break outer
+            }
+        }
+    }
 
-//function findFirstColumn(): number {}
-//TODO: multiply probability of the children of conditional steps with amount of filter outputs (for "if" that would be 2)
+    if (xStartSubsection == null || startStep == null) {
+        return defaultNestVerticalGroups(config, xStart, xEnd, yList, probability)
+    }
+
+    const result: NestedGroup<ParsedSteps> = []
+
+    if (xStartSubsection - xStart > 0) {
+        result.push(...nestGroups(config, xStart, xStartSubsection, yList, probability))
+    }
+
+    //beginning from that index search for a place where every start has an end (counted per row)
+    let xEndSubsection = xStartSubsection
+    const startEndRelations = new Array(yList.length).fill(0)
+    let allZero = false
+    while (!allZero && xEndSubsection < xEnd) {
+        allZero = true
+        for (const y of yList) {
+            const step = config.rows[y].horizontal[xEndSubsection]
+            if (step.type === "filterStart" || step.type === "nounStart") {
+                startEndRelations[y]++
+            } else if (step.type === "filterEnd" || step.type === "nounEnd") {
+                startEndRelations[y]--
+            }
+            if (startEndRelations[y] !== 0) {
+                allZero = false
+            }
+        }
+        xEndSubsection++
+    }
+
+    //replace filterStart & respective filterEnd with "this"
+
+    const newConfig = {
+        rows,
+        ...config,
+    }
+
+    if (startStep.type === "filterStart") {
+        const valueGroups: Array<{ values: Array<any>; yList: Array<number> }> = []
+        //TODO: group by values
+        //TODO: multiply probability of the children of conditional steps with amount of filter outputs (for "if" that would be 2)
+    } else {
+        const noun = config.createNoun(startStep.identifier)
+        noun.step = translateNestedGroup(nestGroups(newConfig))
+        result.push({
+            compatible: true,
+            vertical: [
+                {
+                    group: {
+                        type: "symbol",
+                        identifier: noun.name,
+                    },
+                    probability,
+                },
+            ],
+        })
+    }
+
+    if (xEnd - (xEndSubsection + 1) > 0) {
+        result.push(...nestGroups(config, xEndSubsection + 1, xEnd, yList, probability))
+    }
+
+    return result
+}
 
 export function summarize(...descriptions: Array<ParsedGrammarDefinition>): ParsedGrammarDefinition {
-    const name = descriptions[0][0].name
-    const step = summarizeSteps(
+    const result: ParsedGrammarDefinition = []
+    const firstRootNode = descriptions[0][0]
+    const newNode: AbstractParsedNoun<unknown> = {
+        name: firstRootNode.name,
+        step: { type: "this" },
+    }
+    result.push(newNode)
+    newNode.step = summarizeSteps(
         descriptions.map((description) => description[0].step),
+        (identifier) => {
+            const name = findFreeName(identifier, result)
+            const noun: AbstractParsedNoun<unknown> = {
+                name,
+                step: { type: "this" },
+            }
+            result.push(noun)
+            return noun
+        },
         descriptions.map((description) => (identifier) => {
             const noun = description.find(({ name }) => identifier === name)
             if (noun == null) {
@@ -185,10 +294,14 @@ export function summarize(...descriptions: Array<ParsedGrammarDefinition>): Pars
             return noun.step
         })
     )
-    return [
-        {
-            name,
-            step,
-        },
-    ]
+    return result
+}
+
+function findFreeName(identifier: string, description: ParsedGrammarDefinition): string {
+    for (const { name } of description) {
+        if (name === identifier) {
+            return findFreeName(`${identifier}'`, description)
+        }
+    }
+    return identifier
 }
