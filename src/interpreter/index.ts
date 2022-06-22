@@ -4,6 +4,7 @@ import {
     EMPTY,
     filter,
     groupBy,
+    GroupedObservable,
     map,
     merge,
     mergeMap,
@@ -124,6 +125,9 @@ export type InterpreterOptions<T, A, I> = Readonly<{
     maxSymbolDepth?: number
     annotateBeforeStep?: (value: Value<T, A>, step: AbstractParsedSteps<I>) => A
     annotateAfterStep?: (value: Value<T, A>, step: AbstractParsedSteps<I>) => A
+    listeners?: {
+        onRandom: (step: ParsedRandom, inputValueIndex: Array<number>, childStepIndex: number) => void
+    }
 }>
 
 type InterpretionContext<T, A, I> = Readonly<
@@ -488,6 +492,17 @@ function interpreteRandom<T, A, I>(
     next: MonoTypeOperatorFunction<Value<T, A>>
 ): MonoTypeOperatorFunction<Value<T, A>> {
     const options = step.children.map((child) => interpreteStep(child, context, next))
+
+    let pipeToOut: OperatorFunction<GroupedObservable<number, Value<T, A>>, Value<T, A>>
+    if (context.listeners?.onRandom != null) {
+        const onRandom = context.listeners.onRandom
+        pipeToOut = mergeMap((group) =>
+            group.pipe(tap({ next: (value) => onRandom(step, value.index, group.key) }), options[group.key])
+        )
+    } else {
+        pipeToOut = mergeMap((value) => value.pipe(options[value.key]))
+    }
+
     return (input) =>
         input.pipe(
             groupBy((value) => {
@@ -501,7 +516,7 @@ function interpreteRandom<T, A, I>(
                 }
                 return step.probabilities.length - 1
             }),
-            mergeMap((value) => value.pipe(options[value.key]))
+            pipeToOut
         )
 }
 

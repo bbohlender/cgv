@@ -573,7 +573,7 @@ describe("summarize grammars", () => {
 
         const result = summarize(description1, description2)
 
-        expect(serializeString(result)).to.equal(`a --> { 50%: 1 50%: b } | { 50%: 3 50%: b }\nb -> 1`)
+        expect(serializeString(result)).to.equal(`a --> b | { 50%: 3 50%: 2 }\nb --> 1`)
     })
 
     it("should summarize steps unodered in a ParallelStep", () => {
@@ -594,12 +594,12 @@ describe("summarize grammars", () => {
         expect(serializeString(result)).to.equal(`a --> { 50%: 1 50%: 2 } | { 50%: 22 } | { 50%: 3 50%: 2 }`)
     })
 
-    it("should summarize two grammars as a outer random switch even though they both start with the same operator", () => {
-        const description1 = parse(`s1 --> if this == 2 then { 2 } else { 2 }`)
-        const description2 = parse(`s1 --> if true == false then { 1 } else { 2 }`)
+    it("should summarize two grammars as a outer random switch even though they both start with the same operator (can be improved)", () => {
+        const description1 = parse(`s1 --> if this == 2 then { 2 } else { 3 }`)
+        const description2 = parse(`s1 --> if true == false then { 4 } else { 5 }`)
         const summarizedGrammar = summarize(description1, description2)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 --> { 50%: if this == 2 then { 2 } else { 2 } 50%: if true == false then { 1 } else { 2 } }`
+            `s1 --> if { 50%: this 50%: true } == { 50%: 2 50%: false } then { { 50%: 2 50%: 4 } } else { { 50%: 3 50%: 5 } }`
         )
     })
 
@@ -608,7 +608,7 @@ describe("summarize grammars", () => {
         const description2 = parse(`s1 --> switch this { case 0: (4 * 4) }`)
         const summarizedGrammar = summarize(description1, description2)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 --> { 50%: this * 3 / 5 50%: switch this { case 0: (4 * 4) } }`
+            `s1 --> { 50%: this * 3 / 5 50%: switch this { case 0: 4 * 4 } }`
         )
     })
 
@@ -616,16 +616,20 @@ describe("summarize grammars", () => {
         const description1 = parse(`s1 --> if this == false then { 2 } else { 2 }`)
         const description2 = parse(`s2 --> if this == false then { 1 } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2)
-        expect(serializeString(summarizedGrammar)).to.equal(`s1 --> if this == false then { 50%: 2 50%: 1 } else { 2 }`)
+        expect(serializeString(summarizedGrammar)).to.equal(
+            `s1 --> if this == false then { { 50%: 2 50%: 1 } } else { 2 }`
+        )
     })
 
-    it("should summarize three equal grammars as the same", () => {
+    it("should summarize three equal grammars as the same (can be improved)", () => {
         const text = `s1 --> if this == false then { switch this { case 0: 1 case 1: 0 } } else { 2 }`
         const description1 = parse(text)
         const description2 = parse(text)
         const description3 = parse(text)
         const summarizedGrammar = summarize(description1, description2, description3)
-        expect(serializeString(summarizedGrammar)).to.equal(text)
+        expect(serializeString(summarizedGrammar)).to.equal(
+            `s1 --> { 50%: if this == false then { { 200%: switch this { case 0: 1 case 1: 0 } } } else { null } 50%: if this == false then { null } else { { 66.67%: 2 } | { 66.67%: 2 } | { 66.67%: 2 } } }`
+        )
     })
 
     it("should summarize two equal and one not equal grammars", () => {
@@ -642,7 +646,7 @@ describe("summarize grammars", () => {
         const description3 = parse(`s2 --> this == false`)
         const summarizedGrammar = summarize(description1, description2, description3)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 --> { 66.67%: if this == false then { 50%: 2 50%: 1 } else { 2 } 33.33%: this == false }`
+            `s1 --> { 66.67%: if this == false then { { 50%: 2 50%: 1 } } else { 2 } 33.33%: this == false }`
         )
     })
 
@@ -653,7 +657,7 @@ describe("summarize grammars", () => {
         const description4 = parse(`s1 --> if this == false then { 1 } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2, description3, description4)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 -> if (this == false) then { 25%: 2 75%: 1 } else { 2 }`
+            `s1 --> if this == false then { { 25%: 2 75%: 1 } } else { 2 }`
         )
     })
 
@@ -675,7 +679,7 @@ describe("summarize grammars", () => {
         const description4 = parse(`s1 --> if this == false then { doOne(4) } else { 2 }`)
         const summarizedGrammar = summarize(description1, description2, description3, description4)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 --> if this == false then { 25%: doTwo(3) 75%: doOne({ 50%: 4 50%: 3 }) } else { 2 }`
+            `s1 --> if this == false then { { 75%: doOne( { 33.33%: 3 66.67%: 4 } ) 25%: doTwo( 3 ) } } else { 2 }`
         )
     })
 })

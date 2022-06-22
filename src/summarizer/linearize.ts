@@ -109,7 +109,7 @@ export function combineLinearizationResult(
     }
 }
 
-function mapLinearizationResult(
+export function mapLinearizationResult(
     result: LinearizationResult,
     map: (row: LinearizedRow) => LinearizedRow
 ): LinearizationResult {

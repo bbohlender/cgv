@@ -1,5 +1,5 @@
 import { diffArrays } from "diff"
-import { AbstractParsedNoun, Horizontal, ParsedSteps, Vertical } from ".."
+import { AbstractParsedNoun, Horizontal, Vertical } from ".."
 
 export type Row<T> = { probability: number; horizontal: Array<T> }
 
@@ -212,7 +212,7 @@ export function nestVerticalGroups<T, K>(
                 config,
                 group.map((y) => ({
                     value: config.rows[y].horizontal[leastGroupsInColumnX],
-                    probability: config.rows[y].probability / parentProbability,
+                    probability: config.rows[y].probability / probabilitySum,
                 }))
             ),
             probability: parentProbability,
@@ -341,7 +341,7 @@ function calculateHierachicalProbability(sum: number, probability: number): { pa
 /**
  * @returns value between 0 and 1 expressing the similarity
  */
-function rowSimilarity<T>(
+export function rowSimilarity<T>(
     config: NestGroupConfig<T, any>,
     probability: number,
     xStart: number,

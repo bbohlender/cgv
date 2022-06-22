@@ -13,11 +13,15 @@ export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
             return typeof s1.values[0] === typeof (s2 as typeof s1).values[0]
         case "setVariable":
         case "operation":
+            return s1.identifier === (s2 as typeof s1).identifier
         case "getVariable":
         case "nounStart":
             return s1.identifier === (s2 as typeof s1).identifier
         case "raw":
             return s1.value === (s2 as typeof s1).value
+        case "filterEnd":
+        case "nounEnd":
+            return true
         default:
             return true
     }

@@ -91,7 +91,7 @@ export function traverseSteps<T>(root: AbstractParsedSteps<T>, cb: (step: Abstra
     }
 }
 
+export * from "./math"
 export * from "./precendence"
 export * from "./hierarchical"
-export * from "./flatten"
 export * from "./description"
