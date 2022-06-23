@@ -2,7 +2,9 @@ import { HTMLProps } from "react"
 import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 import { EyeSlashIcon } from "../icons/eye-slash"
+import { FileCheckIcon } from "../icons/file-check"
 import { PlusIcon } from "../icons/plus"
+import { RandomIcon } from "../icons/random"
 
 export function DescriptionList({
     createDescriptionRequestData,
@@ -37,21 +39,37 @@ export function DescriptionList({
                 </button>
             </div>
             <div className="d-flex flex-column scroll">
-                {descriptions.map((description, i) => (
+                {descriptions.map(({ name, seed }, i) => (
                     <div
-                        onClick={() => store.getState().selectDescription(description)}
-                        key={description}
+                        onClick={() => store.getState().selectDescription(name)}
+                        key={name}
                         className={`pointer py-2 ps-3 pe-2 d-flex flex-row align-items-center border-top border-1 ${
-                            selectedDescription === description ? "bg-primary text-light" : ""
+                            selectedDescription === name ? "border-primary border-3 border" : ""
                         }`}>
                         <span className="overflow-hidden" style={{ textOverflow: "ellipsis" }}>
-                            {description}
+                            {name}
                         </span>
                         <div className="flex-grow-1" />
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
-                                store.getState().deleteDescription(description)
+                                store.getState().concretizeDescription(name, seed)
+                            }}
+                            className={`btn btn-sm`}>
+                            <FileCheckIcon />
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                store.getState().setSeed(name, seed + 1)
+                            }}
+                            className={`btn btn-sm`}>
+                            <RandomIcon />
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                store.getState().deleteDescription(name)
                             }}
                             className={`btn text-danger btn-sm`}>
                             <DeleteIcon />

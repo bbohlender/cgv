@@ -73,33 +73,34 @@ const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new
 export function Descriptions({ x, y }: { x: number; y: number }) {
     const suffix = tileDescriptionSuffix(x, y)
     const descriptions = useBaseStoreState(
-        (state) => state.descriptions.filter((description) => description.endsWith(suffix)),
+        (state) => state.descriptions.filter((description) => description.name.endsWith(suffix)),
         shallowEqual
     )
     return (
         <>
-            {descriptions.map((description) => (
-                <Description key={description} name={description} />
+            {descriptions.map(({ seed, name }) => (
+                <Description seed={seed} key={name} name={name} />
             ))}
         </>
     )
 }
 
-export function Description({ name }: { name: string }) {
+export function Description({ seed, name }: { seed: number; name: string }) {
     const isSelected = useBaseStoreState((state) => state.selectedDescription === name)
     return isSelected ? (
         <>
             <Control />
             <HighlightDescriptions />
-            <SelectedDescription name={name} />
+            <SelectedDescription seed={seed} name={name} />
         </>
     ) : (
-        <UnselectedDescription name={name} />
+        <UnselectedDescription seed={seed} name={name} />
     )
 }
 
 function useSimpleInterpretation(
     description: HierarchicalParsedGrammarDefinition | undefined,
+    seed: number,
     ref: RefObject<ReactNode & Group>
 ) {
     const store = useBaseStore()
@@ -112,6 +113,7 @@ function useSimpleInterpretation(
                 toValue(),
                 interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
                     delay: store.getState().interpretationDelay,
+                    seed,
                 })
             ),
             ref.current,
@@ -128,11 +130,12 @@ function useSimpleInterpretation(
             ref.current?.remove(...ref.current.children)
             subscription.unsubscribe()
         }
-    }, [store, description])
+    }, [store, description, seed])
 }
 
 function useInterpretation(
     description: HierarchicalParsedGrammarDefinition | undefined,
+    seed: number,
     ref: RefObject<ReactNode & Group>
 ) {
     const store = useBaseStore()
@@ -156,6 +159,7 @@ function useInterpretation(
                     toValue(),
                     interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
                         delay: store.getState().interpretationDelay,
+                        seed,
                         //TODO: we need a possibility to know when a value is removed
                         annotateAfterStep: (value, steps) => {
                             const beforeValues = beforeValuesMap.get(steps)
@@ -231,7 +235,7 @@ function useInterpretation(
             subscription?.unsubscribe()
             unsubscribeAfterStep?.unsubscribe()
         }
-    }, [store, description])
+    }, [store, description, seed])
 }
 
 function useLocalDescription(store: UseBaseStore, name: string) {
@@ -241,11 +245,11 @@ function useLocalDescription(store: UseBaseStore, name: string) {
     )
 }
 
-function UnselectedDescription({ name }: { name: string }) {
+function UnselectedDescription({ name, seed }: { seed: number; name: string }) {
     const groupRef = useRef<ReactNode & Group>(null)
     const store = useBaseStore()
     const unselectedDescription = useLocalDescription(store, name)
-    useSimpleInterpretation(unselectedDescription, groupRef)
+    useSimpleInterpretation(unselectedDescription, seed, groupRef)
     return (
         <group
             onClick={(e) => {
@@ -256,11 +260,11 @@ function UnselectedDescription({ name }: { name: string }) {
     )
 }
 
-function SelectedDescription({ name }: { name: string }) {
+function SelectedDescription({ name, seed }: { seed: number; name: string }) {
     const store = useBaseStore()
     const selectedDescription = useLocalDescription(store, name)
     const groupRef = useRef<ReactNode & Group>(null)
-    useInterpretation(selectedDescription, groupRef)
+    useInterpretation(selectedDescription, seed, groupRef)
     if (selectedDescription == null) {
         return null
     }

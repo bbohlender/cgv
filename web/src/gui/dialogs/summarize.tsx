@@ -1,4 +1,11 @@
-import { shallowEqual, summarize } from "cgv"
+import {
+    DependencyMap,
+    globalizeDescription,
+    localizeNoun,
+    ParsedGrammarDefinition,
+    shallowEqual,
+    summarize,
+} from "cgv"
 import { useCallback, useMemo, useState } from "react"
 import { useBaseStore } from "../../global"
 import { CheckIcon } from "../../icons/check"
@@ -51,7 +58,15 @@ export function SummarizeDialog({ fulfill }: { fulfill: (value: any) => void }) 
                 />
                 <button
                     className="d-flex h-100 align-items-center ms-3 btn btn-sm btn-outline-secondary"
-                    onClick={undefined /* TODO: execute summarization */}>
+                    onClick={() => {
+                        const nounName = store.getState().addSummary(selectedNounNames)
+                        if (nounName != null) {
+                            fulfill(() => ({
+                                type: "symbol",
+                                identifier: nounName,
+                            }))
+                        }
+                    }}>
                     <CheckIcon />
                 </button>
                 <button
@@ -66,7 +81,7 @@ export function SummarizeDialog({ fulfill }: { fulfill: (value: any) => void }) 
                         Select All
                     </button>
                     <button className="btn btn-sm btn-outline-secondary" onClick={unselectAll}>
-                        Unselect ALl
+                        Unselect All
                     </button>
                 </div>
                 {filteredNounNames.map((nounName) => {
