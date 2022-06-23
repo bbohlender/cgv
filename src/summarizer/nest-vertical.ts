@@ -32,7 +32,6 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
             const y = yList[i]
             const step = rows[y].horizontal[x]
             if (step.type === "filterStart" || step.type === "nounStart") {
-                console.log(step.type)
                 xStartSubsection = x
                 startEndRelations[i] = 1
                 firstStartStep = step
@@ -71,11 +70,8 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
     const result: NestedGroup<ParsedSteps> = []
 
     if (xStartSubsection - xStart > 0) {
-        checkFilterEnd("noun filter start ", rows, yList, xStart, xStartSubsection)
         result.push(...nestGroups(rows, rowsCombineableMatrix, config, xStart, xStartSubsection, yList, probability))
     }
-
-    console.log(openStart)
 
     //beginning from that index search for a place where every start has an end (counted per row)
     let xEndSubsection = xStartSubsection + 1
@@ -92,7 +88,6 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
             }
             if (startEndRelations[i] === 0) {
                 if (openStart[i]) {
-                    console.log(i)
                     openStart[i] = false
                     newRows[y].horizontal[xEndSubsection] = { type: "this" }
                 }
@@ -169,7 +164,7 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
                     maxValueGroup = group
                 }
             }
-            maxValueGroup!.yList.push(i)
+            maxValueGroup!.yList.push(y1)
             conditions[i] = {
                 vertical: [
                     {
@@ -189,9 +184,6 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
         if (booleanValues) {
             const thenYList = valueGroups.find(({ values }) => values[0] === true)?.yList
             const elseYList = valueGroups.find(({ values }) => values[0] === false)?.yList
-
-            if (thenYList != null) checkFilterEnd("then ", newRows, thenYList, xStartSubsection + 1, xEndSubsection)
-            if (elseYList != null) checkFilterEnd("else ", newRows, elseYList, xStartSubsection + 1, xEndSubsection)
 
             const thenStep: ParsedSteps =
                 thenYList == null
@@ -251,7 +243,6 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
         }
     } else {
         const noun = config.createNoun(firstStartStep.identifier)
-        checkFilterEnd("noun ", newRows, yList, xStartSubsection + 1, xEndSubsection)
         noun.step = translateNestedGroup(
             nestGroups(
                 newRows,
@@ -280,38 +271,8 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
     })
 
     if (xEnd - xEndSubsection > 0) {
-        checkFilterEnd("end ", rows, yList, xEndSubsection, xEnd)
         result.push(...nestGroups(rows, rowsCombineableMatrix, config, xEndSubsection, xEnd, yList, probability))
     }
 
     return result
-}
-
-function checkFilterEnd(
-    prefix: string,
-    rows: Array<Row<LinearizedStep>>,
-    yList: Array<number>,
-    xStart: number,
-    xEnd: number
-) {
-    let allZero = false
-    const startEndRelations: Array<number> = new Array(yList.length).fill(0)
-    for (let x = xStart; x < xEnd; x++) {
-        allZero = true
-        for (let i = 0; i < yList.length; i++) {
-            const y = yList[i]
-            const step = rows[y].horizontal[x]
-            if (step.type === "filterStart" || step.type === "nounStart") {
-                startEndRelations[i]++
-            } else if (step.type === "filterEnd" || step.type === "nounEnd") {
-                startEndRelations[i]--
-            }
-            if (startEndRelations[i] !== 0) {
-                allZero = false
-            }
-        }
-    }
-    if (!allZero) {
-        throw new Error(prefix + JSON.stringify(rows.map((row) => row.horizontal)))
-    }
 }

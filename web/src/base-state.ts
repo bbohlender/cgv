@@ -182,7 +182,7 @@ function createBaseStateFunctions(
             const unhierarchicalDescription =
                 state.type === "gui" ? removeHierarchicalFromDescription(state.grammar) : state.grammar
             const string = serializeString(unhierarchicalDescription, undefined, multilineStringWhitespace)
-            var a = document.createElement("a")
+            const a = document.createElement("a")
             a.href = window.URL.createObjectURL(new Blob([string], { type: "text/plain" }))
             a.download = "descriptions.cgv"
             a.click()
@@ -256,7 +256,7 @@ function createBaseStateFunctions(
             )
         },
         addSummary: (nouns: Array<string>): string | undefined => {
-            let state = get()
+            const state = get()
             if (state.type !== "gui") {
                 return
             }
@@ -264,7 +264,6 @@ function createBaseStateFunctions(
             const descriptions = nouns.map((name) =>
                 localizeDescription(getGlobalDescription(name, state.grammar, dependencyMap), undefined)
             )
-            console.log(descriptions)
             const result = toHierarchical(globalizeDescription(summarize(...descriptions), generateUUID()))
             if (result.length === 0) {
                 return undefined
