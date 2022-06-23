@@ -1,9 +1,53 @@
 import { expect } from "chai"
-import { parse, ParsedSteps, serializeString, summarize, translateNestedGroup, Vertical } from "../src"
-import { align, NestedGroup, NestGroupConfig, nestGroups, nestVerticalGroups } from "../src/summarizer/group"
+import { parse, ParsedSteps, serializeString, summarize, Vertical } from "../src"
+import { abstractNestVerticalGroups } from "../src/summarizer/abstract-nest-vertical"
+import { align, NestedGroup, NestGroupConfig, nestGroups, Row } from "../src/summarizer/group"
 import { linearize, LinearizedRow, LinearizedStep } from "../src/summarizer/linearize"
+import { stepSimilarity } from "../src/summarizer/step-similarity"
+import { translateNestedGroup } from "../src/summarizer/translate-nested"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
-import { isCombineable } from "../src/summarizer/combine"
+
+function rowSimilarity<T>(
+    valueSimilarity: (v1: T, v2: T) => number,
+    minValueSimilarity: number,
+    rows: Array<Row<T>>,
+    rowsCombineableMatrix: Array<Array<boolean>>,
+    config: NestGroupConfig<T, any, unknown>,
+    probability: number,
+    xStart: number,
+    xEnd: number,
+    y1: number,
+    y2: number
+): number {
+    let similarity = 0
+    let length = 0
+    for (let x = xStart; x < xEnd; x++) {
+        const v1 = rows[y1].horizontal[x]
+        const v2 = rows[y2].horizontal[x]
+
+        if (!config.filterValue(v1) && !config.filterValue(v2)) {
+            continue
+        }
+        ++length
+        if (valueSimilarity(v1, v2) >= minValueSimilarity) {
+            similarity++
+        }
+    }
+
+    if (length === 0) {
+        similarity = 1 //only "this" is very similar
+    } else {
+        similarity /= length
+    }
+
+    if (!rowsCombineableMatrix[y1][y2]) {
+        similarity = -3 //similarity can now only be between -3 and -2 => which should be smaller then minRowSimilarity => leads to a horizontal split until no incompatibilities left
+    } else if ((rows[y1].probability + rows[y2].probability) * probability > 1) {
+        similarity = -1.5 //same for here only that the range is in between -1.5 and -0.5
+    }
+
+    return similarity
+}
 
 describe("align, group and combine matrices", () => {
     it("should align a compatible array", () => {
@@ -37,30 +81,40 @@ describe("align, group and combine matrices", () => {
     })
 
     it("should nest groups", () => {
-        const config: NestGroupConfig<number, number> = {
-            rows: [
+        const config: NestGroupConfig<number, number, unknown> = {
+            nestVerticalGroups: (rows, rowsCombineableMatrix, config, xStart, xEnd, yList, probability) =>
+                abstractNestVerticalGroups(
+                    rows,
+                    rowsCombineableMatrix,
+                    (config, [{ value }]) => value,
+                    (v1, v2) => (v1 === v2 ? 1 : 0),
+                    0.3,
+                    config,
+                    xStart,
+                    xEnd,
+                    yList,
+                    probability
+                ),
+            filterValue: (val) => val != 4,
+            minRowSimilarity: 0.3,
+            rowSimilarity: (...params) => rowSimilarity((v1, v2) => (v1 === v2 ? 1 : 0), 0.3, ...params),
+        }
+        const result = nestGroups(
+            [
                 { horizontal: [1, 2, 3, 4], probability: 0.25 },
                 { horizontal: [1, 5, 5, 6], probability: 0.25 },
                 { horizontal: [7, 10, 11, 8], probability: 0.25 },
                 { horizontal: [9, 5, 5, 12], probability: 0.25 },
             ],
-            createNoun: () => {
-                throw new Error("unable to create noun")
-            },
-            combineGroup: (config, [{ value }]) => value,
-            customNestVerticalGroups: nestVerticalGroups,
-            filter: (val) => val != 4,
-            isSameInGroup: (v1, v2) => v1 === v2,
-            minRowSimilarity: 0.3,
             //don't combine row 1 & 2 even if possible
-            rowsCombineableMatrix: [
+            [
                 [true, false, true, true],
                 [false, true, true, true],
                 [true, true, true, true],
                 [true, true, true, true],
             ],
-        }
-        const result = nestGroups(config)
+            config
+        )
         const expected: NestedGroup<number> = [
             {
                 vertical: [
@@ -120,30 +174,40 @@ describe("align, group and combine matrices", () => {
     })
 
     it("should combine similar vertically", () => {
-        const config: NestGroupConfig<number, number> = {
-            rows: [
+        const config: NestGroupConfig<number, number, unknown> = {
+            nestVerticalGroups: (rows, rowsCombineableMatrix, config, xStart, xEnd, yList, probability) =>
+                abstractNestVerticalGroups(
+                    rows,
+                    rowsCombineableMatrix,
+                    (config, [{ value }]) => Math.floor(value / 2) * 2,
+                    (v1, v2) => (Math.floor(v1 / 2) === Math.floor(v2 / 2) ? 1 : 0),
+                    0.3,
+                    config,
+                    xStart,
+                    xEnd,
+                    yList,
+                    probability
+                ),
+            filterValue: (val) => val != 8,
+            rowSimilarity: (...params) =>
+                rowSimilarity((v1, v2) => (Math.floor(v1 / 2) === Math.floor(v2 / 2) ? 1 : 0), 0.3, ...params),
+            minRowSimilarity: 0.3,
+        }
+        const result = nestGroups(
+            [
                 { horizontal: [2, 4, 6, 8], probability: 0.5 },
                 { horizontal: [3, 11, 10, 12], probability: 0.5 },
                 { horizontal: [18, 20, 21, 24], probability: 0.5 },
                 { horizontal: [8, 10, 11, 16], probability: 0.5 },
             ],
-
-            createNoun: () => {
-                throw new Error("unable to create noun")
-            },
-            combineGroup: (config, [{ value }]) => Math.floor(value / 2) * 2,
-            customNestVerticalGroups: nestVerticalGroups,
-            filter: (val) => val != 8,
-            isSameInGroup: (v1, v2) => Math.floor(v1 / 2) === Math.floor(v2 / 2),
-            minRowSimilarity: 0.3,
-            rowsCombineableMatrix: [
+            [
                 [true, true, true, true],
                 [true, true, true, true],
                 [true, true, true, true],
                 [true, true, true, true],
             ],
-        }
-        const result = nestGroups(config)
+            config
+        )
         const expected: NestedGroup<number> = [
             {
                 vertical: [
@@ -227,10 +291,12 @@ describe("linearize steps", () => {
                 horizontal: [
                     {
                         type: "filterStart",
-                        condition: {
-                            seperationMatrix: [[true]],
-                            vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
-                        },
+                        children: [
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
+                            },
+                        ],
                         options: 2,
                         values: [true],
                     },
@@ -244,10 +310,12 @@ describe("linearize steps", () => {
                 horizontal: [
                     {
                         type: "filterStart",
-                        condition: {
-                            seperationMatrix: [[true]],
-                            vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
-                        },
+                        children: [
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [{ horizontal: [{ type: "raw", value: true }], probability: 1 }],
+                            },
+                        ],
                         options: 2,
                         values: [false],
                     },
@@ -365,10 +433,12 @@ describe("linearize steps", () => {
                 horizontal: [
                     {
                         type: "filterStart",
-                        condition: {
-                            seperationMatrix: [[true]],
-                            vertical: [{ horizontal: [{ type: "this" }], probability: 1 }],
-                        },
+                        children: [
+                            {
+                                seperationMatrix: [[true]],
+                                vertical: [{ horizontal: [{ type: "this" }], probability: 1 }],
+                            },
+                        ],
                         options: 1,
                         values: [0],
                     },
@@ -432,7 +502,11 @@ describe("summarize grammars", () => {
         )
 
         const rows = [...l1.vertical, ...l2.vertical, ...l3.vertical]
-        const grid = align<LinearizedStep>(rows, () => ({ type: "this" }), isCombineable)
+        const grid = align<LinearizedStep>(
+            rows,
+            () => ({ type: "this" }),
+            (s1, s2) => stepSimilarity(s1, s2) > 0.3
+        )
 
         const expected: Vertical<LinearizedRow> = [
             {
@@ -621,14 +695,14 @@ describe("summarize grammars", () => {
         )
     })
 
-    it("should summarize three equal grammars as the same (can be improved)", () => {
+    it("should summarize three equal grammars as the same", () => {
         const text = `s1 --> if this == false then { switch this { case 0: 1 case 1: 0 } } else { 2 }`
         const description1 = parse(text)
         const description2 = parse(text)
         const description3 = parse(text)
         const summarizedGrammar = summarize(description1, description2, description3)
         expect(serializeString(summarizedGrammar)).to.equal(
-            `s1 --> { 50%: if this == false then { { 200%: switch this { case 0: 1 case 1: 0 } } } else { null } 50%: if this == false then { null } else { { 66.67%: 2 } | { 66.67%: 2 } | { 66.67%: 2 } } }`
+            `s1 --> if this == false then { switch this { case 0: 1 case 1: 0 } } else { 2 }`
         )
     })
 

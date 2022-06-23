@@ -1,34 +1,14 @@
-import { Horizontal, summarizeLinearization, Vertical } from "."
+import { ConfigAddition, Horizontal, summarizeLinearization, Vertical } from "."
 import { AbstractParsedNoun, ParsedSteps } from "../parser"
 import { filterNull } from "../util"
 import { NestGroupConfig } from "./group"
 import { combineLinearizationResult, LinearizationResult, LinearizedStep } from "./linearize"
 
-export function isCombineable(s1: LinearizedStep, s2: LinearizedStep): boolean {
-    if (s1.type !== s2.type) {
-        return false
-    }
-    switch (s1.type) {
-        case "filterStart":
-            return typeof s1.values[0] === typeof (s2 as typeof s1).values[0]
-        case "setVariable":
-        case "operation":
-            return s1.identifier === (s2 as typeof s1).identifier
-        case "getVariable":
-        case "nounStart":
-            return s1.identifier === (s2 as typeof s1).identifier
-        case "raw":
-            return s1.value === (s2 as typeof s1).value
-        case "filterEnd":
-        case "nounEnd":
-            return true
-        default:
-            return true
-    }
-}
-
+/**
+ * @param vertical sum of all probabilities must be 1
+ */
 export function combine(
-    config: NestGroupConfig<LinearizedStep, ParsedSteps>,
+    config: NestGroupConfig<LinearizedStep, ParsedSteps, ConfigAddition>,
     vertical: Vertical<{ value: LinearizedStep; probability: number }>
 ): ParsedSteps {
     if (vertical.length === 0) {
