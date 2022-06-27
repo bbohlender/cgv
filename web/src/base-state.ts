@@ -40,21 +40,18 @@ import {
     autoSelectPattern,
     PatternType,
     multilineStringWhitespace,
-    globalizeDescription,
-    summarize,
     setName,
-    localizeDescription,
     concretize,
     AbstractParsedNoun,
     getSelectedStepsPath,
     getGlobalDescription,
     HierarchicalPath,
     globalizeStepsSerializer,
+    ValueMap,
 } from "cgv"
 import { PointPrimitive, createPhongMaterialGenerator } from "cgv/domains/shape"
 import { Draft, freeze } from "immer"
 import { Matrix4, Color } from "three"
-import { generateUUID } from "three/src/math/MathUtils"
 import create, { GetState, SetState } from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { UseBaseStore } from "./global"
@@ -77,6 +74,7 @@ export type GuiState = {
     requested: { type: string; data?: any; fulfill: (value: any) => void } | undefined
     shift: boolean
     graphVisualization: boolean
+    valueMap: ValueMap<any, any>
 } & EditorState
 
 export type TuiState =
