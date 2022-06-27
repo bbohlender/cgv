@@ -1,15 +1,19 @@
 import {
     createDefaultStep,
     getAllStepDescriptors,
-    localizeNoun,
+    getDescriptionOfNoun,
+    globalizeDescription,
+    globalizeStep,
+    HierarchicalPath,
     Operations,
-    ParsedSteps,
-    shallowEqual,
     StepDescriptor,
+    toHierarchical,
 } from "cgv"
+import { freeze } from "immer"
 import { useCallback, useMemo, useState } from "react"
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
+import { PasteButton } from "../success-button"
 
 type Options = Array<{
     label: string
@@ -30,38 +34,39 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
     const { operations } = useBaseGlobal()
     const [filter, setFilter] = useState("")
     const stepOptions = useMemo(
-        () => getStepOptions(operations, (descriptor) => fulfill(() => createDefaultStep(descriptor, operations))),
+        () =>
+            getStepOptions(operations, (descriptor) =>
+                fulfill({ step: () => createDefaultStep(descriptor, operations) })
+            ),
         [fulfill, operations]
     )
-    const nouns = store(
-        (state) =>
-            state.selectedDescription == null
-                ? []
-                : state.grammar.map(({ name }) => ({
-                      globalName: name,
-                      localName: localizeNoun(name, state.selectedDescription!),
-                  })),
-        shallowEqual
-    )
+
+    const onPaste = useCallback(async () => {
+        const text = await navigator.clipboard.readText()
+        try {
+            fulfill({
+                step: (path: HierarchicalPath) =>
+                    globalizeStep(JSON.parse(text).step, getDescriptionOfNoun(path[0]), ...path),
+                dependencies: (descriptionName: string) => {
+                    const parsed = JSON.parse(text)
+                    if (parsed.description == null) {
+                        return undefined
+                    }
+                    return toHierarchical(globalizeDescription(freeze(parsed.dependencies), descriptionName))
+                },
+            })
+        } catch (e) {
+            //TODO: notify user
+        }
+    }, [store])
+
     const filteredOptions = useMemo(
-        () =>
-            stepOptions
-                .concat(
-                    nouns.map(({ globalName, localName }) => ({
-                        label: localName,
-                        onSelect: () => fulfill(() => ({ type: "symbol", identifier: globalName })),
-                    }))
-                )
-                .concat({
-                    label: "summarize",
-                    onSelect: () => store.getState().request("summarize", fulfill),
-                })
-                .filter(({ label }) => label.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),
-        [filter, stepOptions, nouns, fulfill]
+        () => stepOptions.filter(({ label }) => label.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),
+        [filter, stepOptions]
     )
     return (
         <>
-            <div className="d-flex flex-row mb-3">
+            <div className="d-flex flex-row mb-2">
                 <input
                     onKeyDown={(e) =>
                         e.key === "Enter" && filteredOptions.length === 1 && filteredOptions[0].onSelect()
@@ -79,6 +84,9 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
                     <CloseIcon />
                 </button>
             </div>
+            <PasteButton className="mb-2 btn-btn-sm button-secondary btn-outline-secondary" onPaste={onPaste}>
+                Paste
+            </PasteButton>
             <div className="d-flex flex-column" style={{ overflowY: "auto" }}>
                 {filteredOptions.map(({ label, onSelect }) => (
                     <div className="rounded pointer p-3 border-bottom" onClick={onSelect} key={label}>

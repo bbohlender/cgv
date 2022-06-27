@@ -1,5 +1,6 @@
 /node_modules/
 /dist/*
+/coverage
 !/dist/.npmrc
 /package-lock.json
 .nyc_output

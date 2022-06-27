@@ -40,7 +40,6 @@ export function compareSelectedStepsPath(s1: SelectedSteps, s2: SelectedSteps, s
 }
 
 export type SelectionState<T = any, A = any> = {
-    valueMap: ValueMap<T, A>
     selectionsList: SelectionsList<T, A>
     hovered: SelectionsList<T, A>[number] | undefined
 }

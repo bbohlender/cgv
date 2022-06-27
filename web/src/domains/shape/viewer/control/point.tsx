@@ -11,9 +11,9 @@ export function Point3Control<Type extends ParsedSteps["type"]>({
     substepValue,
     getSubstep,
     valueRef,
-    matrix
+    matrix,
 }: {
-    matrix: Matrix4,
+    matrix: Matrix4
     valueRef: { current: HierarchicalParsedSteps }
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
     substepValue: AbstractParsedOperation<unknown> & { type: Type }
@@ -45,9 +45,9 @@ export function Point2Control<Type extends ParsedSteps["type"]>({
     substepValue,
     getSubstep,
     valueRef,
-    matrix
+    matrix,
 }: {
-    matrix: Matrix4,
+    matrix: Matrix4
     valueRef: { current: HierarchicalParsedSteps }
     getSubstep: (draft: Draft<ParsedSteps & { type: Type }> | (ParsedSteps & { type: Type })) => ParsedOperation
     substepValue: AbstractParsedOperation<unknown> & { type: Type }

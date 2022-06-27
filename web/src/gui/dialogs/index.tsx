@@ -26,7 +26,7 @@ export function Dialogs() {
 function selectDialog(data: any, type: string, fulfill: (value: any) => void) {
     switch (type) {
         case "summarize":
-            return <SummarizeDialog fulfill={fulfill} />
+            return <SummarizeDialog data={data} />
         case "create-step":
             return <CreateStepDialog fulfill={fulfill} />
         case "create-description":

@@ -10,7 +10,14 @@ import {
     getIndexRelation,
     HierarchicalRelation,
     Selections,
+    getSelectedStepsPath,
+    ParsedSteps,
+    AbstractParsedNoun,
+    isNounOfDescription,
+    HierarchicalPath,
 } from "cgv"
+import { stat } from "fs"
+import { freeze } from "immer"
 import { HTMLProps, useMemo } from "react"
 import { UseBaseStore, useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
@@ -33,24 +40,46 @@ export function childrenSelectable(operationGuiMap: OperationGUIMap, steps: Sele
 }
 
 function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") {
-    store.getState().request("create-step", (stepGenerator) => store.getState().insert(type, stepGenerator))
+    store
+        .getState()
+        .request(
+            "create-step",
+            ({
+                step,
+                dependencies,
+            }: {
+                step: (path: HierarchicalPath) => ParsedSteps
+                dependencies: (descriptionName: string) => Array<AbstractParsedNoun<unknown>> | undefined
+            }) => store.getState().insert(type, step, dependencies)
+        )
 }
 
 function requestReplace(store: UseBaseStore) {
-    store.getState().request("create-step", (stepGenerator) => store.getState().replace(stepGenerator))
+    store
+        .getState()
+        .request(
+            "create-step",
+            ({
+                step,
+                dependencies,
+            }: {
+                step: (path: HierarchicalPath) => ParsedSteps
+                dependencies?: (descriptionName: string) => Array<AbstractParsedNoun<unknown>>
+            }) => store.getState().replace((_, path) => step(path), undefined, dependencies)
+        )
 }
 
-function requestSetName(store: UseBaseStore, descriptionName: string) {
-    store.getState().request("set-name", (name) => store.getState().setName(name, descriptionName))
+function requestSetName(store: UseBaseStore) {
+    store.getState().request("set-name", (name) => store.getState().setName(name))
 }
 
 export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
-    const descriptionName = store((state) => state.selectedDescription)
+    const descriptionNames = store((state) => state.selectedDescriptions)
     const selectionsList = store((state) =>
         state.type === "gui" && state.requested == null ? state.selectionsList : undefined
     )
-    if (selectionsList == null || selectionsList.length === 0 || descriptionName == null) {
+    if (selectionsList == null || selectionsList.length === 0 || descriptionNames == null) {
         return null
     }
     return (
@@ -77,7 +106,6 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         + After
                     </button>
                 </div>
-
                 <div
                     style={{
                         whiteSpace: "pre",
@@ -88,11 +116,7 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                         className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
                         Replace
                     </button>
-                    <button
-                        onClick={requestSetName.bind(null, store, descriptionName)}
-                        className="btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0">
-                        Set-Name
-                    </button>
+                    <SetNameButton />
                 </div>
                 <div
                     style={{
@@ -113,16 +137,43 @@ export function GUI({ className, ...rest }: HTMLProps<HTMLDivElement>) {
                     </button>
                 </div>
                 <div className="scroll">
-                    {selectionsList.map((selections) => (
-                        <GUISelection
-                            descriptionName={descriptionName}
-                            key={getSelectedStepsJoinedPath(selections.steps)}
-                            selections={selections}
-                        />
-                    ))}
+                    {descriptionNames.map((descriptionName) => {
+                        const selections = selectionsList.filter((selections) =>
+                            isNounOfDescription(descriptionName, getSelectedStepsPath(selections.steps)[0])
+                        )
+                        if (selections.length === 0) {
+                            return null
+                        }
+                        return (
+                            <div key={descriptionName} className="d-flex flex-column">
+                                <span style={{ fontWeight: 500 }} className="text-bold mx-3 mb-2">
+                                    {descriptionName}
+                                </span>
+                                {selections.map((selections) => (
+                                    <GUISelection
+                                        descriptionName={descriptionName}
+                                        key={getSelectedStepsJoinedPath(selections.steps)}
+                                        selections={selections}
+                                    />
+                                ))}
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
         </div>
+    )
+}
+
+function SetNameButton() {
+    const store = useBaseStore()
+    const enabled = store((state) => state.selectedDescriptions.length === 1)
+    return (
+        <button
+            onClick={requestSetName.bind(null, store)}
+            className={`${enabled ? "" : "disabled"} btn btn-sm btn-outline-secondary flex-grow-1 flex-basis-0`}>
+            Set-Name
+        </button>
     )
 }
 
@@ -138,7 +189,9 @@ function GUISelection({ selections, descriptionName }: { descriptionName: string
             <GUISteps descriptionName={descriptionName} step={selections.steps} values={selections.values} />
             {all != null && (
                 <>
-                    <button onClick={() => store.getState().autoSelectPattern(selections)} className="btn mx-3 btn-outline-secondary btn-sm mb-2">
+                    <button
+                        onClick={() => store.getState().autoSelectPattern(selections)}
+                        className="btn mx-3 btn-outline-secondary btn-sm mb-2">
                         auto-select pattern
                     </button>
                     <MultiSelect<FullValue>
@@ -187,7 +240,7 @@ function GUISteps({
         case "raw":
             return <GUIRawStep step={step} />
         case "symbol":
-            return <GUISymbolStep step={step} />
+            return <GUISymbolStep description={descriptionName} step={step} />
         case "operation":
             return <GUIOperation step={step} values={values} />
         case "random":

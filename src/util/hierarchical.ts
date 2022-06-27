@@ -1,4 +1,4 @@
-import produce, { isDraft } from "immer"
+import produce, { current, isDraft } from "immer"
 import { getNounIndex, getNounStep, setNounStep } from "."
 import { ParsedGrammarDefinition, ParsedSteps, AbstractParsedGrammarDefinition, AbstractParsedSteps } from ".."
 
@@ -75,18 +75,35 @@ export function toHierarchicalSteps<T = unknown>(
     steps: AbstractParsedSteps<T>,
     ...basePath: HierarchicalPath
 ): HierarchicalParsedSteps<T> {
+    if (steps == null) {
+        throw new Error(`can't make undefined hierarchical`)
+    }
     const hierachicalSteps = steps as HierarchicalParsedSteps
     if (Object.isFrozen(hierachicalSteps)) {
         return produce(hierachicalSteps, (draft) => toHierarchicalSteps(draft, ...basePath))
     }
-    hierachicalSteps.path = basePath
-    hierachicalSteps.children = hierachicalSteps.children?.map((child, i) => toHierarchicalSteps(child, ...basePath, i))
+    if (hierachicalSteps.path == null) {
+        hierachicalSteps.path = basePath
+    } else {
+        hierachicalSteps.path.length = basePath.length
+        for (let i = 0; i < basePath.length; i++) {
+            hierachicalSteps.path[i] = basePath[i]
+        }
+    }
+    if (steps.children != null) {
+        for (let i = 0; i < steps.children.length; i++) {
+            steps.children[i] = toHierarchicalSteps(steps.children[i], ...basePath, i)
+        }
+    }
     return hierachicalSteps
 }
 
 export function toHierarchical<T = unknown>(
     grammar: AbstractParsedGrammarDefinition<T>
 ): HierarchicalParsedGrammarDefinition<T> {
+    if (grammar == null) {
+        throw new Error(`can't make undefined hierarchical`)
+    }
     if (Object.isFrozen(grammar)) {
         return produce(grammar, (draft) => toHierarchical(draft)) as HierarchicalParsedGrammarDefinition<T>
     }

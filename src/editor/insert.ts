@@ -91,7 +91,6 @@ export async function insert<T, A>(
     )
     return {
         ...partial,
-        valueMap: {},
         hovered: undefined,
         dependencyMap: computeDependencies(partial.grammar),
     }

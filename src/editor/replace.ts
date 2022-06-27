@@ -47,7 +47,6 @@ export async function replace<T, A>(
     return {
         ...partial,
         dependencyMap: computeDependencies(partial.grammar),
-        valueMap: {},
         hovered: undefined,
     }
 }

@@ -24,18 +24,18 @@ import { GraphIcon } from "../icons/graph"
 
 export function Grammar() {
     const store = useBaseStore()
-    const selectedDescription = store((state) => state.selectedDescription)
+    const selectedDescriptions = store((state) => state.selectedDescriptions)
     const localDescription = store(
         (state) =>
-            state.type === "gui" && !state.graphVisualization && state.selectedDescription != null
-                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
+            state.type === "gui" && !state.graphVisualization && state.selectedDescriptions.length === 1
+                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescriptions[0])
                 : undefined,
         shallowEqual
     )
-    if (selectedDescription == null) {
+    if (selectedDescriptions.length != 1) {
         return (
             <div className="d-flex align-items-center justify-content-center flex-grow-1">
-                <span>Nothing Selected</span>
+                <span>{selectedDescriptions.length === 0 ? "Nothing Selected" : "Multiple Descriptions Selected"}</span>
             </div>
         )
     }
@@ -51,7 +51,7 @@ export function Grammar() {
                     tabSize: 2,
                 }}
                 className="m-3">
-                {serialize(localDescription, createReactSerializer(selectedDescription))(0)}
+                {serialize(localDescription, createReactSerializer(selectedDescriptions[0]))(0)}
                 <div
                     style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
                     className="d-flex flex-row align-items-center">
@@ -144,14 +144,19 @@ function FlatSteps({
 }
 
 type Events = {
-    onMouseLeave: () => void;
-    onMouseEnter: () => void;
-    onClick: () => void;
+    onMouseLeave: () => void
+    onMouseEnter: () => void
+    onClick: () => void
 }
 
 function createReactSerializer(description: string) {
     return createSerializer<(index: number, events?: Events) => JSX.Element, HierarchicalInfo>(
-        (text) => (index: number, events) => <span {...events} key={index}>{text}</span>,
+        (text) => (index: number, events) =>
+            (
+                <span {...events} key={index}>
+                    {text}
+                </span>
+            ),
         (indentation, child) => (index) =>
             <InteractableSteps indentation={indentation} description={description} key={index} value={child} />,
         (...values) =>
@@ -159,7 +164,11 @@ function createReactSerializer(description: string) {
                 <Fragment key={index}>{values.map((value, i) => value(i, events))}</Fragment>,
         (indentation, ...steps) =>
             (index: number, events) =>
-                <span {...events} key={index}>{multilineStringWhitespace(indentation, ...steps)}</span>
+                (
+                    <span {...events} key={index}>
+                        {multilineStringWhitespace(indentation, ...steps)}
+                    </span>
+                )
     )
 }
 

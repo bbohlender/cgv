@@ -1,6 +1,6 @@
 import { createPortal, useThree } from "@react-three/fiber"
 import { useRef, useEffect, useMemo, useState } from "react"
-import { Camera, Group, Matrix4, Object3D, Vector3Tuple } from "three"
+import { Camera, Group, Matrix4, Object3D, Vector3Tuple, Event } from "three"
 import { useViewerState } from "../state"
 import { StdTransformControls } from "./std-transform-controls"
 
@@ -29,7 +29,10 @@ export function TransformControl({
     const params = useThree<[Camera, HTMLCanvasElement]>(({ camera, gl }) => [camera, gl.domElement])
     const [object, setObject] = useState<Group | null>(null)
     const [showX, showY, showZ] = axis
-    const transformControl = useMemo(() => new StdTransformControls(length ?? 1, ...params, depth), [depth, length, ...params])
+    const transformControl = useMemo(
+        () => new StdTransformControls(length ?? 1, ...params, depth),
+        [depth, length, ...params]
+    )
 
     useEffect(() => {
         if (object == null) {
@@ -48,7 +51,7 @@ export function TransformControl({
         const mouseDown = () => {
             useViewerState.getState().setControlling(true)
         }
-        const mouseUp = () => {
+        const mouseUp = (e: Event) => {
             setTimeout(() => useViewerState.getState().setControlling(false))
             const { x, y, z } = object[modeToPropertyMap[mode]]
             set(x, y, z)

@@ -2,22 +2,14 @@ import {
     AbstractParsedOperation,
     FullValue,
     getSelectedStepsJoinedPath,
+    getSelectedStepsPath,
     HierarchicalInfo,
-    HierarchicalParsedSteps,
-    ParsedOperation,
-    ParsedSteps,
+    isNounOfDescription,
     SelectedSteps,
+    shallowEqual,
 } from "cgv"
-import {
-    Axis,
-    makeScaleMatrix,
-    makeTranslationMatrix,
-    Primitive,
-    tileMeterRatio,
-    tileZoomRatio,
-} from "cgv/domains/shape"
-import { Draft } from "immer"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { Axis, makeScaleMatrix, makeTranslationMatrix, Primitive } from "cgv/domains/shape"
+import { useEffect, useMemo, useRef } from "react"
 import { Box3, Matrix4, Object3D, Vector3, Vector3Tuple } from "three"
 import { UseBaseStore, useBaseStore } from "../../../../global"
 import { MultiplePointControl } from "./multiple-points"
@@ -27,10 +19,16 @@ import { AxisEnabled, TransformControl } from "./transform-control"
 const axisY: AxisEnabled = [false, true, false]
 const allAxis: AxisEnabled = [true, true, true]
 
-export function Control() {
+export function Control({ description }: { description: string }) {
     const store = useBaseStore()
-    const selectionsList = store((state) =>
-        state.type === "gui" && state.requested == null ? state.selectionsList : undefined
+    const selectionsList = store(
+        (state) =>
+            state.type === "gui" && state.requested == null
+                ? state.selectionsList.filter((selections) =>
+                      isNounOfDescription(description, getSelectedStepsPath(selections.steps)[0])
+                  )
+                : undefined,
+        shallowEqual
     )
     if (selectionsList == null) {
         return null

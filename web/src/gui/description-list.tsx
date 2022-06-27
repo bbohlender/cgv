@@ -1,7 +1,6 @@
 import { HTMLProps } from "react"
 import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
-import { EyeSlashIcon } from "../icons/eye-slash"
 import { FileCheckIcon } from "../icons/file-check"
 import { PlusIcon } from "../icons/plus"
 import { RandomIcon } from "../icons/random"
@@ -15,7 +14,7 @@ export function DescriptionList({
 }: HTMLProps<HTMLDivElement> & { createDescriptionRequestData?: () => any }) {
     const store = useBaseStore()
     const descriptions = store((state) => state.descriptions)
-    const selectedDescription = store((state) => state.selectedDescription)
+    const selectedDescriptions = store((state) => state.selectedDescriptions)
     return (
         <div
             {...rest}
@@ -41,10 +40,10 @@ export function DescriptionList({
             <div className="d-flex flex-column scroll">
                 {descriptions.map(({ name, seed }, i) => (
                     <div
-                        onClick={() => store.getState().selectDescription(name)}
+                        onClick={(e) => store.getState().selectDescription(name, e.shiftKey)}
                         key={name}
                         className={`pointer py-2 ps-3 pe-2 d-flex flex-row align-items-center border-top border-1 ${
-                            selectedDescription === name ? "border-primary border-3 border" : ""
+                            selectedDescriptions.includes(name) ? "border-primary border-3 border" : ""
                         }`}>
                         <span className="overflow-hidden" style={{ textOverflow: "ellipsis" }}>
                             {name}

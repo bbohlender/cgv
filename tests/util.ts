@@ -15,7 +15,7 @@ import {
 import { expect } from "chai"
 import { parsedAndUnparsedGrammarPairs } from "./test-data"
 import { validateHierarchical, validateHierarchicalSteps } from "./hierarchical"
-import produce from "immer"
+import produce, { freeze } from "immer"
 
 describe("hierarchical steps", () => {
     it("should create valid hierachical steps", () => {
@@ -46,7 +46,7 @@ describe("hierarchical steps", () => {
                 },
             ],
         }
-        const correct = toHierarchicalSteps(steps, "a")
+        const correct = toHierarchicalSteps(freeze(steps), "a")!
         const incorrect = produce(correct, (draft) => {
             draft.children![1]!.children![1]!.path = ["a", 1, 0]
         })

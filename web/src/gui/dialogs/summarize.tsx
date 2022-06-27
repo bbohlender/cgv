@@ -1,24 +1,73 @@
 import {
-    DependencyMap,
-    globalizeDescription,
-    localizeNoun,
+    getDescriptionOfNoun,
+    getGlobalDescription,
+    localizeDescription,
+    multilineStringWhitespace,
     ParsedGrammarDefinition,
+    serializeString,
     shallowEqual,
     summarize,
 } from "cgv"
 import { useCallback, useMemo, useState } from "react"
-import { useBaseStore } from "../../global"
+import { UseBaseStore, useBaseStore } from "../../global"
 import { CheckIcon } from "../../icons/check"
 import { CloseIcon } from "../../icons/close"
 import { EndLabel } from "../label"
+import { CopyButton } from "../success-button"
 
-export function SummarizeDialog({ fulfill }: { fulfill: (value: any) => void }) {
+export function SummarizeDialog({ data }: { data: Array<string> }) {
+    const [summary, setSummary] = useState<ParsedGrammarDefinition | undefined>(undefined)
+    if (summary == null) {
+        return <CreateSummary descriptions={data} onSummary={setSummary} />
+    } else {
+        return <ShowSummary summary={summary} />
+    }
+}
+
+function ShowSummary({ summary }: { summary: ParsedGrammarDefinition }) {
+    const store = useBaseStore()
+    return (
+        <>
+            <div className="d-flex flex-row mb-3">
+                <div className="flex-grow-1" />
+                <button
+                    className="d-flex h-100 align-items-center ms-3 btn btn-sm btn-outline-secondary"
+                    onClick={store.getState().cancelRequest}>
+                    <CloseIcon />
+                </button>
+            </div>
+            <span style={{ overflowY: "auto", whiteSpace: "pre-wrap" }} className="p-3 rounded mb-3 text-light bg-dark text-editor p-1">
+                {serializeString(summary, undefined, multilineStringWhitespace)}
+            </span>
+            <CopyButton
+                className="btn btn-sm btn-outline-primary"
+                onCopy={() =>
+                    JSON.stringify({ step: { type: "symbol", identifier: summary[0].name }, dependencies: summary })
+                }>
+                Copy
+            </CopyButton>
+        </>
+    )
+}
+
+function CreateSummary({
+    descriptions,
+    onSummary,
+}: {
+    descriptions: Array<string>
+    onSummary: (summary: ParsedGrammarDefinition | undefined) => void
+}) {
     const store = useBaseStore()
     const [filter, setFilter] = useState("")
     const nounNames = store((state) => state.grammar.map(({ name }) => name), shallowEqual)
     const [selectedNounNames, setSelectedNounNames] = useState<Array<string>>([])
     const filteredNounNames = useMemo(
-        () => nounNames.filter((name) => name.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),
+        () =>
+            nounNames.filter(
+                (name) =>
+                    descriptions.includes(getDescriptionOfNoun(name)) &&
+                    name.toLocaleLowerCase().includes(filter.toLocaleLowerCase())
+            ),
         [filter, nounNames]
     )
     const selectAll = useCallback(
@@ -58,15 +107,7 @@ export function SummarizeDialog({ fulfill }: { fulfill: (value: any) => void }) 
                 />
                 <button
                     className="d-flex h-100 align-items-center ms-3 btn btn-sm btn-outline-secondary"
-                    onClick={() => {
-                        const nounName = store.getState().addSummary(selectedNounNames)
-                        if (nounName != null) {
-                            fulfill(() => ({
-                                type: "symbol",
-                                identifier: nounName,
-                            }))
-                        }
-                    }}>
+                    onClick={() => onSummary(summarizeNouns(store, selectedNounNames))}>
                     <CheckIcon />
                 </button>
                 <button
@@ -107,4 +148,16 @@ export function SummarizeDialog({ fulfill }: { fulfill: (value: any) => void }) 
             </div>
         </>
     )
+}
+
+function summarizeNouns(store: UseBaseStore, nouns: Array<string>): ParsedGrammarDefinition | undefined {
+    const state = store.getState()
+    if (state.type !== "gui") {
+        return undefined
+    }
+    const dependencyMap = state.dependencyMap
+    const descriptions = nouns.map((name) =>
+        localizeDescription(getGlobalDescription(name, state.grammar, dependencyMap), undefined)
+    )
+    return summarize(...descriptions)
 }

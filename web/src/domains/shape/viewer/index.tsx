@@ -73,12 +73,12 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 }}
                 events={(store) => ({
                     ...events(store),
-                    priority: -1,
+                    priority: 1,
                     filter: (intersections) => {
                         if (useViewerState.getState().controlling) {
                             return []
                         }
-                        return intersections
+                        return intersections.sort((a, b) => a.distance - b.distance)
                     },
                 })}
                 dpr={global.window == null ? 1 : window.devicePixelRatio}>
@@ -122,6 +122,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                                 onClick={() => generateRoads(store)}>
                                 Generate Roads
                             </div>
+                            <SummarizeButton />
                         </div>
                     </DescriptionList>
                     <div className="flex-grow-1" />
@@ -150,6 +151,18 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                 </div>
             </div>
             {children}
+        </div>
+    )
+}
+
+function SummarizeButton() {
+    const store = useBaseStore()
+    const enabled = store((state) => state.selectedDescriptions.length > 1)
+    return (
+        <div
+            className={`w-100 btn-sm btn mt-2 btn-outline-secondary ${enabled ? "" : "disabled"}`}
+            onClick={() => store.getState().request("summarize", undefined, store.getState().selectedDescriptions)}>
+            Summarize
         </div>
     )
 }

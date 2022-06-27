@@ -18,11 +18,9 @@ import {
     SelectedSteps,
     getSelectedStepsJoinedPath,
     renameNoun,
-    setName,
     parseDescription,
     getDescriptionOfNoun,
     serializeString,
-    globalizeStepsSerializer,
     getLocalDescription,
     exchangeDescription,
     localizeStepsSerializer,
@@ -31,13 +29,10 @@ import {
     globalizeNoun,
     removeUnusedNouns,
     isNounOfDescription,
-    Pattern,
     PatternSelector,
     getIndexRelation,
     HierarchicalRelation,
-    AbstractParsedGrammarDefinition,
     localizeNoun,
-    toHierarchicalSteps,
     copyNoun,
     removeHierarchicalFromDescription,
     parse,
@@ -47,11 +42,17 @@ import {
     multilineStringWhitespace,
     globalizeDescription,
     summarize,
+    setName,
     localizeDescription,
     concretize,
+    AbstractParsedNoun,
+    getSelectedStepsPath,
+    getGlobalDescription,
+    HierarchicalPath,
+    globalizeStepsSerializer,
 } from "cgv"
 import { PointPrimitive, createPhongMaterialGenerator } from "cgv/domains/shape"
-import produce, { Draft, freeze } from "immer"
+import { Draft, freeze } from "immer"
 import { Matrix4, Color } from "three"
 import { generateUUID } from "three/src/math/MathUtils"
 import create, { GetState, SetState } from "zustand"
@@ -61,7 +62,7 @@ import { UseBaseStore } from "./global"
 export type BaseState = (CombineEmpty<GuiState, TuiState> | CombineEmpty<TuiState, GuiState>) & {
     interpretationDelay: number
     descriptions: Array<{ seed: number; name: string }>
-    selectedDescription: string | undefined
+    selectedDescriptions: Array<string>
     showTui: boolean
 }
 
@@ -114,7 +115,7 @@ function createBaseStateInitial(): BaseState {
         grammar: [],
         dependencyMap: {},
         descriptions: [],
-        selectedDescription: undefined,
+        selectedDescriptions: [],
         interpretationDelay: 0,
         requested: undefined,
         shift: false,
@@ -131,7 +132,7 @@ function createBaseStateFunctions(
     set: SetState<BaseState>,
     get: GetState<BaseState>
 ) {
-    const request = (type: string, fulfill: (value: any) => void, data?: any) => {
+    const request = (type: string, fulfill: ((value: any) => void) | undefined, data?: any) => {
         const state = get()
         if (state.type != "gui") {
             return
@@ -142,7 +143,7 @@ function createBaseStateFunctions(
                 data,
                 fulfill: (value) => {
                     const currentRequested = get().requested
-                    fulfill(value)
+                    fulfill && fulfill(value)
                     const state = get()
                     if (state.type === "gui" && state.requested === currentRequested) {
                         set({ requested: undefined })
@@ -163,9 +164,12 @@ function createBaseStateFunctions(
                     descriptionSet.add(descriptionName)
                 }
                 set({
-                    descriptions: Array.from(descriptionSet).map((name) => ({ name, seed: 0 })),
+                    descriptions: Array.from(descriptionSet).map((name) => ({
+                        name,
+                        seed: Math.random() * Number.MAX_SAFE_INTEGER,
+                    })),
                     grammar: parsedDescription,
-                    selectedDescription: undefined,
+                    selectedDescriptions: [],
                     selectionsList: [],
                     valueMap: {},
                     dependencyMap: computeDependencies(parsedDescription),
@@ -190,30 +194,72 @@ function createBaseStateFunctions(
         setShowTui: (showTui: boolean) => {
             set({ showTui })
         },
-        selectDescription: (name: string) => {
+        selectDescription: (name: string, shift: boolean) => {
             const state = get()
-            if (state.selectedDescription === name) {
-                return
-            }
             if (state.type === "gui") {
                 const rootNoun = state.grammar.find((noun) => isNounOfDescription(name, noun.name))?.name
+
+                if (!shift) {
+                    if (state.selectedDescriptions.length === 1 && state.selectedDescriptions[0] === name) {
+                        return
+                    }
+                    //set
+                    const valueMapEntries = Object.entries(state.valueMap)
+                    set({
+                        selectedDescriptions: [name],
+                        selectionsList:
+                            rootNoun == null
+                                ? []
+                                : [
+                                      {
+                                          steps: rootNoun,
+                                          values: valueMapEntries
+                                              .filter(([path]) => path == rootNoun)
+                                              .reduce<Array<FullValue>>(
+                                                  (prev, [, values]) => (values != null ? prev.concat(values) : prev),
+                                                  []
+                                              ),
+                                      },
+                                  ],
+                    })
+                    return
+                }
+
+                if (!state.selectedDescriptions.includes(name)) {
+                    //add
+                    set({
+                        selectedDescriptions: [...state.selectedDescriptions, name],
+                        selectionsList:
+                            rootNoun == null
+                                ? state.selectionsList
+                                : [
+                                      ...state.selectionsList,
+                                      {
+                                          steps: rootNoun,
+                                          values: [],
+                                      },
+                                  ],
+                    })
+                    return
+                }
+
+                //remove
                 set({
-                    selectedDescription: name,
-                    valueMap: {},
-                    selectionsList:
-                        rootNoun == null
-                            ? []
-                            : [
-                                  {
-                                      steps: rootNoun,
-                                      values: [],
-                                  },
-                              ],
-                    hovered: undefined,
+                    selectedDescriptions: state.selectedDescriptions.filter(
+                        (descriptionName) => name !== descriptionName
+                    ),
+                    selectionsList: state.selectionsList.filter(
+                        ({ steps }) => !isNounOfDescription(name, getSelectedStepsPath(steps)[0])
+                    ),
+                    hovered:
+                        state.hovered?.steps != null &&
+                        isNounOfDescription(name, getSelectedStepsPath(state.hovered.steps)[0])
+                            ? undefined
+                            : state.hovered,
                 })
-            } else {
+            } else if (state.selectedDescriptions.length !== 1 || state.selectedDescriptions[0] !== name) {
                 set({
-                    selectedDescription: name,
+                    selectedDescriptions: [name],
                     text: serializeString(
                         getLocalDescription(state.grammar, undefined, name),
                         localizeStepsSerializer.bind(null, name),
@@ -222,24 +268,25 @@ function createBaseStateFunctions(
                 })
             }
         },
-        clearValueMap: () => {
+        clearValueMap: (name: string) => {
+            const state = get()
+            if (state.type !== "gui") {
+                return
+            }
             set({
-                valueMap: {},
+                valueMap: Object.entries(state.valueMap)
+                    .filter(([path]) => !path.includes("@" + name))
+                    .reduce((prev, [name, value]) => ({ ...prev, [name]: value }), {}),
             })
         },
-        copyNoun: async (step: HierarchicalParsedSteps, globalNounName: string) => {
+        copyNoun: async (description: string, step: HierarchicalParsedSteps, globalNounName: string) => {
             const state = get()
-            if (state.type !== "gui" || state.selectedDescription == null) {
+            if (state.type !== "gui" || state.selectedDescriptions == null) {
                 return
             }
             const currentDescriptionName = getDescriptionOfNoun(globalNounName)
             const localNounName = localizeNoun(globalNounName, currentDescriptionName)
-            const copiedNouns = copyNoun(
-                state.grammar,
-                localNounName,
-                currentDescriptionName,
-                state.selectedDescription
-            )
+            const copiedNouns = copyNoun(state.grammar, localNounName, currentDescriptionName, description)
 
             const joinedPath = getSelectedStepsJoinedPath(step)
             set(
@@ -250,31 +297,10 @@ function createBaseStateFunctions(
                     ),
                     patternTypes,
                     selectPattern,
-                    () => ({ type: "symbol", identifier: globalizeNoun(localNounName, state.selectedDescription) }),
+                    () => ({ type: "symbol", identifier: globalizeNoun(localNounName, description) }),
                     state.grammar.concat(copiedNouns)
                 )
             )
-        },
-        addSummary: (nouns: Array<string>): string | undefined => {
-            const state = get()
-            if (state.type !== "gui") {
-                return
-            }
-            const dependencyMap = state.dependencyMap
-            const descriptions = nouns.map((name) =>
-                localizeDescription(getGlobalDescription(name, state.grammar, dependencyMap), undefined)
-            )
-            const result = toHierarchical(globalizeDescription(summarize(...descriptions), generateUUID()))
-            if (result.length === 0) {
-                return undefined
-            }
-            const grammar = result.concat(state.grammar)
-            set({
-                grammar,
-                dependencyMap: computeDependencies(grammar),
-            })
-
-            return result[0].name
         },
         addDescriptions: (newDescriptions: Array<{ name: string; step?: ParsedSteps }>) => {
             let { descriptions, grammar, dependencyMap } = get()
@@ -290,7 +316,9 @@ function createBaseStateFunctions(
                         )
                     )
                 }
-                descriptions = [{ name: newDescription.name, seed: 0 }].concat(descriptions)
+                descriptions = [{ name: newDescription.name, seed: Math.random() * Number.MAX_SAFE_INTEGER }].concat(
+                    descriptions
+                )
             }
             dependencyMap = computeDependencies(grammar)
             set({
@@ -300,11 +328,11 @@ function createBaseStateFunctions(
             })
         },
         deleteDescription: (name: string) => {
-            const { descriptions, selectedDescription, grammar, selectionsList } = get()
+            const { descriptions, selectedDescriptions, grammar, selectionsList } = get()
             const newDescriptions = descriptions.filter((description) => description.name != name)
             set({
                 descriptions: newDescriptions,
-                selectedDescription: selectedDescription === name ? undefined : selectedDescription,
+                selectedDescriptions: selectedDescriptions.filter((descriptionName) => descriptionName !== name),
                 ...removeUnusedNouns(
                     grammar,
                     selectionsList ?? [],
@@ -348,15 +376,15 @@ function createBaseStateFunctions(
         },
         setText: (text: string) => {
             const state = get()
-            if (state.type != "tui" || state.selectedDescription == null) {
+            if (state.type != "tui" || state.selectedDescriptions.length != 1) {
                 return
             }
             try {
-                const description = parseDescription(text, state.selectedDescription)
+                const description = parseDescription(text, state.selectedDescriptions[0])
                 set({
                     text,
                     correct: true,
-                    grammar: exchangeDescription(state.grammar, description, state.selectedDescription),
+                    grammar: exchangeDescription(state.grammar, description, state.selectedDescriptions[0]),
                 })
             } catch (error: any) {
                 set({ text, correct: false, error: error.message })
@@ -389,15 +417,19 @@ function createBaseStateFunctions(
                 return
             }
 
+            if (state.selectedDescriptions.length != 1) {
+                return
+            }
+
             set({
                 type: "tui",
                 grammar: state.grammar,
                 text:
-                    state.selectedDescription == null
+                    state.selectedDescriptions == null
                         ? ""
                         : serializeString(
-                              getLocalDescription(state.grammar, undefined, state.selectedDescription),
-                              localizeStepsSerializer.bind(null, state.selectedDescription),
+                              getLocalDescription(state.grammar, undefined, state.selectedDescriptions[0]),
+                              localizeStepsSerializer.bind(null, state.selectedDescriptions[0]),
                               multilineStringWhitespace
                           ),
                 correct: true,
@@ -552,10 +584,24 @@ function createBaseStateFunctions(
             }
             set({ requested: undefined })
         },
-        insert: async (type: "before" | "after" | "parallel", stepGenerator: () => ParsedSteps) => {
+        insert: async (
+            type: "before" | "after" | "parallel",
+            stepGenerator: (path: HierarchicalPath) => ParsedSteps,
+            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined
+        ) => {
             const state = get()
             if (state.type != "gui") {
                 return
+            }
+            let grammar = state.grammar
+            if (dependenciesGenerator != null) {
+                grammar = state.selectedDescriptions.reduce((prev, descriptionName) => {
+                    const dependencies = dependenciesGenerator(descriptionName)
+                    if (dependencies == null) {
+                        return prev
+                    }
+                    return prev.concat()
+                }, grammar)
             }
             set(
                 await insert(
@@ -565,7 +611,7 @@ function createBaseStateFunctions(
                     selectPattern,
                     type,
                     stepGenerator,
-                    state.grammar
+                    grammar
                 )
             )
         },
@@ -594,31 +640,46 @@ function createBaseStateFunctions(
                 await renameNoun(state.valueMap, state.selectionsList, patternTypes, selectPattern, name, state.grammar)
             )
         },
-        setName: async (name: string, descriptionName: string) => {
+        setName: async (name: string) => {
             const state = get()
-            if (state.type != "gui") {
+            if (state.type != "gui" || state.selectedDescriptions.length !== 1) {
                 return
             }
+
             set(
                 await setName(
                     state.valueMap,
                     state.selectionsList,
                     patternTypes,
                     selectPattern,
-                    globalizeStepsSerializer(descriptionName, name) ?? name,
+                    globalizeStepsSerializer(state.selectedDescriptions[0], name) ?? name,
                     state.grammar
                 )
             )
         },
         replace: async <Type extends ParsedSteps["type"]>(
-            replaceWith: (steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void,
-            steps?: SelectedSteps
+            replaceWith: (
+                steps: Draft<ParsedSteps & { type: Type }>,
+                path: HierarchicalPath
+            ) => Draft<ParsedSteps> | void,
+            steps?: SelectedSteps,
+            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined
         ) => {
+            const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
             const state = get()
             if (state.type != "gui") {
                 return
             }
-            const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
+            let grammar = state.grammar
+            if (dependenciesGenerator != null) {
+                grammar = state.selectedDescriptions.reduce((prev, descriptionName) => {
+                    const dependencies = dependenciesGenerator(descriptionName)
+                    if (dependencies == null) {
+                        return prev
+                    }
+                    return prev.concat()
+                }, grammar)
+            }
             set(
                 await replace(
                     state.valueMap,
@@ -630,7 +691,7 @@ function createBaseStateFunctions(
                     patternTypes,
                     selectPattern,
                     replaceWith as any,
-                    state.grammar
+                    grammar
                 )
             )
         },
@@ -657,25 +718,6 @@ export function getFirstSelectedDescription(state: BaseState): string | undefine
     return getDescriptionOfNoun(
         typeof firstSelections.steps === "string" ? firstSelections.steps : firstSelections.steps.path[0]
     )
-}
-
-function getGlobalDescription(
-    name: string,
-    globalDefinition: ParsedGrammarDefinition,
-    dependencyMap: DependencyMap
-): ParsedGrammarDefinition {
-    const noun = globalDefinition.find(({ name: nounName }) => nounName === name)
-    if (noun == null) {
-        throw new Error(`unknown noun "${name}"`)
-    }
-    const dependencies = dependencyMap[name] ?? []
-    return [
-        noun,
-        ...dependencies.reduce<ParsedGrammarDefinition>(
-            (prev, dependency) => prev.concat(getGlobalDescription(dependency, globalDefinition, dependencyMap)),
-            []
-        ),
-    ]
 }
 
 export type BaseStateFunctions = ReturnType<typeof createBaseStateFunctions>

@@ -6,6 +6,7 @@ import produce from "immer"
 import { replaceOnDraft, ReplaceWith } from "./replace"
 import { AbstractParsedSteps } from "../parser"
 import { removeUnusedNouns } from "./noun"
+import { states } from "moo"
 
 function getNeutralStep(
     parent: HierarchicalParsedSteps | HierarchicalParsedGrammarDefinition,
@@ -69,23 +70,17 @@ export async function removeStep<T, A>(
         getNeutralStep(translatedPath[translatedPath.length - 2], path[path.length - 1], operations)
     const newGrammar = await produce(grammar, async (draft) => {
         await replaceOnDraft(valueMap, selectionsList, patterns, selectCondition, replaceWith, draft)
-        simplfyGrammarOnDraft(draft)
+        for (const noun of draft) {
+            noun.step = simplifyStepOnDraft(noun.step)
+        }
         return toHierarchical(draft)
     })
     const partial = removeUnusedNouns(newGrammar, [])
     return {
         ...partial,
         dependencyMap: computeDependencies(partial.grammar),
-        valueMap: {},
         hovered: undefined,
     }
-}
-
-function simplfyGrammarOnDraft(grammar: HierarchicalParsedGrammarDefinition): void {
-    for (const noun of grammar) {
-        noun.step = simplifyStepOnDraft(noun.step)
-    }
-    toHierarchical(grammar)
 }
 
 function simplifyStepOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {

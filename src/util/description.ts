@@ -204,3 +204,17 @@ export function exchangeDescription(
             .concat(localDescription)
     )
 }
+
+export function getGlobalDescription(
+    name: string,
+    globalDefinition: ParsedGrammarDefinition,
+    dependencyMap: DependencyMap
+): ParsedGrammarDefinition {
+    return [name, ...(dependencyMap[name] ?? [])].map((name) => {
+        const noun = globalDefinition.find(({ name: nounName }) => nounName === name)
+        if (noun == null) {
+            throw new Error(`unknown noun "${name}"`)
+        }
+        return noun
+    })
+}

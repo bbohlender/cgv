@@ -163,7 +163,7 @@ export async function renameNoun<T, A>(
                 }
 
                 //this clones the step as we use the frozen grammar[index].step (and toHierarchicalSteps internally uses produce if the parameter is frozen)
-                const clonedSteps = toHierarchicalSteps(freeze(grammar[existingNounIndex].step, false), newName)
+                const clonedSteps = toHierarchicalSteps(freeze(grammar[existingNounIndex].step, false), newName)!
 
                 draft.splice(existingNounIndexOnDraft, 0, {
                     name: newName,
@@ -205,7 +205,6 @@ export async function renameNoun<T, A>(
     const cleanedPartial = removeUnusedNouns(partial.grammar, partial.selectionsList)
     return {
         hovered: undefined,
-        valueMap: {},
         ...cleanedPartial,
         dependencyMap: computeDependencies(cleanedPartial.grammar),
     }

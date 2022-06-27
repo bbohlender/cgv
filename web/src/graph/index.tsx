@@ -4,23 +4,20 @@ import { createGraph } from "./create-graph"
 import { useBaseGlobal, useBaseStore } from "../global"
 import {
     getLocalDescription,
-    HierarchicalParsedGrammarDefinition,
     HierarchicalParsedSteps,
-    SelectedSteps,
     shallowEqual,
 } from "cgv"
 import { GraphIcon } from "../icons/graph"
 import { EditIcon } from "../icons/edit"
 import { nodeTypes } from "./node-types"
-import { BaseState } from "../base-state"
 
 export function Graph() {
     const store = useBaseStore()
-    const selectedDescription = store((state) => state.selectedDescription)
+    const selectedDescriptions = store((state) => state.selectedDescriptions)
     const localDescription = store(
         (state) =>
-            state.type === "gui" && state.graphVisualization && state.selectedDescription != null
-                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescription)
+            state.type === "gui" && state.graphVisualization && state.selectedDescriptions.length === 1
+                ? getLocalDescription(state.grammar, state.dependencyMap, state.selectedDescriptions[0])
                 : undefined,
         shallowEqual
     )
@@ -28,22 +25,24 @@ export function Graph() {
     const { operationGuiMap } = useBaseGlobal()
 
     const [nodes, edges] = useMemo(() => {
-        if (localDescription == null || selectedDescription == null) {
+        if (localDescription == null || selectedDescriptions.length != 1) {
             return []
         }
         const newNodes: Array<Node> = []
         const newEdges: Array<Edge> = []
-        createGraph(newNodes, newEdges, localDescription, selectedDescription, operationGuiMap)
+        createGraph(newNodes, newEdges, localDescription, selectedDescriptions[0], operationGuiMap)
         return [newNodes, newEdges]
-    }, [localDescription, selectedDescription, operationGuiMap])
+    }, [localDescription, selectedDescriptions, operationGuiMap])
 
-    if (selectedDescription == null) {
+
+    if (selectedDescriptions.length != 1) {
         return (
             <div className="d-flex align-items-center justify-content-center flex-grow-1">
-                <span>Nothing Selected</span>
+                <span>{selectedDescriptions.length === 0 ? "Nothing Selected" : "Multiple Descriptions Selected"}</span>
             </div>
         )
     }
+
     if (localDescription == null) {
         return null
     }

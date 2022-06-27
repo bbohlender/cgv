@@ -1,3 +1,4 @@
+import { getRootState } from "@react-three/fiber"
 import {
     HierarchicalParsedGrammarDefinition,
     toValue,
@@ -13,11 +14,11 @@ import {
     shallowEqual,
     getLocalDescription,
     HierarchicalPath,
+    isNounOfDescription,
     getSelectedStepsPath,
-    getDescriptionOfNoun,
 } from "cgv"
 import { applyToObject3D, Primitive, operations, createPhongMaterialGenerator, PointPrimitive } from "cgv/domains/shape"
-import { RefObject, ReactNode, useEffect, useRef, Fragment } from "react"
+import { RefObject, ReactNode, useEffect, useRef } from "react"
 import { of, Subscription, Subject } from "rxjs"
 import { Color, Group, Matrix4 } from "three"
 import { tileDescriptionSuffix } from "."
@@ -86,11 +87,11 @@ export function Descriptions({ x, y }: { x: number; y: number }) {
 }
 
 export function Description({ seed, name }: { seed: number; name: string }) {
-    const isSelected = useBaseStoreState((state) => state.selectedDescription === name)
+    const isSelected = useBaseStoreState((state) => state.selectedDescriptions.includes(name))
     return isSelected ? (
         <>
-            <Control />
-            <HighlightDescriptions />
+            <Control description={name} />
+            <HighlightDescriptions description={name} />
             <SelectedDescription seed={seed} name={name} />
         </>
     ) : (
@@ -135,6 +136,7 @@ function useSimpleInterpretation(
 
 function useInterpretation(
     description: HierarchicalParsedGrammarDefinition | undefined,
+    descriptionName: string,
     seed: number,
     ref: RefObject<ReactNode & Group>
 ) {
@@ -230,7 +232,7 @@ function useInterpretation(
             useViewerState.getState().setError(error.message)
         }
         return () => {
-            store.getState().clearValueMap()
+            store.getState().clearValueMap(descriptionName)
             ref.current?.remove(...ref.current.children)
             subscription?.unsubscribe()
             unsubscribeAfterStep?.unsubscribe()
@@ -253,7 +255,11 @@ function UnselectedDescription({ name, seed }: { seed: number; name: string }) {
     return (
         <group
             onClick={(e) => {
-                store.getState().selectDescription(name)
+                if (e.intersections[0].object.userData.steps != null) {
+                    return
+                }
+                e.stopPropagation()
+                store.getState().selectDescription(name, e.nativeEvent.shiftKey)
             }}
             ref={groupRef}
         />
@@ -264,7 +270,7 @@ function SelectedDescription({ name, seed }: { seed: number; name: string }) {
     const store = useBaseStore()
     const selectedDescription = useLocalDescription(store, name)
     const groupRef = useRef<ReactNode & Group>(null)
-    useInterpretation(selectedDescription, seed, groupRef)
+    useInterpretation(selectedDescription, name, seed, groupRef)
     if (selectedDescription == null) {
         return null
     }
@@ -272,7 +278,6 @@ function SelectedDescription({ name, seed }: { seed: number; name: string }) {
         <group
             ref={groupRef}
             onPointerMove={(e) => {
-                e.stopPropagation()
                 if (e.intersections.length === 0) {
                     return
                 }
@@ -282,19 +287,26 @@ function SelectedDescription({ name, seed }: { seed: number; name: string }) {
                 if (steps == null || value == null) {
                     return
                 }
+                e.stopPropagation()
                 store.getState().onStartHover(steps, [value])
             }}
             onPointerOut={(e) => {
-                e.stopPropagation()
                 const object = e.object
                 const steps = object.userData.steps
                 const value = object.userData.value
                 if (steps == null || value == null) {
                     return
                 }
+                e.stopPropagation()
                 store.getState().onEndHover(steps)
             }}
             onClick={(e) => {
+                const object = e.intersections[0].object
+                const steps = object.userData.steps
+                const value = object.userData.value
+                if (steps == null || value == null) {
+                    return
+                }
                 e.stopPropagation()
                 const state = store.getState()
                 if (state.type != "gui") {
@@ -303,38 +315,37 @@ function SelectedDescription({ name, seed }: { seed: number; name: string }) {
                 if (state.requested != null) {
                     return
                 }
-                const object = e.intersections[0].object
-                const steps = object.userData.steps
-                const value = object.userData.value
-                if (steps == null || value == null) {
-                    return
-                }
                 store.getState().selectResult(steps, value)
             }}
         />
     )
 }
 
-function HighlightDescriptions() {
+function HighlightDescriptions({ description }: { description: string }) {
     const store = useBaseStore()
 
-    const primitives = store(
-        (state) =>
-            state.type === "gui"
-                ? Array.from(
-                      new Set(
-                          state.selectionsList
-                              .reduce<Array<Primitive>>(
-                                  (prev, selections) => prev.concat(selections.values.map((value) => value.after.raw)),
-                                  []
-                              )
-                              .concat(state.hovered?.values.map((value) => value.after.raw) ?? [])
-                              .filter((raw) => raw instanceof Primitive)
-                      )
-                  )
-                : undefined,
-        shallowEqual
-    )
+    const primitives = store((state) => {
+        if (state.type !== "gui") {
+            return undefined
+        }
+
+        let highlightedSelections = state.selectionsList
+        if (state.hovered != null) {
+            highlightedSelections = highlightedSelections.concat(state.hovered)
+        }
+
+        return Array.from(
+            new Set(
+                highlightedSelections
+                    .filter(({ steps }) => isNounOfDescription(description, getSelectedStepsPath(steps)[0]))
+                    .reduce<Array<Primitive>>(
+                        (prev, selections) => prev.concat(selections.values.map((value) => value.after.raw)),
+                        []
+                    )
+                    .filter((raw) => raw instanceof Primitive)
+            )
+        )
+    }, shallowEqual)
 
     if (primitives == null) {
         return null
@@ -342,9 +353,13 @@ function HighlightDescriptions() {
 
     return (
         <>
-            {primitives.map((primitive) => (
-                <primitive key={primitive.getOutline().uuid} object={primitive.getOutline()} />
-            ))}
+            {primitives.map((primitive) => {
+                let outline = primitive.getOutline()
+                if (outline.parent != null) {
+                    outline = outline.clone()
+                }
+                return <primitive key={outline.uuid} object={outline} />
+            })}
         </>
     )
 }
