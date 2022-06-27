@@ -4,6 +4,7 @@ import moo from "moo";
 
 const lexer = moo.compile({
     returnSymbol: /return/,
+    nullSymbol: /null/,
     thisSymbol: /this/,
     ifSymbol: /if/,
     thenSymbol: /then/,
@@ -11,6 +12,7 @@ const lexer = moo.compile({
     switchSymbol: /switch/,
     caseSymbol: /case/,
     arrow: /->/,
+    longArrow: /-->/,
     openBracket: /\(/,
     closedBracket: /\)/,
     openCurlyBracket: /{/,
@@ -38,33 +40,29 @@ const lexer = moo.compile({
     multiply: /\*/,
     percent: /%/,
     divide: /\//,
-    identifier: /[a-zA-Z_$]+\w*/,
+    identifier: /[a-zA-Z_$@]+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
 });
 %}
 @lexer lexer
 
-GrammarDefinition       ->  ws RuleDefinition ws                                            {% ([,[identifier, steps]]) => ({ [identifier]: steps }) %}
-                        |   ws RuleDefinition %ws GrammarDefinition                         {% ([,[identifier, steps],,prev]) => { if(identifier in prev) { throw new Error(`rule "${identifier}" is already defined`) } else { return { [identifier]: steps, ...prev } } } %}
-                        |   ws                                                              {% () => ({ }) %}
+GrammarDefinition       ->  ws RuleDefinition ws                                            {% ([,rule]) => [rule] %}
+                        |   ws RuleDefinitions:+ RuleDefinition ws                          {% ([,rules,rule]) => { if(rules.find(({ name }: { name: string }) => name === rule.name) != null) { throw new Error(`rule "${identifier}" is already defined`) } else { return [...rules, rule] } } %}
+                        |   ws                                                              {% () => [] %}
 
-RuleDefinition          ->  %identifier ws %arrow ws Steps                                  {% ([{ value },,,,steps]) => [value, steps] %}
+RuleDefinitions         ->  RuleDefinition %ws                                              {% ([rule]) => rule %}
+
+RuleDefinition          ->  %identifier ws %longArrow ws Steps                                  {% ([{ value },,,,step]) => ({ name: value, step }) %}
 
 Steps                   ->  ParallelSteps                                                   {% ([steps]) => steps %}
 
-ParallelSteps           ->  SequentialSteps ParallelStep:+                                  {% ([sequential,sequentials]) => ({ type: "parallel", children: [sequential, ...sequentials] }) %}
+ParallelSteps           ->  ParallelStep:+ SequentialSteps                                  {% ([sequentials,sequential]) => ({ type: "parallel", children: [...sequentials, sequential] }) %}
                         |   SequentialSteps                                                 {% ([sequential]) => sequential %}
-ParallelStep            ->  ws %parallel SequentialSteps                                    {% ([,,sequential]) => sequential %}
+ParallelStep            ->  SequentialSteps ws %parallel ws                                 {% ([sequential]) => sequential %}
 
-SequentialSteps         ->  PrimarySteps SequentialStep:+                                   {% ([primary,primaries]) => ({ type: "sequential", children: [primary, ...primaries] }) %}
-                        |   PrimarySteps                                                    {% ([primary]) => primary %}
-SequentialStep          ->  %ws PrimarySteps                                                {% ([,primary]) => primary %}
-
-PrimarySteps            ->  ws BasicOperation                                               {% ([,operation]) => operation %}
-
-BasicOperation          ->  BooleanOperation                                                {% ([value]) => value %}
-
-BooleanOperation        ->  OrOperation                                                     {% ([value]) => value %}
+SequentialSteps         ->  SequentialStep:+ OrOperation                                    {% ([primaries,primary]) => ({ type: "sequential", children: [...primaries, primary] }) %}
+                        |   OrOperation                                                     {% ([primary]) => primary %}
+SequentialStep          ->  OrOperation ws %arrow ws                                        {% ([primary]) => primary %}
 
 OrOperation             ->  OrOperation ws %or ws AndOperation                              {% ([op1,,,,op2]) => ({ type: "or", children: [op1, op2] }) %}
                         |   AndOperation                                                    {% ([value]) => value %}
@@ -120,24 +118,23 @@ Step                    ->  Operation                                           
                         |   GetVariable                                                     {% ([getVariable]) => getVariable %}
                         |   SetVariable                                                     {% ([setVariable]) => setVariable %}
                         |   Constant                                                        {% ([value]) => ({ type: "raw", value }) %}
-                        |   ConditionalOperation                                            {% ([operation]) => operation %}
+                        |   Conditional                                                     {% ([operation]) => operation %}
                         |   %returnSymbol                                                   {% () => ({ type: "return" }) %}
-                        |   %openBracket Steps ws %closedBracket                            {% ([,steps]) => ({ type: "bracket", children: [steps] }) %}
-                        |   RandomSteps                                                     {% ([random]) => random %}
+                        |   %nullSymbol                                                     {% () => ({ type: "null" }) %}
+                        |   %openBracket ws Steps ws %closedBracket                            {% ([,,steps]) => steps %}
+                        |   Random                                                          {% ([random]) => random %}
 
-RandomSteps             ->  %openCurlyBracket RandomStep:+ ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
+Random                  ->  %openCurlyBracket RandomStep:* ws %closedCurlyBracket           {% ([,steps]) => ({ type: "random", probabilities: steps.map(({ probability }: any) => probability), children: steps.map(({ steps }: any) => steps) }) %}
 RandomStep              ->  ws %number %percent ws %colon ws Steps                          {% ([,{ value },,,,, steps]) => ({ probability: Number.parseFloat(value) / 100, steps }) %}
 
 Operation               ->  %identifier %openBracket EmptyParameters ws %closedBracket      {% ([{ value },,children]) => ({ type: "operation", children, identifier: value }) %}
-EmptyParameters         ->  Parameters                                                      {% ([parameters]) => parameters%}
+EmptyParameters         ->  ws Parameters                                                   {% ([,parameters]) => parameters%}
                         |   null                                                            {% () => [] %}
-Parameters              ->  Steps Parameter:+                                               {% ([steps, stepsList]) => [steps, ...stepsList] %}
-                        |   Steps                                                           {% ([steps]) => [steps] %}
-Parameter               ->  ws %comma Steps                                                 {% ([,,steps]) =>  steps %}
+Parameters              ->  Parameter:* Steps                                               {% ([stepsList, steps]) => [...stepsList, steps] %}
+Parameter               ->  Steps ws %comma ws                                              {% ([steps]) =>  steps %}
 
 Symbol                  ->  %identifier                                                     {% ([{ value }]) => ({ type: "symbol", identifier: value }) %}
 
-JS                      ->  %js                                                             {% ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_,fn) => fn)) %}
 ws                      ->  %ws | null
 
 Constant                ->  %boolean                                                        {% ([{ value }]) => value === "true" %}
@@ -148,10 +145,13 @@ Constant                ->  %boolean                                            
 GetVariable             ->  %thisSymbol %point %identifier                                  {% ([,,{ value: identifier }]) => ({ type: "getVariable", identifier }) %}
 SetVariable             ->  %thisSymbol %point %identifier ws %equal ws Step                {% ([,,{ value: identifier },,,,value]) => ({ type: "setVariable", identifier, children: [value] }) %}
 
-ConditionalOperation    ->  IfThenElseOperation                                             {% ([value]) => value %}                               
-                        |   SwitchOperation                                                 {% ([value]) => value %}
+Conditional             ->  IfThenElse                                                      {% ([value]) => value %}                               
+                        |   Switch                                                          {% ([value]) => value %}
 
-IfThenElseOperation     ->  %ifSymbol %ws Step %ws %thenSymbol %ws Step %ws %elseSymbol %ws Step    {% ([,,condition,,,,ifStep,,,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
+IfThenElse              ->  %ifSymbol %ws Steps %ws Then ws Else                                                {% ([,,condition,,ifStep,,elseStep]) => ({ type: "if", children: [condition, ifStep, elseStep] }) %}
+Then                    ->  %thenSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
+Else                    ->  %elseSymbol ws %openCurlyBracket ws Steps ws %closedCurlyBracket                    {% ([,,,,steps]) => steps %}
 
-SwitchOperation         ->  %switchSymbol %ws Step SwitchCase:+                             {% ([,,value,cases]) => ({ type: "switch", cases: cases.map(({ caseValue }: any) => caseValue), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
-SwitchCase              ->  %ws %caseSymbol %ws Constant %colon ws Step                           {% ([,,,caseValue,,,steps]) => ({ caseValue, steps }) %}
+Switch                  ->  %switchSymbol %ws Steps ws %openCurlyBracket SwitchCases:* ws %closedCurlyBracket    {% ([,,value,,,cases]) => ({ type: "switch", cases: cases.map(({ caseValues }: any) => caseValues), children: [value, ...cases.map(({ steps }: any) => steps)] }) %}
+SwitchCases             ->  ws SwitchCase:+ Steps                                                               {% ([,caseValues,steps]) => ({ caseValues, steps }) %}
+SwitchCase              ->  %caseSymbol %ws Constant %colon ws                                                  {% ([,,caseValue]) => caseValue %}

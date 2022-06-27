@@ -7,8 +7,9 @@ function id(d: any[]): any {
 }
 declare var ws: any
 declare var identifier: any
-declare var arrow: any
+declare var longArrow: any
 declare var parallel: any
+declare var arrow: any
 declare var or: any
 declare var and: any
 declare var not: any
@@ -25,6 +26,7 @@ declare var multiply: any
 declare var percent: any
 declare var thisSymbol: any
 declare var returnSymbol: any
+declare var nullSymbol: any
 declare var openBracket: any
 declare var closedBracket: any
 declare var openCurlyBracket: any
@@ -32,7 +34,6 @@ declare var closedCurlyBracket: any
 declare var number: any
 declare var colon: any
 declare var comma: any
-declare var js: any
 declare var boolean: any
 declare var string: any
 declare var int: any
@@ -48,6 +49,7 @@ import moo from "moo"
 
 const lexer = moo.compile({
     returnSymbol: /return/,
+    nullSymbol: /null/,
     thisSymbol: /this/,
     ifSymbol: /if/,
     thenSymbol: /then/,
@@ -55,6 +57,7 @@ const lexer = moo.compile({
     switchSymbol: /switch/,
     caseSymbol: /case/,
     arrow: /->/,
+    longArrow: /-->/,
     openBracket: /\(/,
     closedBracket: /\)/,
     openCurlyBracket: /{/,
@@ -82,7 +85,7 @@ const lexer = moo.compile({
     multiply: /\*/,
     percent: /%/,
     divide: /\//,
-    identifier: /[a-zA-Z_$]+\w*/,
+    identifier: /[a-zA-Z_$@]+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
 })
 
@@ -116,33 +119,40 @@ interface Grammar {
 const grammar: Grammar = {
     Lexer: lexer,
     ParserRules: [
+        { name: "GrammarDefinition", symbols: ["ws", "RuleDefinition", "ws"], postprocess: ([, rule]) => [rule] },
+        { name: "GrammarDefinition$ebnf$1", symbols: ["RuleDefinitions"] },
         {
-            name: "GrammarDefinition",
-            symbols: ["ws", "RuleDefinition", "ws"],
-            postprocess: ([, [identifier, steps]]) => ({ [identifier]: steps }),
+            name: "GrammarDefinition$ebnf$1",
+            symbols: ["GrammarDefinition$ebnf$1", "RuleDefinitions"],
+            postprocess: (d) => d[0].concat([d[1]]),
         },
         {
             name: "GrammarDefinition",
-            symbols: ["ws", "RuleDefinition", lexer.has("ws") ? { type: "ws" } : ws, "GrammarDefinition"],
-            postprocess: ([, [identifier, steps], , prev]) => {
-                if (identifier in prev) {
+            symbols: ["ws", "GrammarDefinition$ebnf$1", "RuleDefinition", "ws"],
+            postprocess: ([, rules, rule]) => {
+                if (rules.find(({ name }: { name: string }) => name === rule.name) != null) {
                     throw new Error(`rule "${identifier}" is already defined`)
                 } else {
-                    return { [identifier]: steps, ...prev }
+                    return [...rules, rule]
                 }
             },
         },
-        { name: "GrammarDefinition", symbols: ["ws"], postprocess: () => ({}) },
+        { name: "GrammarDefinition", symbols: ["ws"], postprocess: () => [] },
+        {
+            name: "RuleDefinitions",
+            symbols: ["RuleDefinition", lexer.has("ws") ? { type: "ws" } : ws],
+            postprocess: ([rule]) => rule,
+        },
         {
             name: "RuleDefinition",
             symbols: [
                 lexer.has("identifier") ? { type: "identifier" } : identifier,
                 "ws",
-                lexer.has("arrow") ? { type: "arrow" } : arrow,
+                lexer.has("longArrow") ? { type: "longArrow" } : longArrow,
                 "ws",
                 "Steps",
             ],
-            postprocess: ([{ value }, , , , steps]) => [value, steps],
+            postprocess: ([{ value }, , , , step]) => ({ name: value, step }),
         },
         { name: "Steps", symbols: ["ParallelSteps"], postprocess: ([steps]) => steps },
         { name: "ParallelSteps$ebnf$1", symbols: ["ParallelStep"] },
@@ -153,14 +163,14 @@ const grammar: Grammar = {
         },
         {
             name: "ParallelSteps",
-            symbols: ["SequentialSteps", "ParallelSteps$ebnf$1"],
-            postprocess: ([sequential, sequentials]) => ({ type: "parallel", children: [sequential, ...sequentials] }),
+            symbols: ["ParallelSteps$ebnf$1", "SequentialSteps"],
+            postprocess: ([sequentials, sequential]) => ({ type: "parallel", children: [...sequentials, sequential] }),
         },
         { name: "ParallelSteps", symbols: ["SequentialSteps"], postprocess: ([sequential]) => sequential },
         {
             name: "ParallelStep",
-            symbols: ["ws", lexer.has("parallel") ? { type: "parallel" } : parallel, "SequentialSteps"],
-            postprocess: ([, , sequential]) => sequential,
+            symbols: ["SequentialSteps", "ws", lexer.has("parallel") ? { type: "parallel" } : parallel, "ws"],
+            postprocess: ([sequential]) => sequential,
         },
         { name: "SequentialSteps$ebnf$1", symbols: ["SequentialStep"] },
         {
@@ -170,18 +180,15 @@ const grammar: Grammar = {
         },
         {
             name: "SequentialSteps",
-            symbols: ["PrimarySteps", "SequentialSteps$ebnf$1"],
-            postprocess: ([primary, primaries]) => ({ type: "sequential", children: [primary, ...primaries] }),
+            symbols: ["SequentialSteps$ebnf$1", "OrOperation"],
+            postprocess: ([primaries, primary]) => ({ type: "sequential", children: [...primaries, primary] }),
         },
-        { name: "SequentialSteps", symbols: ["PrimarySteps"], postprocess: ([primary]) => primary },
+        { name: "SequentialSteps", symbols: ["OrOperation"], postprocess: ([primary]) => primary },
         {
             name: "SequentialStep",
-            symbols: [lexer.has("ws") ? { type: "ws" } : ws, "PrimarySteps"],
-            postprocess: ([, primary]) => primary,
+            symbols: ["OrOperation", "ws", lexer.has("arrow") ? { type: "arrow" } : arrow, "ws"],
+            postprocess: ([primary]) => primary,
         },
-        { name: "PrimarySteps", symbols: ["ws", "BasicOperation"], postprocess: ([, operation]) => operation },
-        { name: "BasicOperation", symbols: ["BooleanOperation"], postprocess: ([value]) => value },
-        { name: "BooleanOperation", symbols: ["OrOperation"], postprocess: ([value]) => value },
         {
             name: "OrOperation",
             symbols: ["OrOperation", "ws", lexer.has("or") ? { type: "or" } : or, "ws", "AndOperation"],
@@ -342,7 +349,7 @@ const grammar: Grammar = {
         { name: "Step", symbols: ["GetVariable"], postprocess: ([getVariable]) => getVariable },
         { name: "Step", symbols: ["SetVariable"], postprocess: ([setVariable]) => setVariable },
         { name: "Step", symbols: ["Constant"], postprocess: ([value]) => ({ type: "raw", value }) },
-        { name: "Step", symbols: ["ConditionalOperation"], postprocess: ([operation]) => operation },
+        { name: "Step", symbols: ["Conditional"], postprocess: ([operation]) => operation },
         {
             name: "Step",
             symbols: [lexer.has("returnSymbol") ? { type: "returnSymbol" } : returnSymbol],
@@ -350,26 +357,28 @@ const grammar: Grammar = {
         },
         {
             name: "Step",
+            symbols: [lexer.has("nullSymbol") ? { type: "nullSymbol" } : nullSymbol],
+            postprocess: () => ({ type: "null" }),
+        },
+        {
+            name: "Step",
             symbols: [
                 lexer.has("openBracket") ? { type: "openBracket" } : openBracket,
+                "ws",
                 "Steps",
                 "ws",
                 lexer.has("closedBracket") ? { type: "closedBracket" } : closedBracket,
             ],
-            postprocess: ([, steps]) => ({ type: "bracket", children: [steps] }),
+            postprocess: ([, , steps]) => steps,
         },
-        { name: "Step", symbols: ["RandomSteps"], postprocess: ([random]) => random },
-        { name: "RandomSteps$ebnf$1", symbols: ["RandomStep"] },
+        { name: "Step", symbols: ["Random"], postprocess: ([random]) => random },
+        { name: "Random$ebnf$1", symbols: [] },
+        { name: "Random$ebnf$1", symbols: ["Random$ebnf$1", "RandomStep"], postprocess: (d) => d[0].concat([d[1]]) },
         {
-            name: "RandomSteps$ebnf$1",
-            symbols: ["RandomSteps$ebnf$1", "RandomStep"],
-            postprocess: (d) => d[0].concat([d[1]]),
-        },
-        {
-            name: "RandomSteps",
+            name: "Random",
             symbols: [
                 lexer.has("openCurlyBracket") ? { type: "openCurlyBracket" } : openCurlyBracket,
-                "RandomSteps$ebnf$1",
+                "Random$ebnf$1",
                 "ws",
                 lexer.has("closedCurlyBracket") ? { type: "closedCurlyBracket" } : closedCurlyBracket,
             ],
@@ -403,9 +412,9 @@ const grammar: Grammar = {
             ],
             postprocess: ([{ value }, , children]) => ({ type: "operation", children, identifier: value }),
         },
-        { name: "EmptyParameters", symbols: ["Parameters"], postprocess: ([parameters]) => parameters },
+        { name: "EmptyParameters", symbols: ["ws", "Parameters"], postprocess: ([, parameters]) => parameters },
         { name: "EmptyParameters", symbols: [], postprocess: () => [] },
-        { name: "Parameters$ebnf$1", symbols: ["Parameter"] },
+        { name: "Parameters$ebnf$1", symbols: [] },
         {
             name: "Parameters$ebnf$1",
             symbols: ["Parameters$ebnf$1", "Parameter"],
@@ -413,24 +422,18 @@ const grammar: Grammar = {
         },
         {
             name: "Parameters",
-            symbols: ["Steps", "Parameters$ebnf$1"],
-            postprocess: ([steps, stepsList]) => [steps, ...stepsList],
+            symbols: ["Parameters$ebnf$1", "Steps"],
+            postprocess: ([stepsList, steps]) => [...stepsList, steps],
         },
-        { name: "Parameters", symbols: ["Steps"], postprocess: ([steps]) => [steps] },
         {
             name: "Parameter",
-            symbols: ["ws", lexer.has("comma") ? { type: "comma" } : comma, "Steps"],
-            postprocess: ([, , steps]) => steps,
+            symbols: ["Steps", "ws", lexer.has("comma") ? { type: "comma" } : comma, "ws"],
+            postprocess: ([steps]) => steps,
         },
         {
             name: "Symbol",
             symbols: [lexer.has("identifier") ? { type: "identifier" } : identifier],
             postprocess: ([{ value }]) => ({ type: "symbol", identifier: value }),
-        },
-        {
-            name: "JS",
-            symbols: [lexer.has("js") ? { type: "js" } : js],
-            postprocess: ([{ value }]) => eval((value as string).replace(/"([^"]+)"/, (_, fn) => fn)),
         },
         { name: "ws", symbols: [lexer.has("ws") ? { type: "ws" } : ws] },
         { name: "ws", symbols: [] },
@@ -480,60 +483,91 @@ const grammar: Grammar = {
                 children: [value],
             }),
         },
-        { name: "ConditionalOperation", symbols: ["IfThenElseOperation"], postprocess: ([value]) => value },
-        { name: "ConditionalOperation", symbols: ["SwitchOperation"], postprocess: ([value]) => value },
+        { name: "Conditional", symbols: ["IfThenElse"], postprocess: ([value]) => value },
+        { name: "Conditional", symbols: ["Switch"], postprocess: ([value]) => value },
         {
-            name: "IfThenElseOperation",
+            name: "IfThenElse",
             symbols: [
                 lexer.has("ifSymbol") ? { type: "ifSymbol" } : ifSymbol,
                 lexer.has("ws") ? { type: "ws" } : ws,
-                "Step",
+                "Steps",
                 lexer.has("ws") ? { type: "ws" } : ws,
-                lexer.has("thenSymbol") ? { type: "thenSymbol" } : thenSymbol,
-                lexer.has("ws") ? { type: "ws" } : ws,
-                "Step",
-                lexer.has("ws") ? { type: "ws" } : ws,
-                lexer.has("elseSymbol") ? { type: "elseSymbol" } : elseSymbol,
-                lexer.has("ws") ? { type: "ws" } : ws,
-                "Step",
+                "Then",
+                "ws",
+                "Else",
             ],
-            postprocess: ([, , condition, , , , ifStep, , , , elseStep]) => ({
+            postprocess: ([, , condition, , ifStep, , elseStep]) => ({
                 type: "if",
                 children: [condition, ifStep, elseStep],
             }),
         },
-        { name: "SwitchOperation$ebnf$1", symbols: ["SwitchCase"] },
         {
-            name: "SwitchOperation$ebnf$1",
-            symbols: ["SwitchOperation$ebnf$1", "SwitchCase"],
-            postprocess: (d) => d[0].concat([d[1]]),
+            name: "Then",
+            symbols: [
+                lexer.has("thenSymbol") ? { type: "thenSymbol" } : thenSymbol,
+                "ws",
+                lexer.has("openCurlyBracket") ? { type: "openCurlyBracket" } : openCurlyBracket,
+                "ws",
+                "Steps",
+                "ws",
+                lexer.has("closedCurlyBracket") ? { type: "closedCurlyBracket" } : closedCurlyBracket,
+            ],
+            postprocess: ([, , , , steps]) => steps,
         },
         {
-            name: "SwitchOperation",
+            name: "Else",
+            symbols: [
+                lexer.has("elseSymbol") ? { type: "elseSymbol" } : elseSymbol,
+                "ws",
+                lexer.has("openCurlyBracket") ? { type: "openCurlyBracket" } : openCurlyBracket,
+                "ws",
+                "Steps",
+                "ws",
+                lexer.has("closedCurlyBracket") ? { type: "closedCurlyBracket" } : closedCurlyBracket,
+            ],
+            postprocess: ([, , , , steps]) => steps,
+        },
+        { name: "Switch$ebnf$1", symbols: [] },
+        { name: "Switch$ebnf$1", symbols: ["Switch$ebnf$1", "SwitchCases"], postprocess: (d) => d[0].concat([d[1]]) },
+        {
+            name: "Switch",
             symbols: [
                 lexer.has("switchSymbol") ? { type: "switchSymbol" } : switchSymbol,
                 lexer.has("ws") ? { type: "ws" } : ws,
-                "Step",
-                "SwitchOperation$ebnf$1",
+                "Steps",
+                "ws",
+                lexer.has("openCurlyBracket") ? { type: "openCurlyBracket" } : openCurlyBracket,
+                "Switch$ebnf$1",
+                "ws",
+                lexer.has("closedCurlyBracket") ? { type: "closedCurlyBracket" } : closedCurlyBracket,
             ],
-            postprocess: ([, , value, cases]) => ({
+            postprocess: ([, , value, , , cases]) => ({
                 type: "switch",
-                cases: cases.map(({ caseValue }: any) => caseValue),
+                cases: cases.map(({ caseValues }: any) => caseValues),
                 children: [value, ...cases.map(({ steps }: any) => steps)],
             }),
+        },
+        { name: "SwitchCases$ebnf$1", symbols: ["SwitchCase"] },
+        {
+            name: "SwitchCases$ebnf$1",
+            symbols: ["SwitchCases$ebnf$1", "SwitchCase"],
+            postprocess: (d) => d[0].concat([d[1]]),
+        },
+        {
+            name: "SwitchCases",
+            symbols: ["ws", "SwitchCases$ebnf$1", "Steps"],
+            postprocess: ([, caseValues, steps]) => ({ caseValues, steps }),
         },
         {
             name: "SwitchCase",
             symbols: [
-                lexer.has("ws") ? { type: "ws" } : ws,
                 lexer.has("caseSymbol") ? { type: "caseSymbol" } : caseSymbol,
                 lexer.has("ws") ? { type: "ws" } : ws,
                 "Constant",
                 lexer.has("colon") ? { type: "colon" } : colon,
                 "ws",
-                "Step",
             ],
-            postprocess: ([, , , caseValue, , , steps]) => ({ caseValue, steps }),
+            postprocess: ([, , caseValue]) => caseValue,
         },
     ],
     ParserStart: "GrammarDefinition",

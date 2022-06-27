@@ -1,11 +1,46 @@
 @import "../node_modules/bootstrap/scss/bootstrap.scss";
 
-* {
+a {
+    text-decoration: none;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+.flex-basis-0 {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    flex-basis: 0 !important;
+}
+
+.text-editor {
+    font-size: 1rem;
     font-family: monospace;
 }
 
-a {
-    text-decoration: none;
+.bg-hovered {
+    background-color: rgb(83, 0, 192);
+}
+
+.bg-selected {
+    background-color: rgb(154, 11, 250);
+}
+
+.hovered {
+    @extend .bg-hovered;
+    border-radius: 0.3rem;
+    margin: -0.3rem;
+    padding: 0.3rem;
+    cursor: pointer;
+}
+
+.selected {
+    @extend .bg-selected;
+    border-radius: 0.3rem;
+    margin: -0.3rem;
+    padding: 0.3rem;
+    cursor: pointer;
 }
 
 .pointer {
@@ -15,6 +50,7 @@ a {
 .flex-basis-0 {
     flex-basis: 0;
     min-width: 0;
+    min-height: 0;
 }
 
 .responsive-flex-direction {
@@ -24,4 +60,8 @@ a {
     .responsive-flex-direction {
         flex-direction: row;
     }
+}
+
+.scroll {
+    overflow: hidden auto;
 }

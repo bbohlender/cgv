@@ -25,12 +25,12 @@ The grammar is defined in [grammar.ne](./grammar.ne).
 
 -   **`Rules`** - like in CGA ("**Lot --> Building**")
     -   begins with the name of the rule - called **`Symbol`**
-    -   followed by `->` (simplified - "-->" in CGA)
+    -   followed by `-->`
     -   followed by **`Parallel Executions`**
 -   **`Parallel Execution`** - similar to CGA ("Building --> comp(f){ front : FrontFacade **|** side : SideFacade **|** top: Roof}")
     -   seperates **`Sequential Executions`** using `|` (vertical bar)
 -   **`Sequential Execution`** - like in CGA ("Lot --> **extrude(height) Building**")
-    -   seperates **`Operations`**, **`Constants`** or **`Symbols`** using **`whitespace`**
+    -   seperates **`Operations`**, **`Constants`** or **`Symbols`** using **`->`**
 -   **`Operations`** - like in CGA ("**color(wallColor)**")
     -   begins with the operation name (name is domain specific)
     -   followed by opening bracket `(`, the **`Parameters`** and a closing bracket `)`
@@ -84,7 +84,7 @@ Except for the parallel and sequential execution the precendence of all operator
 _Recursion_
 
 ```
-a -> { 90%: 1 | a 10%: 0 }
+a --> { 90%: 1 | a 10%: 0 }
 ```
 
 _Premature termination_
@@ -92,15 +92,15 @@ _Premature termination_
 _the following example returns 10 since the execution is terminated before the current value is changed to 20_
 
 ```
-a -> 10 return 20
+a --> 10 return 20
 ```
 
 _currently not working, cause the event operator is missing_
 
 ```
-a -> 1 + 2 max | 4 max
+a --> 1 + 2 max | 4 max
 
-max -> event("a => {
+max --> event("a => {
    let max = 0
    let maxI = 0
    let maxII = 0;
@@ -120,105 +120,78 @@ max -> event("a => {
 `Building a Cube`
 
 ```
-a -> face(
-	point(0,0,100),
-	point(0,0,0),
-	point(100,0,00),
-	point(100,0,100)
-)
-
-extrude(100)
+a --> face(point2(0, 100), point2(0, 0), point2(100, 0), point2(100, 100)) -> extrude(100)
 ```
 
 `Streets`
 
 ```
-a -> point(0,0,0) right
-(this | toPoints() select(1,2) (right | left)
-(this | toPoints() select(1,2) left
-(this | toPoints() select(1,2) right
-(this | toPoints() select(1,2) left))))
+a --> point2(0, 0) -> right -> (this | toPoints() -> select(1, 2) -> (right | left) -> (this | toPoints() -> select(1, 2) -> left -> (this | toPoints() -> select(1, 2) -> right -> (this | toPoints() -> select(1, 2) -> left))))
 
-left -> rotate(0, 45, 0) extrude(300)
+left --> rotate(0, 45, 0) -> extrude(30)
 
-right -> rotate(0, -45, 0) extrude(300)
+right --> rotate(0, -45, 0) -> extrude(30)
 
-forward -> extrude(300)
+forward --> extrude(30)
 ```
 
 `Recursion`
 
 ```
-a -> translate(0, 10, 0) if (random(0,1) > 0.5) then a else this
+a --> mapbox() -> t
+t --> translate(0, 10, 0) -> { 50%: t 50%: this }
 ```
 
-`Forest` (currently not working - reimplementation of sample and load)
+`Forest`
 
 ```
-Forest -> sample2d(10) replace("/tree.gltf")
+Start --> face(point2(358.16, -152.34), point2(288.3, -30.32), point2(269.68, -117.46)) -> sample(10) -> load("/cgv/tree.gltf") -> scale(100, 100, 100)
 ```
 
 `City 1` (currently not working - reimplementation of expand and sample)
 
 ```
-City -> if(this.type == "road") then Road else Building
+City --> if(this.type == "road") then Road else Building
 
-Road -> expand(20) (this | sample(30) load("/tree.gltf"))
+Road --> expand(20) (this | sample(30) load("/tree.gltf"))
 
-Building -> expand(200)
+Building --> expand(200)
 ```
 
 `Task 1`
 
 ```
-Start -> face(
-	point(100,0,900),
-	point(-300,0,0),
-	point(800,0,100),
-	point(600,0,600)
-) Lot
+Start --> face(point2(26.09, 136.11), point2(29.84, 51.57), point2(110.36, 53.93), point2(107.5, 136.39)) -> Lot
 
-Lot -> color(0x333343) extrude(600) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
+Lot --> color("#333343") -> extrude(60) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
 
-Wall -> splitZ(200) Floor
+Wall --> split("z", 20) -> Floor
 
-Roof -> color(0x8881111)
+Roof --> color("#881111") -> extrude(30) -> gableRoof()
 
-Floor -> splitX(200) WindowFrame
+Floor --> split("x", 20) -> WindowFrame
 
-WindowFrame -> if (size("x") >= 200)
-	then (
-		multiSplitX(50, 100) switch index()
-			case 0: this
-			case 1: (
-				multiSplitZ(50, 100) switch index()
-					case 0: this
-					case 1: Window
-					case 2: this
-			)
-			case 2: this
-	)
-	else this
+WindowFrame --> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id( ) == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
 
-Window -> color(0xEEEEEE)
+Window --> if id( ) == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
 ```
 
 `Task 2`
 
 ```
-City -> color(0x333343) extrude(random(400, 600)) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
+City --> color("#333343") extrude(random(400, 600)) toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Wall -> splitZ(random(150, 250)) Floor
+Wall --> splitZ(random(150, 250)) Floor
 
-Roof -> color(0x8881111)
+Roof --> color("#8881111")
 
-Floor -> if (size("z") >= 140)
+Floor --> if (size("z") >= 140)
     then (
         splitX(random(150, 250)) WindowFrame
     )
     else this
 
-WindowFrame -> if (size("x") >= 150)
+WindowFrame --> if (size("x") >= 150)
 	then (
 		multiSplitX(40, 100) switch index()
 			case 0: this
@@ -232,31 +205,31 @@ WindowFrame -> if (size("x") >= 150)
 	)
 	else this
 
-Window -> color(0xEEEEEE)
+Window --> color("#EEEEEE")
 ```
 
 `Task 3`
 
 ```
-City -> color(0x333343) if (this.blockId == 0) then LowBuilding else HighBuilding
+City --> color(0x333343) if (this.blockId == 0) then LowBuilding else HighBuilding
 
-HighBuilding -> extrude(random(800, 1200)) Building
+HighBuilding --> extrude(random(800, 1200)) Building
 
-LowBuilding -> extrude(random(200, 600)) Building
+LowBuilding --> extrude(random(200, 600)) Building
 
-Building -> toFaces() (select(0, 4) Wall | select(4, 5) Roof)
+Building --> toFaces() (select(0, 4) Wall | select(4, 5) Roof)
 
-Roof -> if (this.blockId == 0) then color(0x8881111) else color(0x111111)
+Roof --> if (this.blockId == 0) then color(0x8881111) else color(0x111111)
 
-Wall -> splitZ(random(190, 250)) Floor
+Wall --> splitZ(random(190, 250)) Floor
 
-Floor -> if (size("z") >= 190)
+Floor --> if (size("z") >= 190)
     then (
         splitX(200) if (this.blockId == 0) then SmallTile else BigTile
     )
     else this
 
-BigTile -> if (size("x") >= 200)
+BigTile --> if (size("x") >= 200)
     then (
         multiSplitX(10, 190) switch index()
             case 0: this
@@ -270,7 +243,7 @@ BigTile -> if (size("x") >= 200)
     )
     else this
 
-SmallTile -> if (size("x") >= 180)
+SmallTile --> if (size("x") >= 180)
     then (
         multiSplitX(50, 100) switch index()
             case 0: this
@@ -284,5 +257,35 @@ SmallTile -> if (size("x") >= 180)
     )
     else this
 
-Window -> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
+Window --> extrude(-20) toFaces() (select(0, 4) | select(4, 5) color(0xEEEEEE))
+```
+
+House
+
+````
+Start --> face(point2(-23.93, 66.93), point2(-32.02, 56.24), point2(-10.81, 37.99), point2(-0.33, 45.46)) -> Lot
+
+Lot --> color("#333343") -> extrude(6) -> toFaces() -> if index() < 4 then { Wall } else { Roof }
+
+Wall --> split("z", 20) -> Floor
+
+Roof --> color("#881111") -> extrude(5) -> gableRoof(-45)
+
+Floor --> split("x", 20) -> WindowFrame
+
+WindowFrame --> if size("x") >= 15 then { multiSplit("x", 5, 10) -> switch index() { case 0: this case 1: if id( ) == "0,0,1,1" then { multiSplit("z", 0, 18) } else { multiSplit("z", 5, 10) } -> switch index() { case 0: this case 1: Window case 2: this } case 2: this } } else { this }
+
+Window --> if id( ) == "0,0,1,1,1" then { color("#964808") } else { color("#EEEEEE") }
+```
+
+Street
+
+```
+Start --> expandGraph(20, line(point2(205.09, -7.75), point2(97.35, -6.38)), line(point2(-1.91, -198.75), point2(-98.57, -98.43)), line(point2(-145.86, 23.73), point2(-100, -100)), line(point2(-100, -100), point2(97.62, -7.15))) -> (sample(2) -> load("/cgv/car.gltf") -> scale(6, 6, 6) -> rotate(0, 90, 0) | this -> color("#8f8f8f"))
+```
+
+Forest
+
+```
+Start --> face(point2(46.06, -86.66), point2(128.51, -68.68), point2(116.58, -11.81), point2(46.7, 2.21), point2(11.59, -22.09), point2(36.35, -60.33)) -> (sample(50) -> load("/cgv/tree.gltf") -> scale(20, 20, 20) | color("#63bf31"))
 ```

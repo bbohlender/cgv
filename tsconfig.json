@@ -4,6 +4,7 @@
         "moduleResolution": "node",
         "sourceMap": true,
         "esModuleInterop": true,
+        "downlevelIteration": true,
         "jsx": "react",
         "strict": true,
         "target": "ES6",
@@ -11,5 +12,5 @@
         "outDir": "dist",
         "experimentalDecorators": true
     },
-    "include": ["src/**/*"]
+    "include": ["src/**/*", "tests/**/*"]
 }

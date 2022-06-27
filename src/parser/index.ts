@@ -1,4 +1,5 @@
 import { Grammar, Parser } from "nearley"
+import { globalizeDescription } from "../util"
 import grammar from "./parser"
 
 const G = Grammar.fromCompiled(grammar)
@@ -12,69 +13,93 @@ export function parse(text: string): ParsedGrammarDefinition {
     return parser.results[0]
 }
 
-export type ParsedSteps =
-    | ParsedParallel
-    | ParsedSequantial
-    | ParsedOperation
-    | ParsedSymbol
-    | ParsedRaw
-    | ParsedThis
-    | ParsedBracket
-    | ParsedBinaryOperator
-    | ParsedUnaryOperator
-    | ParsedIf
-    | ParsedSwitch
-    | ParsedSetVariable
-    | ParsedGetVariable
-    | ParsedReturn
-    | ParsedRandom
+export function parseDescription(text: string, descriptionName: string): ParsedGrammarDefinition {
+    const result = parse(text)
+    //transform the result
+    return globalizeDescription(result, descriptionName)
+}
 
-export type ParsedParallel = {
+export type ParsedGrammarDefinition = AbstractParsedGrammarDefinition<unknown>
+export type ParsedSteps = AbstractParsedSteps<unknown>
+export type ParsedParallel = AbstractParsedParallel<unknown>
+export type ParsedSequantial = AbstractParsedSequantial<unknown>
+export type ParsedOperation = AbstractParsedOperation<unknown>
+export type ParsedSymbol = AbstractParsedSymbol<unknown>
+export type ParsedRaw = AbstractParsedRaw<unknown>
+export type ParsedThis = AbstractParsedThis<unknown>
+export type ParsedBinaryOperator = AbstractParsedBinaryOperator<unknown>
+export type ParsedUnaryOperator = AbstractParsedUnaryOperator<unknown>
+export type ParsedIf = AbstractParsedIf<unknown>
+export type ParsedSwitch = AbstractParsedSwitch<unknown>
+export type ParsedSetVariable = AbstractParsedSetVariable<unknown>
+export type ParsedGetVariable = AbstractParsedGetVariable<unknown>
+export type ParsedReturn = AbstractParsedReturn<unknown>
+export type ParsedRandom = AbstractParsedRandom<unknown>
+export type ParsedNull = AbstractParsedNull<unknown>
+
+export type AbstractParsedSteps<T> =
+    | AbstractParsedParallel<T>
+    | AbstractParsedSequantial<T>
+    | AbstractParsedOperation<T>
+    | AbstractParsedSymbol<T>
+    | AbstractParsedRaw<T>
+    | AbstractParsedThis<T>
+    | AbstractParsedBinaryOperator<T>
+    | AbstractParsedUnaryOperator<T>
+    | AbstractParsedIf<T>
+    | AbstractParsedSwitch<T>
+    | AbstractParsedSetVariable<T>
+    | AbstractParsedGetVariable<T>
+    | AbstractParsedReturn<T>
+    | AbstractParsedRandom<T>
+    | AbstractParsedNull<T>
+
+export type AbstractParsedParallel<T> = {
     type: "parallel"
-    children: Array<ParsedSteps>
-}
+    children: Array<AbstractParsedSteps<T>>
+} & T
 
-export type ParsedSequantial = {
+export type AbstractParsedSequantial<T> = {
     type: "sequential"
-    children: Array<ParsedSteps>
-}
-export type ParsedBracket = {
-    type: "bracket"
-    children: [value: ParsedSteps]
-}
-export type ParsedOperation = {
+    children: Array<AbstractParsedSteps<T>>
+} & T
+export type AbstractParsedOperation<T> = {
     type: "operation"
-    children: Array<ParsedSteps>
+    children: Array<AbstractParsedSteps<T>>
     identifier: string
-}
-export type ParsedSymbol = {
+} & T
+export type AbstractParsedSymbol<T> = {
     type: "symbol"
     identifier: string
     children?: undefined
-}
-export type ParsedRaw = {
+} & T
+export type AbstractParsedRaw<T> = {
     type: "raw"
     value: any
     children?: undefined
-}
-export type ParsedThis = {
+} & T
+export type AbstractParsedThis<T> = {
     type: "this"
     children?: undefined
-}
-export type ParsedReturn = {
+} & T
+export type AbstractParsedReturn<T> = {
     type: "return"
     children?: undefined
-}
-export type ParsedUnaryOperator = {
+} & T
+export type AbstractParsedUnaryOperator<T> = {
     type: "not" | "invert"
-    children: [value: ParsedSteps]
-}
-export type ParsedRandom = {
+    children: [value: AbstractParsedSteps<T>]
+} & T
+export type AbstractParsedRandom<T> = {
     type: "random"
     probabilities: Array<number> //should add up to ~1
-    children: Array<ParsedSteps>
-}
-export type ParsedBinaryOperator = {
+    children: Array<AbstractParsedSteps<T>>
+} & T
+export type AbstractParsedNull<T> = {
+    type: "null"
+    children?: undefined
+} & T
+export type AbstractParsedBinaryOperator<T> = {
     type:
         | "add"
         | "subtract"
@@ -89,28 +114,27 @@ export type ParsedBinaryOperator = {
         | "smallerEqual"
         | "greater"
         | "greaterEqual"
-    children: [op1: ParsedSteps, op2: ParsedSteps]
-}
-export type ParsedIf = {
+    children: [op1: AbstractParsedSteps<T>, op2: AbstractParsedSteps<T>]
+} & T
+export type AbstractParsedIf<T> = {
     type: "if"
-    children: [condition: ParsedSteps, ifValue: ParsedSteps, elseValue: ParsedSteps]
-}
-export type ParsedSwitch = {
+    children: [condition: AbstractParsedSteps<T>, ifValue: AbstractParsedSteps<T>, elseValue: AbstractParsedSteps<T>]
+} & T
+export type AbstractParsedSwitch<T> = {
     type: "switch"
-    cases: Array<any>
-    children: Array<ParsedSteps>
-}
-export type ParsedSetVariable = {
+    cases: Array<Array<any>>
+    children: Array<AbstractParsedSteps<T>>
+} & T
+export type AbstractParsedSetVariable<T> = {
     type: "setVariable"
     identifier: string
-    children: [value: ParsedSteps]
-}
-export type ParsedGetVariable = {
+    children: [value: AbstractParsedSteps<T>]
+} & T
+export type AbstractParsedGetVariable<T> = {
     type: "getVariable"
     identifier: string
     children?: undefined
-}
+} & T
 
-export type ParsedGrammarDefinition = {
-    [Symbol in string]: ParsedSteps
-}
+export type AbstractParsedGrammarDefinition<T> = Array<AbstractParsedNoun<T>>
+export type AbstractParsedNoun<T> = { name: string; step: AbstractParsedSteps<T> }

@@ -8,6 +8,7 @@ import {
     Invalid,
     Matrix,
     parse,
+    shallowEqual,
     simpleExecution,
     toArray,
     toValue,
@@ -27,8 +28,6 @@ import {
     toArray as collectInArray,
 } from "rxjs"
 chai.use(chaiAsPromised)
-
-//TODO: get decisions + concretizer
 
 describe("matrix datastructure", () => {
     it("should handle changes and update matrix", () => {
@@ -101,7 +100,7 @@ describe("array datastructure", () => {
     it("should handle changes from observable and output the updated array", async () => {
         await expect(
             lastValueFrom(
-                scheduled<Value<number>>(
+                scheduled<Value<number, undefined>>(
                     [
                         {
                             raw: 4,
@@ -109,6 +108,7 @@ describe("array datastructure", () => {
                             invalid: createInvalidAndInvalidateAfter(100),
                             variables: {},
                             symbolDepth: {},
+                            annotation: undefined,
                         },
                         {
                             raw: 3,
@@ -116,6 +116,7 @@ describe("array datastructure", () => {
                             invalid: createCompletedInvalid(),
                             variables: {},
                             symbolDepth: {},
+                            annotation: undefined,
                         },
                         {
                             raw: 2,
@@ -123,6 +124,7 @@ describe("array datastructure", () => {
                             invalid: createInvalidAndInvalidateAfter(200),
                             variables: {},
                             symbolDepth: {},
+                            annotation: undefined,
                         },
                         {
                             raw: 1,
@@ -130,6 +132,7 @@ describe("array datastructure", () => {
                             invalid: createCompletedInvalid(),
                             variables: {},
                             symbolDepth: {},
+                            annotation: undefined,
                         },
                         {
                             raw: 2,
@@ -137,6 +140,7 @@ describe("array datastructure", () => {
                             invalid: createCompletedInvalid(),
                             variables: {},
                             symbolDepth: {},
+                            annotation: undefined,
                         },
                     ],
                     asyncScheduler
@@ -164,7 +168,7 @@ describe("interprete grammar", () => {
     it("should interprete sequential execution", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 10 this * 10 this + 1`), {}),
+            interprete(parse(`a --> 10 -> this * 10 -> this + 1`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -174,7 +178,7 @@ describe("interprete grammar", () => {
     it("should interprete parallel execution", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 2 * 3 | 2 4 * 2`), {}),
+            interprete(parse(`a --> 1 | 2 * 3 | 2 -> 4 * 2`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -184,12 +188,17 @@ describe("interprete grammar", () => {
     it("should interprete operation execution with one result and without including this parameter", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`), {
-                op1: {
-                    execute: simpleExecution((num: number, str: any) => of<any>([`${str ?? ""}${num * num}`])),
-                    includeThis: false,
+            interprete(
+                parse(`a --> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`),
+                {
+                    op1: {
+                        execute: simpleExecution((num: number, str: any) => of<any>([`${str ?? ""}${num * num}`])),
+                        includeThis: false,
+                        defaultParameters: [],
+                    },
                 },
-            }),
+                {}
+            ),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -199,14 +208,19 @@ describe("interprete grammar", () => {
     it("should interprete operation execution with multiple results and with including this as parameter", async () => {
         const result = of(22).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`), {
-                op1: {
-                    execute: simpleExecution((current: number, num: number, str: any) =>
-                        of<any>([current, str, num * num])
-                    ),
-                    includeThis: true,
+            interprete(
+                parse(`a --> 1 | 2 * 3 | op1(3+3, "Hallo" + " Welt") | op1(2)`),
+                {
+                    op1: {
+                        execute: simpleExecution((current: number, num: number, str: any) =>
+                            of<any>([current, str, num * num])
+                        ),
+                        includeThis: true,
+                        defaultParameters: [],
+                    },
                 },
-            }),
+                {}
+            ),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -216,7 +230,7 @@ describe("interprete grammar", () => {
     it("should interprete grammars with recursion (that eventually terminate)", async () => {
         const result = of(4).pipe(
             toValue(),
-            interprete(parse(`a -> if (this == 0) then 0 else (1 | this - 1 a)`), {}),
+            interprete(parse(`a --> if this == 0 then { 0 } else { 1 | this - 1 -> a }`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -226,7 +240,7 @@ describe("interprete grammar", () => {
     it("should not throw an error caused by recursion since a return is used before the recursion", async () => {
         const result = of(22).pipe(
             toValue(),
-            interprete(parse(`a -> return a`), {}),
+            interprete(parse(`a --> return -> a`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -238,11 +252,12 @@ describe("interprete grammar", () => {
             toValue(),
             interprete(
                 parse(
-                    `   a -> 2 switch this case 2: b case 3: c
-                        b -> if true then (this * 10 c) else c
-                        c -> (20 * d | d) return 100
-                        d -> this / 2 this * 2`
+                    `   a --> 2 -> switch this { case 2: b case 3: c }
+                        b --> if true then { this * 10 -> c } else { c }
+                        c --> (20 * d | d) -> return -> 100
+                        d --> this / 2 -> this * 2`
                 ),
+                {},
                 {}
             ),
             toArray(),
@@ -266,11 +281,12 @@ describe("interprete grammar", () => {
             toValue(),
             interprete(
                 parse(
-                    `   a -> c | b
-                        b -> if (this == 1) then (this * 10 c) else c
-                        c -> (20 * d | d) return 100
-                        d -> this / 2 this * 2`
+                    `   a --> c | b
+                        b --> if this == 1 then { this * 10 -> c } else { c }
+                        c --> (20 * d | d) -> return -> 100
+                        d --> this / 2 -> this * 2`
                 ),
+                {},
                 {}
             ),
             toArray(),
@@ -282,22 +298,15 @@ describe("interprete grammar", () => {
 
         expect(results.length).to.be.greaterThan(10)
 
-        expect(() => {
-            let resultsIndex = 0
-            for (let i = 0; i < expected.length; i++) {
-                if (shallowEqual(expected[i], results[resultsIndex])) {
-                    ++resultsIndex
-                }
+        let resultsIndex = 0
+        for (let i = 0; i < expected.length; i++) {
+            if (shallowEqual(expected[i], results[resultsIndex])) {
+                ++resultsIndex
             }
-            const unmatchedResult = results[resultsIndex]
-            if (unmatchedResult != null) {
-                throw new Error(
-                    `unexpected result ${JSON.stringify(unmatchedResult)} at result index ${resultsIndex} of ${
-                        results.length
-                    } results `
-                )
-            }
-        }).to.not.throw()
+        }
+        const unmatchedResult = results[resultsIndex]
+
+        expect(unmatchedResult).to.be.undefined
     }).timeout(10000)
 
     it("should interprete complex grammar with delays", async () => {
@@ -305,13 +314,15 @@ describe("interprete grammar", () => {
             toValue(),
             interprete(
                 parse(
-                    `   a -> 2 switch this case 2: b case 3: c
-                        b -> if true then (this * 10 c) else c
-                        c -> (20 * d | d) return 100
-                        d -> this / 2 this * 2`
+                    `   a --> 2 -> switch this { case 2: b case 3: c }
+                        b --> if true then { this * 10 -> c } else { c }
+                        c --> (20 * d | d) -> return -> 100
+                        d --> this / 2 -> this * 2`
                 ),
                 {},
-                20
+                {
+                    delay: 20,
+                }
             ),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
@@ -322,7 +333,7 @@ describe("interprete grammar", () => {
     it("should handle external variable changes", async () => {
         const values = new Array(100).fill(null).map((_, i) => i)
         const expected = values.map((v) => [v * 5, 2 + v])
-        const result = of<Value<number>>({
+        const result = of<Value<number, undefined>>({
             raw: 0,
             invalid: createCompletedInvalid(),
             index: [],
@@ -333,10 +344,12 @@ describe("interprete grammar", () => {
                 ),
             },
             symbolDepth: {},
+            annotation: undefined,
         }).pipe(
             interprete(
-                parse(` a -> this.x * b | 2 + this.x
-                        b -> 3 + 2`),
+                parse(` a --> this.x * b | 2 + this.x
+                        b --> 3 + 2`),
+                {},
                 {}
             ),
             toArray(),
@@ -368,7 +381,13 @@ describe("interprete grammar", () => {
     it("should throw an error with unterminating recursive grammars", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 10 a | 2`), {}, undefined, 50),
+            interprete(
+                parse(`a --> 1 | 10 -> a | 2`),
+                {},
+                {
+                    maxSymbolDepth: 50,
+                }
+            ),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -380,7 +399,13 @@ describe("interprete grammar", () => {
     it("should throw an error with direct referecing unterminating recursive grammars", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> a`), {}, undefined, 50),
+            interprete(
+                parse(`a --> a`),
+                {},
+                {
+                    maxSymbolDepth: 50,
+                }
+            ),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -392,7 +417,7 @@ describe("interprete grammar", () => {
     it("should throw an error when using unknown symbol", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 10 b | 2`), {}),
+            interprete(parse(`a --> 1 | 10 -> b | 2`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
@@ -402,25 +427,35 @@ describe("interprete grammar", () => {
     it("should throw an error when using unknown operator", async () => {
         const result = of(1).pipe(
             toValue(),
-            interprete(parse(`a -> 1 | 10 drive() | 2`), {}),
+            interprete(parse(`a --> 1 | 10 -> drive() | 2`), {}, {}),
             toArray(),
             map((values) => values.map(({ raw }) => raw))
         )
         await expect(lastValueFrom(result)).to.be.eventually.rejectedWith(`unknown operation "drive"`)
     })
 
+    it("should should interprete random based on seed", async () => {
+        const seeds = [4, 8, 3, 50, 50]
+        const description = parse(`a --> { 25%: 1 25%: 2 25%: 3 25%: 4 }`)
+        const results: Array<number> = []
+
+        for (const seed of seeds) {
+            results.push(
+                (
+                    await lastValueFrom(
+                        of(1).pipe(
+                            toValue(),
+                            interprete(description, {}, { seed }),
+                            toArray(),
+                            map((values) => values.map(({ raw }) => raw))
+                        )
+                    )
+                )[0]
+            )
+        }
+        expect(results).to.deep.equal([1, 2, 3, 4, 4])
+    })
+
     //TODO: test attribute changes
     //TODO: test operation value change (or switch operation result to promise?)
 })
-
-function shallowEqual(array1: Array<any>, array2: Array<any>): boolean {
-    if (array1.length != array2.length) {
-        return false
-    }
-    for (let i = 0; i < array1.length; i++) {
-        if (array1[i] != array2[i]) {
-            return false
-        }
-    }
-    return true
-}
