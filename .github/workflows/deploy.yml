@@ -22,6 +22,10 @@ jobs:
             npm i --legacy-peer-deps
             npm run generate
 
+        - name: Extract public files
+          working-directory: web/public
+          run: 7z x tiles.zip
+
         - name: Deploy
           uses: JamesIves/github-pages-deploy-action@4.1.5
           with:
