@@ -1,5 +1,5 @@
 * text eol=lf
-
+*.zip filter=lfs diff=lfs merge=lfs -binary
 *.png binary
 *.hdr binary
 *.jpg binary

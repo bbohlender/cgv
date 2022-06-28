@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { parse, ParsedSteps, serializeString, summarize, Vertical } from "../src"
+import { EPSILON, parse, ParsedSteps, serializeString, summarize, Vertical } from "../src"
 import { abstractNestVerticalGroups } from "../src/summarizer/abstract-nest-vertical"
 import { align, NestedGroup, NestGroupConfig, nestGroups, Row } from "../src/summarizer/group"
 import { linearize, LinearizedRow, LinearizedStep } from "../src/summarizer/linearize"
@@ -42,7 +42,7 @@ function rowSimilarity<T>(
 
     if (!rowsCombineableMatrix[y1][y2]) {
         similarity = -3 //similarity can now only be between -3 and -2 => which should be smaller then minRowSimilarity => leads to a horizontal split until no incompatibilities left
-    } else if ((rows[y1].probability + rows[y2].probability) * probability > 1) {
+    } else if ((rows[y1].probability + rows[y2].probability) * probability > 1 + EPSILON) {
         similarity = -1.5 //same for here only that the range is in between -1.5 and -0.5
     }
 

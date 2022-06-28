@@ -1,5 +1,5 @@
 import { ParsedSteps, ParsedRandom } from "../parser"
-import { almostTheSame } from "../util"
+import { almostTheSame, EPSILON } from "../util"
 import { NestedGroup } from "./group"
 
 export function translateNestedGroup(group: NestedGroup<ParsedSteps> | ParsedSteps): ParsedSteps {
@@ -106,7 +106,7 @@ function findBestFittingRow(
     if (almostTheSame(probability, 1)) {
         return undefined //short cut so we don't have to loop
     }
-    const searchFor = 1 - probability
+    const searchFor = 1 - probability + EPSILON
     let best:
         | {
               probability: number

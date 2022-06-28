@@ -1,6 +1,6 @@
 import { ConfigAddition } from "."
 import { ParsedSteps } from "../parser"
-import { shallowEqual } from "../util"
+import { EPSILON, shallowEqual } from "../util"
 import { Row, NestGroupConfig } from "./group"
 import { LinearizedStep } from "./linearize"
 import { stepSimilarity } from "./step-similarity"
@@ -69,7 +69,7 @@ export function rowSimilarity(
 
     if (!rowsCombineableMatrix[y1][y2]) {
         similarity = -3 //similarity can now only be between -3 and -2 => which should be smaller then minRowSimilarity => leads to a horizontal split until no incompatibilities left
-    } else if ((rows[y1].probability + rows[y2].probability) * probability > 1) {
+    } else if ((rows[y1].probability + rows[y2].probability) * probability > 1 + EPSILON) {
         similarity = -1.5 //same for here only that the range is in between -1.5 and -0.5
     }
 

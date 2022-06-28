@@ -598,7 +598,7 @@ function createBaseStateFunctions(
                     if (dependencies == null) {
                         return prev
                     }
-                    return prev.concat()
+                    return prev.concat(dependencies)
                 }, grammar)
             }
             set(
@@ -675,7 +675,7 @@ function createBaseStateFunctions(
                     if (dependencies == null) {
                         return prev
                     }
-                    return prev.concat()
+                    return prev.concat(dependencies)
                 }, grammar)
             }
             set(

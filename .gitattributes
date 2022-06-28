@@ -1,5 +1,4 @@
 * text eol=lf
-
 *.png binary
 *.jpg binary
 *.jpeg binary
@@ -13,7 +12,6 @@
 *.wav binary
 *.swf binary
 *.gz binary
-*.zip binary
 *.7z binary
 *.ttf binary
 *.eot binary

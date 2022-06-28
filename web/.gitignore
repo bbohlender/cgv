@@ -6,5 +6,6 @@
 /public/icons/*.png
 /public/icons/*.jpg
 
-# IntelliJ project files
-.idea
+panoramas/
+tiles/
+panoramas-resized/

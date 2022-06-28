@@ -40,7 +40,7 @@ const lexer = moo.compile({
     multiply: /\*/,
     percent: /%/,
     divide: /\//,
-    identifier: /[a-zA-Z_$@]+\w*/,
+    identifier: /[a-zA-Z_$@']+\w*/,
     ws: { match: /\s+/, lineBreaks: true },
 });
 %}

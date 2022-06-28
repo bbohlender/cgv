@@ -32,3 +32,12 @@ function Dome({ url, rotationOffset }: { url: string; rotationOffset: number }) 
         </mesh>
     )
 }
+/**<mesh
+            scale={[1, 1, -1]}
+            geometry={geometry}
+            rotation-z={(-1 / 180) * Math.PI}
+            rotation-x={(0 / 180) * Math.PI}
+            rotation-y={rotationOffset+(
+                3 / 180) * Math.PI}>
+            {<meshBasicMaterial depthWrite={false} depthTest={false} map={texture} side={DoubleSide} />}
+        </mesh> */

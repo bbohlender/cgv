@@ -49,7 +49,7 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
                     globalizeStep(JSON.parse(text).step, getDescriptionOfNoun(path[0]), ...path),
                 dependencies: (descriptionName: string) => {
                     const parsed = JSON.parse(text)
-                    if (parsed.description == null) {
+                    if (parsed.dependencies == null) {
                         return undefined
                     }
                     return toHierarchical(globalizeDescription(freeze(parsed.dependencies), descriptionName))

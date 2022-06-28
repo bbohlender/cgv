@@ -27,6 +27,10 @@ a {
     background-color: rgb(154, 11, 250);
 }
 
+.max-responsive-size-35 {
+    max-height: 35%;
+}
+
 .hovered {
     @extend .bg-hovered;
     border-radius: 0.3rem;
@@ -60,6 +64,11 @@ a {
     .responsive-flex-direction {
         flex-direction: row;
     }
+    .max-responsive-size-35 {
+        max-height: unset;
+        max-width: 35%;
+    }
+    
 }
 
 .scroll {

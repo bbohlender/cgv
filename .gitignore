@@ -4,5 +4,3 @@
 !/dist/.npmrc
 /package-lock.json
 .nyc_output
-panoramas/
-tiles/

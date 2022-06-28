@@ -175,7 +175,12 @@ function interpreteStep<T, A, I>(
         const { delay: time, annotateAfterStep, annotateBeforeStep } = context
         const nextOperations: Array<MonoTypeOperatorFunction<Value<T, A>>> = [filterInvalid]
         if (annotateAfterStep != null) {
-            nextOperations.push(tap((value) => (value.annotation = annotateAfterStep(value, step))))
+            nextOperations.push(
+                tap((value) => {
+                    //TODO: the error occurs because the value was processed and freezed by immer earlier
+                    value.annotation = annotateAfterStep(value, step)
+                })
+            )
         }
         if (next != null && time != null) {
             nextOperations.push(delay(time))
