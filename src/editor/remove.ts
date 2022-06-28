@@ -6,12 +6,11 @@ import produce from "immer"
 import { replaceOnDraft, ReplaceWith } from "./replace"
 import { AbstractParsedSteps } from "../parser"
 import { removeUnusedNouns } from "./noun"
-import { states } from "moo"
 
 function getNeutralStep(
     parent: HierarchicalParsedSteps | HierarchicalParsedGrammarDefinition,
     childIndex: number | string,
-    operations: Operations<any, any>
+    operations: Operations<any>
 ): ParsedSteps | undefined {
     if (Array.isArray(parent) || typeof childIndex == "string") {
         return {
@@ -58,12 +57,12 @@ function getNeutralStep(
     return undefined
 }
 
-export async function removeStep<T, A>(
-    valueMap: ValueMap<T, A>,
-    selectionsList: SelectionsList<T, A>,
-    patterns: Array<PatternType<T, A>>,
+export async function removeStep<T>(
+    valueMap: ValueMap<T>,
+    selectionsList: SelectionsList<T>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
-    operations: Operations<any, any>,
+    operations: Operations<any>,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
     const replaceWith: ReplaceWith = (_, path, translatedPath) =>

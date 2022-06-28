@@ -50,7 +50,7 @@ function nopFn<T>(val: T): T {
     return val
 }
 
-function OperationControl({ step, values }: { values: Array<FullValue<any, any>>; step: SelectedSteps }) {
+function OperationControl({ step, values }: { values: Array<FullValue<any>>; step: SelectedSteps }) {
     if (typeof step == "string" || step.type != "operation") {
         return null
     }

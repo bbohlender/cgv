@@ -40,9 +40,8 @@ it("should translate selection into multiple > < != step connected with and", ()
 it("should translate selection into multiple > < != step connected with or", () => {})
 it("should translate selection into multiple > < != step connected with both: or, and", () => {})*/
 
-export function mockValue(index: Array<number>, raw?: any, annotation?: any): Value<any, any> {
+export function mockValue(index: Array<number>, raw?: any): Value<any> {
     return {
-        annotation,
         index,
         invalid: {
             observable: EMPTY,
@@ -576,9 +575,8 @@ describe("pattern", () => {
     })
 
     it("should get undefined as selection condition as no pattern matched", async () => {
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -589,7 +587,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -600,7 +597,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -621,9 +617,8 @@ describe("pattern", () => {
     })
 
     it("should get undefined as selection condition as no value was selected", async () => {
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -644,9 +639,8 @@ describe("pattern", () => {
     })
 
     it("should get undefined as selection condition as no condition was selected", async () => {
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -657,7 +651,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -678,9 +671,8 @@ describe("pattern", () => {
     })
 
     it("should get id selection condition", async () => {
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -691,7 +683,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -702,7 +693,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -713,7 +703,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -747,9 +736,8 @@ describe("pattern", () => {
     })
 
     it("should get matching modulo index selection condition", async () => {
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -760,7 +748,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -771,7 +758,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [2],
                 invalid: {
                     observable: EMPTY,
@@ -782,7 +768,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [3],
                 invalid: {
                     observable: EMPTY,
@@ -825,9 +810,8 @@ describe("pattern", () => {
     })
 
     it("should get containing modulo index selection condition", async () => {
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -838,7 +822,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -849,7 +832,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [2],
                 invalid: {
                     observable: EMPTY,
@@ -860,7 +842,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [3],
                 invalid: {
                     observable: EMPTY,
@@ -907,9 +888,8 @@ describe("pattern", () => {
             type: "raw",
             value: false,
         }
-        const values: Array<Value<undefined, undefined>> = [
+        const values: Array<Value<undefined>> = [
             {
-                annotation: undefined,
                 index: [0],
                 invalid: {
                     observable: EMPTY,
@@ -920,7 +900,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [1],
                 invalid: {
                     observable: EMPTY,
@@ -931,7 +910,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [2],
                 invalid: {
                     observable: EMPTY,
@@ -953,9 +931,8 @@ describe("pattern", () => {
     })
 
     it("should get selection condition based on domain specific pattern", async () => {
-        const values: Array<Value<string, undefined>> = [
+        const values: Array<Value<string>> = [
             {
-                annotation: undefined,
                 index: [],
                 invalid: {
                     observable: EMPTY,
@@ -966,7 +943,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [],
                 invalid: {
                     observable: EMPTY,
@@ -977,7 +953,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [],
                 invalid: {
                     observable: EMPTY,
@@ -988,7 +963,6 @@ describe("pattern", () => {
                 variables: {},
             },
             {
-                annotation: undefined,
                 index: [],
                 invalid: {
                     observable: EMPTY,

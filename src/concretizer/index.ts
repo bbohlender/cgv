@@ -6,8 +6,8 @@ import { filterNull } from "../util"
 export async function concretize<T>(
     baseValue: T,
     grammar: ParsedGrammarDefinition,
-    operations: Operations<T, any>,
-    options: InterpreterOptions<T, any, any>
+    operations: Operations<T>,
+    options: InterpreterOptions<T, any>
 ): Promise<ParsedGrammarDefinition> {
     const indexMap = await deriveRandomOutputStepIndex(baseValue, grammar, operations, options)
     return concretizeRandomDerivedIndices(grammar, indexMap)
@@ -16,8 +16,8 @@ export async function concretize<T>(
 export async function deriveRandomOutputStepIndex<T>(
     baseValue: T,
     grammar: ParsedGrammarDefinition,
-    operations: Operations<T, any>,
-    options: InterpreterOptions<T, any, any>
+    operations: Operations<T>,
+    options: InterpreterOptions<T, any>
 ): Promise<Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>> {
     const fullIndicesMap = new Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>()
     await lastValueFrom(
@@ -26,13 +26,13 @@ export async function deriveRandomOutputStepIndex<T>(
             interprete(grammar, operations, {
                 ...options,
                 listeners: {
-                    onRandom: (step, index, childIndex) => {
+                    onRandom: (step, value, childIndex) => {
                         let entries = fullIndicesMap.get(step)
                         if (entries == null) {
                             entries = []
                             fullIndicesMap.set(step, entries)
                         }
-                        entries.push([index.join(","), childIndex])
+                        entries.push([value.index.join(","), childIndex])
                     },
                 },
             })

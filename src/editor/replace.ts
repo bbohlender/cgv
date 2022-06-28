@@ -30,10 +30,10 @@ export function getSelectedStepsUpwardsPaths(
     }
 }
 
-export async function replace<T, A>(
-    valueMap: ValueMap<T, A>,
-    selectionsList: SelectionsList<T, A>,
-    patterns: Array<PatternType<T, A>>,
+export async function replace<T>(
+    valueMap: ValueMap<T>,
+    selectionsList: SelectionsList<T>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition
@@ -51,10 +51,10 @@ export async function replace<T, A>(
     }
 }
 
-export async function replaceOnDraft<T, A>(
-    valueMap: ValueMap<T, A>,
-    selectionsList: SelectionsList<T, A>,
-    patterns: Array<PatternType<T, A>>,
+export async function replaceOnDraft<T>(
+    valueMap: ValueMap<T>,
+    selectionsList: SelectionsList<T>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     replaceWith: ReplaceWith,
     grammar: HierarchicalParsedGrammarDefinition,
@@ -89,10 +89,10 @@ export type ReplaceWith = (
     translatedPath: TranslatedPath<HierarchicalInfo>
 ) => Draft<ParsedSteps> | undefined
 
-export async function replaceAtPathOnDraft<T, A>(
-    all: Array<Value<T, A>>,
-    selected: Array<Value<T, A>>,
-    patterns: Array<PatternType<T, A>>,
+export async function replaceAtPathOnDraft<T>(
+    all: Array<Value<T>>,
+    selected: Array<Value<T>>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     replaceWith: ReplaceWith,
     path: HierarchicalPath,

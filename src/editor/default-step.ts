@@ -33,14 +33,14 @@ const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation" | "sy
     { type: "null" },
 ]
 
-export function getAllStepDescriptors(operations: Operations<any, any>): Array<StepDescriptor> {
+export function getAllStepDescriptors(operations: Operations<any>): Array<StepDescriptor> {
     return [
         ...Object.keys(operations).map<StepDescriptor>((identifier) => ({ type: "operation", identifier })),
         ...allStepTypes,
     ]
 }
 
-export function createDefaultStep<T, A>(descriptor: StepDescriptor, operations: Operations<T, A>): ParsedSteps {
+export function createDefaultStep<T>(descriptor: StepDescriptor, operations: Operations<T>): ParsedSteps {
     switch (descriptor.type) {
         case "add":
         case "multiply":

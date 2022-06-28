@@ -5,7 +5,7 @@ import { SelectionState } from "./selection"
 export type EditorState = {
     grammar: HierarchicalParsedGrammarDefinition
     dependencyMap: DependencyMap
-} & SelectionState<any, any>
+} & SelectionState<any>
 
 export * from "./label"
 export * from "./pattern"

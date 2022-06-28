@@ -4,10 +4,10 @@ import { Value } from "../.."
 import { Primitive } from "."
 import { ChangeType, valuesToChanges } from "../../interpreter"
 
-export function applyToObject3D<A>(
-    input: Observable<Value<Primitive, A>>,
+export function applyToObject3D(
+    input: Observable<Value<Primitive>>,
     object: Object3D,
-    toObject: (value: Value<Primitive, A>) => Object3D,
+    toObject: (value: Value<Primitive>) => Object3D,
     onError: (error: any) => void
 ): Subscription {
     const map = new Map<string, Object3D>()

@@ -13,9 +13,9 @@ import { Value } from "../../interpreter"
 import { Primitive } from "./primitive"
 import { getDirection } from "./primitive-utils"
 
-const getValueDirectionKey = (value: Value<Primitive, any>) => getDirection(value.raw.matrix)
+const getValueDirectionKey = (value: Value<Primitive>) => getDirection(value.raw.matrix)
 
-export const directionSelectionPattern: PatternType<Primitive, any> = {
+export const directionSelectionPattern: PatternType<Primitive> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
             (keys) => (keys == null ? `all directions` : `direction is in ${keys.join(", ")}`),
@@ -62,7 +62,7 @@ export const directionSelectionPattern: PatternType<Primitive, any> = {
         ),
 }
 
-export const patterns: Array<PatternType<Primitive, any>> = [
+export const patterns: Array<PatternType<Primitive>> = [
     allPatternType,
     indexModuloPatternType,
     indexGreaterEqualPatternType,

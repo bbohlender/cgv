@@ -164,10 +164,10 @@ function computeDirection(instance: Primitive): Observable<Array<any>> {
     return of([getDirection(instance.matrix)])
 }
 
-export const operations: Operations<any, any> = {
+export const operations: Operations<any> = {
     ...defaultOperations,
     translate: {
-        execute: simpleExecution<any, unknown>(computeTranslate),
+        execute: simpleExecution<any>(computeTranslate),
         includeThis: true,
         defaultParameters: [
             () => ({ type: "raw", value: 0 }),
@@ -176,7 +176,7 @@ export const operations: Operations<any, any> = {
         ],
     },
     scale: {
-        execute: simpleExecution<any, unknown>(computeScale),
+        execute: simpleExecution<any>(computeScale),
         includeThis: true,
         defaultParameters: [
             () => ({ type: "raw", value: 1 }),
@@ -185,7 +185,7 @@ export const operations: Operations<any, any> = {
         ],
     },
     rotate: {
-        execute: simpleExecution<any, unknown>(computeRotate),
+        execute: simpleExecution<any>(computeRotate),
         includeThis: true,
         defaultParameters: [
             () => ({ type: "raw", value: 0 }),
@@ -194,12 +194,12 @@ export const operations: Operations<any, any> = {
         ],
     },
     extrude: {
-        execute: simpleExecution<any, unknown>(computeExtrude),
+        execute: simpleExecution<any>(computeExtrude),
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 1 })],
     },
     split: {
-        execute: simpleExecution<any, unknown>(computeSplit),
+        execute: simpleExecution<any>(computeSplit),
         includeThis: true,
         defaultParameters: [
             () => ({ type: "raw", value: "x" }),
@@ -208,32 +208,32 @@ export const operations: Operations<any, any> = {
         ],
     },
     toPoints: {
-        execute: simpleExecution<any, unknown>(computeComponents.bind(null, "points")),
+        execute: simpleExecution<any>(computeComponents.bind(null, "points")),
         includeThis: true,
         defaultParameters: [],
     },
     toLines: {
-        execute: simpleExecution<any, unknown>(computeComponents.bind(null, "lines")),
+        execute: simpleExecution<any>(computeComponents.bind(null, "lines")),
         includeThis: true,
         defaultParameters: [],
     },
     toFaces: {
-        execute: simpleExecution<any, unknown>(computeComponents.bind(null, "faces")),
+        execute: simpleExecution<any>(computeComponents.bind(null, "faces")),
         includeThis: true,
         defaultParameters: [],
     },
     sample: {
-        execute: simpleExecution<any, unknown>(computeSample),
+        execute: simpleExecution<any>(computeSample),
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 10 })],
     },
     color: {
-        execute: simpleExecution<any, unknown>(computeColorChange),
+        execute: simpleExecution<any>(computeColorChange),
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: "#ff0000" })],
     },
     size: {
-        execute: simpleExecution<any, unknown>(computeSize),
+        execute: simpleExecution<any>(computeSize),
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: "x" })],
     },
@@ -243,17 +243,17 @@ export const operations: Operations<any, any> = {
         defaultParameters: [],
     },*/
     expandGraph: {
-        execute: simpleExecution<any, unknown>(computeGraphExpand),
+        execute: simpleExecution<any>(computeGraphExpand),
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 3 })],
     },
     load: {
-        execute: simpleExecution<any, unknown>(computeLoad),
+        execute: simpleExecution<any>(computeLoad),
         includeThis: true,
         defaultParameters: [],
     },
     point3: {
-        execute: simpleExecution<any, unknown>(computePoint3),
+        execute: simpleExecution<any>(computePoint3),
         includeThis: true,
         defaultParameters: [
             () => ({ type: "raw", value: 0 }),
@@ -262,12 +262,12 @@ export const operations: Operations<any, any> = {
         ],
     },
     point2: {
-        execute: simpleExecution<any, unknown>(computePoint2),
+        execute: simpleExecution<any>(computePoint2),
         includeThis: true,
         defaultParameters: [() => ({ type: "raw", value: 0 }), () => ({ type: "raw", value: 0 })],
     },
     line: {
-        execute: simpleExecution<any, unknown>(computeLine),
+        execute: simpleExecution<any>(computeLine),
         includeThis: true,
         defaultParameters: [
             () => ({
@@ -291,12 +291,12 @@ export const operations: Operations<any, any> = {
         ],
     },
     face: {
-        execute: simpleExecution<any, unknown>(computeFace),
+        execute: simpleExecution<any>(computeFace),
         includeThis: true,
         defaultParameters: [],
     },
     gableRoof: {
-        execute: simpleExecution<any, unknown>(computeGableRoof),
+        execute: simpleExecution<any>(computeGableRoof),
         includeThis: true,
         defaultParameters: [
             () => ({
@@ -306,7 +306,7 @@ export const operations: Operations<any, any> = {
         ],
     },
     direction: {
-        execute: simpleExecution<any, unknown>(computeDirection),
+        execute: simpleExecution<any>(computeDirection),
         includeThis: true,
         defaultParameters: [],
     },

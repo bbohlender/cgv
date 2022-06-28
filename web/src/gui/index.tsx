@@ -177,7 +177,7 @@ function SetNameButton() {
     )
 }
 
-function GUISelection({ selections, descriptionName }: { descriptionName: string; selections: Selections<any, any> }) {
+function GUISelection({ selections, descriptionName }: { descriptionName: string; selections: Selections<any> }) {
     const store = useBaseStore()
     const path = getSelectedStepsJoinedPath(selections.steps)
     const indicesMap = store((state) => (state.type === "gui" ? state.valueMap : undefined))

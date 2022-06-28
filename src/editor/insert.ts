@@ -14,10 +14,10 @@ import { computeDependencies, HierarchicalParsedSteps, toHierarchical, toHierarc
 import { getSelectedStepsUpwardsPaths } from "./replace"
 import { getSelectedStepsPath, ValueMap, SelectionsList } from "./selection"
 
-export async function insert<T, A>(
-    valueMap: ValueMap<T, A>,
-    selectionsList: SelectionsList<T, A>,
-    patterns: Array<PatternType<T, A>>,
+export async function insert<T>(
+    valueMap: ValueMap<T>,
+    selectionsList: SelectionsList<T>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     position: "before" | "after" | "parallel",
     stepGenerator: (path: HierarchicalPath) => ParsedSteps,

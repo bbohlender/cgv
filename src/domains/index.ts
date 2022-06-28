@@ -8,7 +8,7 @@ export type Domain = {
 import { of } from "rxjs"
 import { Operations, simpleExecution } from "../interpreter"
 
-export const defaultOperations: Operations<any, any> = {
+export const defaultOperations: Operations<any> = {
     index: {
         execute: (value) => {
             const indexIndex =

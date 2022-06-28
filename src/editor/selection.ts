@@ -14,12 +14,12 @@ import {
 import { findSymbolsWithIdentifier } from "./noun"
 import { getContainingCondition, PatternSelector, PatternType } from "./pattern"
 
-export type ValueMap<T = any, A = any> = { [Path in string]?: Array<FullValue<T, A>> }
-export type FullValue<T = any, A = any> = { after: Value<T, A>; before: Value<T, A> }
-export type SelectionsList<T = any, A = any> = Array<Selections<T, A>>
-export type Selections<T = any, A = any> = {
+export type ValueMap<T = any> = { [Path in string]?: Array<FullValue<T>> }
+export type FullValue<T = any> = { after: Value<T>; before: Value<T> }
+export type SelectionsList<T = any> = Array<Selections<T>>
+export type Selections<T = any> = {
     steps: SelectedSteps
-    values: Array<FullValue<T, A>>
+    values: Array<FullValue<T>>
     generatePatternCondition?: () => ParsedSteps
 }
 export type SelectedSteps = HierarchicalParsedSteps | string
@@ -39,9 +39,9 @@ export function compareSelectedStepsPath(s1: SelectedSteps, s2: SelectedSteps, s
     return getSelectedStepsJoinedPath(s1) === (s2PathJoined ?? getSelectedStepsJoinedPath(s2))
 }
 
-export type SelectionState<T = any, A = any> = {
-    selectionsList: SelectionsList<T, A>
-    hovered: SelectionsList<T, A>[number] | undefined
+export type SelectionState<T = any> = {
+    selectionsList: SelectionsList<T>
+    hovered: SelectionsList<T>[number] | undefined
 }
 
 /*
@@ -81,13 +81,13 @@ export function editSelectionRelated<T, A>(
     })
 }*/
 
-export function getRelatedSelections<T, A>(
-    valueMap: ValueMap<T, A>,
+export function getRelatedSelections<T>(
+    valueMap: ValueMap<T>,
     relatedStepsList: Array<SelectedSteps>,
-    values: Array<FullValue<T, A>>,
-    valueIsRelated: (current: FullValue<T, A>, next: FullValue<T, A>) => boolean,
-    filter: ((value: FullValue<T, A>) => boolean) | undefined
-): SelectionsList<T, A> {
+    values: Array<FullValue<T>>,
+    valueIsRelated: (current: FullValue<T>, next: FullValue<T>) => boolean,
+    filter: ((value: FullValue<T>) => boolean) | undefined
+): SelectionsList<T> {
     return relatedStepsList
         .map<Selections | undefined>((relatedSteps) => {
             const path = getSelectedStepsJoinedPath(relatedSteps)
@@ -237,11 +237,11 @@ function getHorizontalSelections(
     return getRelatedSelections(indicesMap, [horizontalSteps], indices, isHorizontalIndex, filter)
 }*/
 
-export async function autoSelectPattern<T, A>(
+export async function autoSelectPattern<T>(
     selectionsList: SelectionsList,
     indicesMap: ValueMap,
     selections: Selections,
-    patternTypes: Array<PatternType<T, A>>,
+    patternTypes: Array<PatternType<T>>,
     selectPattern: PatternSelector
 ): Promise<SelectionsList> {
     const path = getSelectedStepsJoinedPath(selections.steps)

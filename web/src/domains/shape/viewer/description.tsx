@@ -23,6 +23,8 @@ import { of, Subscription, Subject } from "rxjs"
 import { Color, Group, Matrix4 } from "three"
 import { tileDescriptionSuffix } from "."
 import { UseBaseStore, useBaseStore, useBaseStoreState } from "../../../global"
+import { childrenSelectable } from "../../../gui"
+import { operationGuiMap } from "../gui"
 import { Control } from "./control"
 import { useViewerState } from "./state"
 
@@ -47,28 +49,6 @@ function pathStartsWith(p1: HierarchicalPath, p2: HierarchicalPath): boolean {
     return true
 }
 
-export type Annotation = HierarchicalParsedSteps | undefined
-
-function getAnnotationAfterStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
-    if (value.annotation == null) {
-        return step
-    }
-    if (step.path[0] != value.annotation.path[0]) {
-        //change through symbol
-        return value.annotation
-    }
-    if (pathStartsWith(value.annotation.path, step.path)) {
-        return value.annotation
-    }
-    return step
-}
-
-function getAnnotationBeforeStep(value: Value<Primitive, Annotation>, step: HierarchicalParsedSteps): Annotation {
-    if (step.type === "symbol") {
-        return undefined
-    }
-    return value.annotation
-}
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function Descriptions({ x, y }: { x: number; y: number }) {
@@ -112,7 +92,7 @@ function useSimpleInterpretation(
         const subscription = applyToObject3D(
             of(point).pipe(
                 toValue(),
-                interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
+                interprete<Primitive, HierarchicalInfo>(description, operations, {
                     delay: store.getState().interpretationDelay,
                     seed,
                 })
@@ -148,7 +128,8 @@ function useInterpretation(
 
         let subscription: Subscription | undefined
 
-        const beforeValuesMap = new Map<ParsedSteps, Array<Value<Primitive, Annotation>>>()
+        const beforeValuesMap = new Map<ParsedSteps, Array<Value<Primitive>>>()
+        const importantStepMap = new Map<string, HierarchicalParsedSteps>()
 
         const afterStepSubject = new Subject<{ steps: HierarchicalParsedSteps; value: FullValue }>()
 
@@ -159,56 +140,71 @@ function useInterpretation(
             subscription = applyToObject3D(
                 of(point).pipe(
                     toValue(),
-                    interprete<Primitive, Annotation, HierarchicalInfo>(description, operations, {
+                    interprete<Primitive, HierarchicalInfo>(description, operations, {
                         delay: store.getState().interpretationDelay,
                         seed,
                         //TODO: we need a possibility to know when a value is removed
-                        annotateAfterStep: (value, steps) => {
-                            const beforeValues = beforeValuesMap.get(steps)
-                            const beforeValue = beforeValues?.find((possibleBeforeValue) => {
-                                const relation = getIndexRelation(value.index, possibleBeforeValue.index)
-                                return (
-                                    relation === HierarchicalRelation.Predecessor ||
-                                    relation === HierarchicalRelation.Equal
-                                )
-                            })
-                            if (beforeValue != null) {
-                                afterStepSubject.next({
-                                    steps,
-                                    value: { after: value, before: beforeValue },
+                        listeners: {
+                            onAfterStep: (step, value) => {
+                                const beforeValues = beforeValuesMap.get(step)
+                                const beforeValue = beforeValues?.find((possibleBeforeValue) => {
+                                    const relation = getIndexRelation(value.index, possibleBeforeValue.index)
+                                    return (
+                                        relation === HierarchicalRelation.Predecessor ||
+                                        relation === HierarchicalRelation.Equal
+                                    )
                                 })
-                            }
-                            return getAnnotationAfterStep(value, steps)
-                        },
-                        annotateBeforeStep: (value, steps) => {
-                            let beforeValues = beforeValuesMap.get(steps)
-                            if (beforeValues == null) {
-                                beforeValues = []
-                                beforeValuesMap.set(steps, beforeValues)
-                            }
-                            beforeValues.push(value)
-                            return getAnnotationBeforeStep(value, steps)
+                                if (beforeValue != null) {
+                                    afterStepSubject.next({
+                                        steps: step,
+                                        value: { after: value, before: beforeValue },
+                                    })
+                                }
+                                const joinedIndex = value.index.join(",")
+                                const prevStep = importantStepMap.get(joinedIndex)
+                                if (
+                                    prevStep == null ||
+                                    (prevStep.path[0] === step.path[0] &&
+                                        (!pathStartsWith(prevStep.path, step.path) ||
+                                            !childrenSelectable(operationGuiMap, step)))
+                                ) {
+                                    importantStepMap.set(joinedIndex, step)
+                                }
+                            },
+                            onBeforeStep: (step, value) => {
+                                let beforeValues = beforeValuesMap.get(step)
+                                if (beforeValues == null) {
+                                    beforeValues = []
+                                    beforeValuesMap.set(step, beforeValues)
+                                }
+                                beforeValues.push(value)
+                                if (step.type === "symbol") {
+                                    const joinedIndex = value.index.join(",")
+                                    importantStepMap.delete(joinedIndex)
+                                }
+                            },
                         },
                     })
                 ),
                 ref.current,
                 (value) => {
+                    const step = importantStepMap.get(value.index.join(","))
                     const child = value.raw.getObject()
-                    if (value.annotation != null) {
-                        const beforeValues = beforeValuesMap.get(value.annotation)
+                    if (step != null) {
+                        const beforeValues = beforeValuesMap.get(step)
                         const beforeValue = beforeValues?.find((possibleBeforeValue) => {
                             const relation = getIndexRelation(value.index, possibleBeforeValue.index)
                             return (
                                 relation === HierarchicalRelation.Predecessor || relation === HierarchicalRelation.Equal
                             )
                         })
-                        if (beforeValue != null) {
+                        if (beforeValue != null && step != null) {
                             const fullValue: FullValue = {
                                 after: value,
                                 before: beforeValue,
                             }
                             child.traverse((o) => {
-                                o.userData.steps = value.annotation
+                                o.userData.steps = step
                                 o.userData.value = fullValue
                             })
                         }

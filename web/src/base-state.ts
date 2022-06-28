@@ -74,7 +74,7 @@ export type GuiState = {
     requested: { type: string; data?: any; fulfill: (value: any) => void } | undefined
     shift: boolean
     graphVisualization: boolean
-    valueMap: ValueMap<any, any>
+    valueMap: ValueMap<any>
 } & EditorState
 
 export type TuiState =
@@ -96,7 +96,7 @@ export type TuiIncorrectState = {
     grammar: ParsedGrammarDefinition
 }
 
-export function createBaseState(operations: Operations<any, any>, patternTypes: Array<PatternType<any, any>>) {
+export function createBaseState(operations: Operations<any>, patternTypes: Array<PatternType<any>>) {
     return create(
         subscribeWithSelector(
             combine(createBaseStateInitial(), createBaseStateFunctions.bind(null, operations, patternTypes))
@@ -125,8 +125,8 @@ function createBaseStateInitial(): BaseState {
 const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 function createBaseStateFunctions(
-    operations: Operations<any, any>,
-    patternTypes: Array<PatternType<any, any>>,
+    operations: Operations<any>,
+    patternTypes: Array<PatternType<any>>,
     set: SetState<BaseState>,
     get: GetState<BaseState>
 ) {
@@ -472,7 +472,7 @@ function createBaseStateFunctions(
             }
             set(editIndices(state.valueMap, state.selectionsList, state.hovered, values, add))
         },
-        autoSelectPattern: async (selections: Selections<any, any>) => {
+        autoSelectPattern: async (selections: Selections<any>) => {
             const state = get()
             if (state.type != "gui") {
                 return

@@ -20,6 +20,7 @@ import {
 } from "rxjs"
 import {
     AbstractParsedGrammarDefinition,
+    AbstractParsedRandom,
     AbstractParsedSteps,
     ParsedBinaryOperator,
     ParsedGetVariable,
@@ -39,15 +40,15 @@ import {
 import { getNounIndex } from "../util"
 import { toList } from "./list"
 
-export type Operation<T, A> = {
-    execute: (parameters: Value<ReadonlyArray<T>, A>) => Observable<Array<Value<T, A>>>
+export type Operation<T> = {
+    execute: (parameters: Value<ReadonlyArray<T>>) => Observable<Array<Value<T>>>
     includeThis: boolean
     defaultParameters: Array<() => ParsedSteps>
 }
 
-export function simpleExecution<T, A>(
+export function simpleExecution<T>(
     execute: (...parameters: ReadonlyArray<T>) => Observable<Array<T>>
-): (parameters: Value<ReadonlyArray<T>, A>) => Observable<Array<Value<T, A>>> {
+): (parameters: Value<ReadonlyArray<T>>) => Observable<Array<Value<T>>> {
     return (parameters) =>
         execute(...parameters.raw).pipe(
             map((results) =>
@@ -63,8 +64,8 @@ export function simpleExecution<T, A>(
         )
 }
 
-export type Operations<T, A> = {
-    [Name in string]: Operation<T, A>
+export type Operations<T> = {
+    [Name in string]: Operation<T>
 }
 
 function anyInvalid(values: Array<Invalid>) {
@@ -106,7 +107,7 @@ export function combineInvalids(...invalids: Array<Invalid>): Invalid {
     }
 }
 
-export type Value<T, A> = {
+export type Value<T> = {
     raw: T
     invalid: Invalid
     index: Array<number>
@@ -116,42 +117,41 @@ export type Value<T, A> = {
     symbolDepth: {
         [Name in string]: number
     }
-    annotation: A
 }
 
-export type InterpreterOptions<T, A, I> = Readonly<{
+export type InterpreterOptions<T, I> = Readonly<{
     seed?: number
     delay?: number
     maxSymbolDepth?: number
-    annotateBeforeStep?: (value: Value<T, A>, step: AbstractParsedSteps<I>) => A
-    annotateAfterStep?: (value: Value<T, A>, step: AbstractParsedSteps<I>) => A
     listeners?: {
-        onRandom: (step: ParsedRandom, inputValueIndex: Array<number>, childStepIndex: number) => void
+        onRandom?: (step: AbstractParsedRandom<I>, value: Value<T>, childStepIndex: number) => void
+        onBeforeStep?: (step: AbstractParsedSteps<I>, value: Value<T>) => void
+        onAfterStep?: (step: AbstractParsedSteps<I>, value: Value<T>) => void
     }
 }>
 
-type InterpretionContext<T, A, I> = Readonly<
+type InterpretionContext<T, I> = Readonly<
     {
         grammar: ParsedGrammarDefinition
-        compiledGrammar: CompiledGrammar<T, A>
-        operations: Operations<T, A>
+        compiledGrammar: CompiledGrammar<T>
+        operations: Operations<T>
         maxSymbolDepth: number
-    } & InterpreterOptions<T, A, I>
+    } & InterpreterOptions<T, I>
 >
 
-type CompiledGrammar<T, A> = { [Name in string]: MonoTypeOperatorFunction<Value<T, A>> }
+type CompiledGrammar<T> = { [Name in string]: MonoTypeOperatorFunction<Value<T>> }
 
-export function interprete<T, A, I>(
+export function interprete<T, I>(
     grammar: AbstractParsedGrammarDefinition<I>,
-    operations: Operations<T, A>,
-    options: InterpreterOptions<T, A, I>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    operations: Operations<T>,
+    options: InterpreterOptions<T, I>
+): MonoTypeOperatorFunction<Value<T>> {
     if (grammar.length === 0) {
         return (input) => input
     }
     const startSymbolName = grammar[0].name
-    const compiledGrammar: CompiledGrammar<T, A> = {}
-    const context: InterpretionContext<T, A, I> = {
+    const compiledGrammar: CompiledGrammar<T> = {}
+    const context: InterpretionContext<T, I> = {
         grammar,
         compiledGrammar,
         operations,
@@ -164,23 +164,19 @@ export function interprete<T, A, I>(
     return compiledGrammar[startSymbolName]
 }
 
-const filterInvalid = filter<Value<any, any>>(({ invalid }) => !invalid.value)
+const filterInvalid = filter<Value<any>>(({ invalid }) => !invalid.value)
 
-function interpreteStep<T, A, I>(
+function interpreteStep<T, I>(
     step: AbstractParsedSteps<I>,
-    context: InterpretionContext<T, A, I>,
-    next?: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next?: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     try {
-        const { delay: time, annotateAfterStep, annotateBeforeStep } = context
-        const nextOperations: Array<MonoTypeOperatorFunction<Value<T, A>>> = [filterInvalid]
-        if (annotateAfterStep != null) {
-            nextOperations.push(
-                tap((value) => {
-                    //TODO: the error occurs because the value was processed and freezed by immer earlier
-                    value.annotation = annotateAfterStep(value, step)
-                })
-            )
+        const { delay: time, listeners } = context
+        const nextOperations: Array<MonoTypeOperatorFunction<Value<T>>> = [filterInvalid]
+        if (listeners?.onAfterStep != null) {
+            const onAfterStep = listeners.onAfterStep.bind(null, step)
+            nextOperations.push(tap(onAfterStep))
         }
         if (next != null && time != null) {
             nextOperations.push(delay(time))
@@ -189,15 +185,9 @@ function interpreteStep<T, A, I>(
             nextOperations.push(next)
         }
         const execution = translateStep(step, context, (input) => (input as any).pipe(...nextOperations))
-        if (annotateBeforeStep != null) {
-            return (input) =>
-                input.pipe(
-                    map((value) => ({
-                        ...value,
-                        annotation: annotateBeforeStep(value, step),
-                    })),
-                    execution
-                )
+        if (listeners?.onBeforeStep != null) {
+            const onBeforeStep = listeners.onBeforeStep.bind(null, step)
+            return (input) => input.pipe(tap(onBeforeStep), execution)
         }
         return execution
     } catch (error) {
@@ -205,11 +195,11 @@ function interpreteStep<T, A, I>(
     }
 }
 
-function translateStep<T, A, I>(
-    step: ParsedSteps,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+function translateStep<T, I>(
+    step: AbstractParsedSteps<I>,
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     switch (step.type) {
         case "operation":
             return interpreteOperation(step, context, next)
@@ -257,11 +247,11 @@ function translateStep<T, A, I>(
     }
 }
 
-function interpreteOperation<T, A, I>(
+function interpreteOperation<T, I>(
     step: ParsedOperation,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const parameters = step.children
     const operation = context.operations[step.identifier]
     if (operation == null) {
@@ -283,10 +273,10 @@ function interpreteOperation<T, A, I>(
         )
 }
 
-function interpreteRaw<T, A>(
+function interpreteRaw<T>(
     step: ParsedRaw,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     return (input) =>
         input.pipe(
             map((value) => ({
@@ -302,11 +292,11 @@ const unaryOperations: { [Name in ParsedUnaryOperator["type"]]: (value: any) => 
     not: (value) => !value,
 }
 
-function interpreteUnaryOperator<T, A, I>(
+function interpreteUnaryOperator<T, I>(
     step: ParsedUnaryOperator,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const valueOperatorFunction = interpreteStep(step.children[0], context)
     return (input) =>
         input.pipe(
@@ -332,11 +322,11 @@ const binaryOperations: { [Name in ParsedBinaryOperator["type"]]: (v1: any, v2: 
     unequal: (v1, v2) => v1 != v2,
 }
 
-function interpreteBinaryOperator<T, A, I>(
+function interpreteBinaryOperator<T, I>(
     step: ParsedBinaryOperator,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const valuesOperatorFunction = step.children.map((child) => interpreteStep(child, context))
     return (input) =>
         input.pipe(
@@ -349,11 +339,11 @@ function interpreteBinaryOperator<T, A, I>(
         )
 }
 
-function interpreteIf<T, A, I>(
+function interpreteIf<T, I>(
     step: ParsedIf,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const conditionOperatorFunction = interpreteStep(step.children[0], context)
     const [ifOperatorFunction, elseOperatorFunction] = step.children
         .slice(1)
@@ -374,11 +364,11 @@ function interpreteIf<T, A, I>(
         )
 }
 
-function interpreteSwitch<T, A, I>(
+function interpreteSwitch<T, I>(
     step: ParsedSwitch,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const valueOperatorFunction = interpreteStep(step.children[0], context)
     const casesOperatorFunctions = step.children.slice(1).map((child) => interpreteStep(child, context, next))
     return (input) =>
@@ -401,32 +391,23 @@ function interpreteSwitch<T, A, I>(
         )
 }
 
-function interpreteGetVariable<T, A>(
+function interpreteGetVariable<T>(
     step: ParsedGetVariable,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     return mergeMap((value) =>
         (value.variables[step.identifier] ?? of(undefined)).pipe(
-            toValue(value.annotation, value.invalid, value.index, value.variables),
+            toValue(value.invalid, value.index, value.variables),
             next
         )
     )
 }
 
-export function toValue<T>(annotation?: undefined): OperatorFunction<T, Value<T, undefined>>
-export function toValue<T, A>(
-    annotation: A,
+export function toValue<T>(
     invalid?: Invalid,
     index?: Array<number>,
-    variables?: Value<T, A>["variables"]
-): OperatorFunction<T, Value<T, A>>
-
-export function toValue<T, A>(
-    annotation: A,
-    invalid?: Invalid,
-    index?: Array<number>,
-    variables?: Value<T, A>["variables"]
-): OperatorFunction<T, Value<T, A>> {
+    variables?: Value<T>["variables"]
+): OperatorFunction<T, Value<T>> {
     return (input) => {
         let prevInvalid: Invalidator | undefined
         return input.pipe(
@@ -441,7 +422,6 @@ export function toValue<T, A>(
                     invalid: invalid == null ? prevInvalid : combineInvalids(prevInvalid, invalid),
                     variables: variables ?? {},
                     symbolDepth: {},
-                    annotation,
                 }
             }),
             tap({
@@ -451,19 +431,19 @@ export function toValue<T, A>(
     }
 }
 
-function interpreteReturn<T, A>(): MonoTypeOperatorFunction<Value<T, A>> {
+function interpreteReturn<T, A>(): MonoTypeOperatorFunction<Value<T>> {
     return noop()
 }
 
-function interpreteNull<T, A>(): MonoTypeOperatorFunction<Value<T, A>> {
+function interpreteNull<T, A>(): MonoTypeOperatorFunction<Value<T>> {
     return () => EMPTY
 }
 
-function interpreteSetVariable<T, A, I>(
+function interpreteSetVariable<T, I>(
     step: ParsedSetVariable,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const valueOperatorFunction = interpreteStep(step.children[0], context)
     return (input) => {
         const shared = input.pipe(
@@ -485,24 +465,24 @@ function interpreteSetVariable<T, A, I>(
     }
 }
 
-function interpreteThis<T, A>(next: MonoTypeOperatorFunction<Value<T, A>>): MonoTypeOperatorFunction<Value<T, A>> {
+function interpreteThis<T, A>(next: MonoTypeOperatorFunction<Value<T>>): MonoTypeOperatorFunction<Value<T>> {
     return next
 }
 
 const _32bit_max_int = Math.pow(2, 32)
 
 function interpreteRandom<T, A, I>(
-    step: ParsedRandom,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    step: AbstractParsedRandom<I>,
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     const options = step.children.map((child) => interpreteStep(child, context, next))
 
-    let pipeToOut: OperatorFunction<GroupedObservable<number, Value<T, A>>, Value<T, A>>
+    let pipeToOut: OperatorFunction<GroupedObservable<number, Value<T>>, Value<T>>
     if (context.listeners?.onRandom != null) {
         const onRandom = context.listeners.onRandom
         pipeToOut = mergeMap((group) =>
-            group.pipe(tap({ next: (value) => onRandom(step, value.index, group.key) }), options[group.key])
+            group.pipe(tap({ next: (value) => onRandom(step, value, group.key) }), options[group.key])
         )
     } else {
         pipeToOut = mergeMap((value) => value.pipe(options[value.key]))
@@ -525,11 +505,11 @@ function interpreteRandom<T, A, I>(
         )
 }
 
-function interpreteParallel<T, A, I>(
+function interpreteParallel<T, I>(
     step: ParsedParallel,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     return (input) => {
         const shared = input.pipe(shareReplay({ refCount: true })) //TODO: buffer size unlimited???
         return merge(
@@ -543,30 +523,30 @@ function interpreteParallel<T, A, I>(
     }
 }
 
-function interpreteSequential<T, A, I>(
+function interpreteSequential<T, I>(
     step: ParsedSequantial,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     return sequentialNext(0, step.children, context, next)
 }
 
-function sequentialNext<T, A, I>(
+function sequentialNext<T, I>(
     i: number,
     stepsList: Array<ParsedSteps>,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     return i >= stepsList.length
         ? next
         : interpreteStep(stepsList[i], context, sequentialNext(i + 1, stepsList, context, next))
 }
 
-function interpreteSymbol<T, A, I>(
+function interpreteSymbol<T, I>(
     step: ParsedSymbol,
-    context: InterpretionContext<T, A, I>,
-    next: MonoTypeOperatorFunction<Value<T, A>>
-): MonoTypeOperatorFunction<Value<T, A>> {
+    context: InterpretionContext<T, I>,
+    next: MonoTypeOperatorFunction<Value<T>>
+): MonoTypeOperatorFunction<Value<T>> {
     if (getNounIndex(step.identifier, context.grammar) == null) {
         throw new Error(`unknown symbol "${step.identifier}"`)
     }
@@ -606,12 +586,12 @@ function noop<T>(): MonoTypeOperatorFunction<T> {
 /**
  * only emits when all results are present
  */
-function operatorsToArray<T, A>(
-    ...operatorFunctions: Array<MonoTypeOperatorFunction<Value<T, A>>>
-): OperatorFunction<Value<T, A>, Value<ReadonlyArray<T>, A>> {
+function operatorsToArray<T>(
+    ...operatorFunctions: Array<MonoTypeOperatorFunction<Value<T>>>
+): OperatorFunction<Value<T>, Value<ReadonlyArray<T>>> {
     return (input) => {
         const shared = input.pipe(shareReplay({ refCount: true })) //TODO: buffer size unlimited???
-        const functions: Array<MonoTypeOperatorFunction<Value<T, A>>> = [noop(), ...operatorFunctions]
+        const functions: Array<MonoTypeOperatorFunction<Value<T>>> = [noop(), ...operatorFunctions]
         return merge(
             ...functions.map((func, i) =>
                 shared.pipe(
@@ -633,7 +613,6 @@ function operatorsToArray<T, A>(
                             invalid: combineInvalids(...results.map(({ invalid }) => invalid)),
                             raw: outputs.map(({ raw }) => raw),
                             symbolDepth: input.symbolDepth,
-                            annotation: input.annotation,
                         }
                     })
                 )
@@ -642,8 +621,8 @@ function operatorsToArray<T, A>(
     }
 }
 
-export function toArray<T, A>(): OperatorFunction<Value<T, A>, ReadonlyArray<Value<T, A>>> {
-    return toList<T, A, Array<Value<T, A>>>(
+export function toArray<T>(): OperatorFunction<Value<T>, ReadonlyArray<Value<T>>> {
+    return toList<T, Array<Value<T>>>(
         () => [],
         (array) => [...array],
         (list, item, index) => list.splice(index, 0, item),

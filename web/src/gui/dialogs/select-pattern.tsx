@@ -8,8 +8,8 @@ export function SelectionPatternDialog({
     data,
     fulfill,
 }: {
-    data: Array<Pattern<any, any>>
-    fulfill: (value: Pattern<any, any>) => void
+    data: Array<Pattern<any>>
+    fulfill: (value: Pattern<any>) => void
 }) {
     const store = useBaseStore()
     return (

@@ -3,34 +3,34 @@ import { ParsedSteps } from "../parser"
 import { filterNull } from "../util"
 
 export type InterpretedInfo = {
-    values?: Array<Value<any, any>>
+    values?: Array<Value<any>>
 }
 
 //TODO: negation (to decrease description size)
 
-export type PatternSelector = (patterns: Array<Pattern<any, any>>) => Promise<Pattern<any, any>>
+export type PatternSelector = (patterns: Array<Pattern<any>>) => Promise<Pattern<any>>
 
-export type Pattern<T, A> = {
+export type Pattern<T> = {
     description: string
-    isSelected: (value: Value<T, A>) => boolean
+    isSelected: (value: Value<T>) => boolean
     generateStep: (() => ParsedSteps) | undefined
 }
 
-type SizedPattern<T, A> = Pattern<T, A> & {
+type SizedPattern<T> = Pattern<T> & {
     keySize: number
     selectionSize: number
 }
 
-export type PatternType<T, A> = {
-    generateMatching: (allValues: Array<Value<T, A>>, selectedValues: Array<Value<T, A>>) => Pattern<T, A> | undefined
-    generateContaining: (allValues: Array<Value<T, A>>, selectedValues: Array<Value<T, A>>) => Pattern<T, A> | undefined
+export type PatternType<T> = {
+    generateMatching: (allValues: Array<Value<T>>, selectedValues: Array<Value<T>>) => Pattern<T> | undefined
+    generateContaining: (allValues: Array<Value<T>>, selectedValues: Array<Value<T>>) => Pattern<T> | undefined
 }
 
-const getValueIndex = (value: Value<any, any>) => value.index[value.index.length - 1]
+const getValueIndex = (value: Value<any>) => value.index[value.index.length - 1]
 
-const getValueIndexModuloKey = (value: Value<any, any>, modulo: number): number => getValueIndex(value) % modulo
+const getValueIndexModuloKey = (value: Value<any>, modulo: number): number => getValueIndex(value) % modulo
 
-const getValueIndexModuloCondition = (value: Value<any, any>, modulo: number): ParsedSteps => ({
+const getValueIndexModuloCondition = (value: Value<any>, modulo: number): ParsedSteps => ({
     type: "equal",
     children: [
         {
@@ -55,10 +55,10 @@ const getValueIndexModuloCondition = (value: Value<any, any>, modulo: number): P
 })
 
 function computeModuloPattern(
-    allValues: Array<Value<any, any>>,
-    selectedValues: Array<Value<any, any>>,
+    allValues: Array<Value<any>>,
+    selectedValues: Array<Value<any>>,
     modulo: number,
-    checkSelection?: (newSelectedValues: Array<Value<any, any>>) => boolean
+    checkSelection?: (newSelectedValues: Array<Value<any>>) => boolean
 ) {
     return computePattern(
         (keys) => (keys == null ? `all indices` : `index % ${modulo} is in ${keys.join(", ")}`),
@@ -70,31 +70,31 @@ function computeModuloPattern(
     )
 }
 
-function getDistinctSortedIndices(selectedValues: Array<Value<any, any>>) {
+function getDistinctSortedIndices(selectedValues: Array<Value<any>>) {
     return selectedValues
         .map(getValueIndex)
         .filter((value, index, self) => self.indexOf(value) === index) //distinct
         .sort((v1, v2) => v1 - v2)
 }
 
-export const generateAllPattern = (description = "all"): Pattern<any, any> => ({
+export const generateAllPattern = (description = "all"): Pattern<any> => ({
     description,
     isSelected: () => true,
     generateStep: undefined,
 })
 
-export const allPatternType: PatternType<any, any> = {
+export const allPatternType: PatternType<any> = {
     generateContaining: generateAllPattern.bind(null, undefined),
     generateMatching: generateAllPattern.bind(null, undefined),
 }
 
 function selectBestPattern(
-    isBetter: (p1: SizedPattern<any, any>, p2: SizedPattern<any, any>) => boolean,
-    ...p: Array<SizedPattern<any, any> | undefined>
-): Pattern<any, any> | undefined {
+    isBetter: (p1: SizedPattern<any>, p2: SizedPattern<any>) => boolean,
+    ...p: Array<SizedPattern<any> | undefined>
+): Pattern<any> | undefined {
     const patterns = p.filter(filterNull)
 
-    let bestPattern: SizedPattern<any, any> | undefined
+    let bestPattern: SizedPattern<any> | undefined
 
     for (const pattern of patterns) {
         if (bestPattern == null || isBetter(pattern, bestPattern)) {
@@ -105,7 +105,7 @@ function selectBestPattern(
     return bestPattern
 }
 
-export const indexModuloPatternType: PatternType<any, any> = {
+export const indexModuloPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) => {
         const sortedIndices = getDistinctSortedIndices(selectedValues)
 
@@ -138,9 +138,9 @@ export const indexModuloPatternType: PatternType<any, any> = {
     },
 }
 
-const getValueIdKey = (value: Value<any, any>) => value.index.join(",")
+const getValueIdKey = (value: Value<any>) => value.index.join(",")
 
-export const indexPatternType: PatternType<any, any> = {
+export const indexPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
             (keys) => (keys == null ? "all indices" : `index is in ${keys.join(", ")}`),
@@ -191,7 +191,7 @@ function computeIndexComparisonPattern(
     getDescription: (comparator: number) => string,
     type: "greaterEqual" | "greater" | "smaller" | "smallerEqual",
     comparator: number
-): Pattern<any, any> {
+): Pattern<any> {
     return {
         description: getDescription(comparator),
         isSelected: (value) => compare(comparator, getValueIndex(value)),
@@ -225,7 +225,7 @@ const computeIndexSmallerEqual = computeIndexComparisonPattern.bind(
     "smallerEqual"
 )
 
-export const indexSmallerEqualPatternType: PatternType<any, any> = {
+export const indexSmallerEqualPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) => {
         const max = Math.max(...selectedValues.map(getValueIndex))
         const newSelectedValues = allValues.filter((value) => getValueIndex(value) <= max)
@@ -243,7 +243,7 @@ export const indexSmallerEqualPatternType: PatternType<any, any> = {
     },
 }
 
-export const indexGreaterEqualPatternType: PatternType<any, any> = {
+export const indexGreaterEqualPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) => {
         const min = Math.min(...selectedValues.map(getValueIndex))
         const newSelectedValues = allValues.filter((value) => getValueIndex(value) >= min)
@@ -261,7 +261,7 @@ export const indexGreaterEqualPatternType: PatternType<any, any> = {
     },
 }
 
-export const idPatternType: PatternType<any, any> = {
+export const idPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
             (keys) => (keys == null ? "all ids" : `id is in ${keys.join(", ")}`),
@@ -287,7 +287,7 @@ export const idPatternType: PatternType<any, any> = {
     generateContaining: () => undefined,
 }
 
-function allPatternsMatchAll(patterns: Array<Pattern<any, any>>): boolean {
+function allPatternsMatchAll(patterns: Array<Pattern<any>>): boolean {
     for (const pattern of patterns) {
         if (pattern.generateStep != null) {
             return false
@@ -299,12 +299,12 @@ function allPatternsMatchAll(patterns: Array<Pattern<any, any>>): boolean {
 /**
  * @returns undefined if all should be selected
  */
-export async function getMatchingCondition<T, A>(
-    allValues: Array<Value<T, A>>,
-    selectedValues: Array<Value<T, A>>,
-    patternTypes: Array<PatternType<T, A>>,
+export async function getMatchingCondition<T>(
+    allValues: Array<Value<T>>,
+    selectedValues: Array<Value<T>>,
+    patternTypes: Array<PatternType<T>>,
     selectPattern: PatternSelector
-): Promise<Pattern<T, A>> {
+): Promise<Pattern<T>> {
     if (selectedValues.length === allValues.length) {
         return generateAllPattern()
     }
@@ -327,12 +327,12 @@ export async function getMatchingCondition<T, A>(
 /**
  * @returns undefined if all should be selected
  */
-export async function getContainingCondition<T, A>(
-    allValues: Array<Value<T, A>>,
-    selectedValues: Array<Value<T, A>>,
-    patternTypes: Array<PatternType<T, A>>,
+export async function getContainingCondition<T>(
+    allValues: Array<Value<T>>,
+    selectedValues: Array<Value<T>>,
+    patternTypes: Array<PatternType<T>>,
     selectPattern: PatternSelector
-): Promise<Pattern<T, A>> {
+): Promise<Pattern<T>> {
     if (selectedValues.length === allValues.length) {
         return generateAllPattern()
     }
@@ -348,10 +348,10 @@ export async function getContainingCondition<T, A>(
     return selectPattern(patterns)
 }
 
-export function patternIsMatching<T, A>(
-    allValues: Array<Value<T, A>>,
-    selectedValues: Array<Value<T, A>>,
-    newSelection: Array<Value<T, A>>
+export function patternIsMatching<T>(
+    allValues: Array<Value<T>>,
+    selectedValues: Array<Value<T>>,
+    newSelection: Array<Value<T>>
 ): boolean {
     if (newSelection.length !== selectedValues.length) {
         return false
@@ -368,15 +368,15 @@ export function patternIsMatching<T, A>(
  *
  * @returns undefined if it is not possible to match the selected values with the pattern
  */
-export function computePattern<T, A>(
+export function computePattern<T>(
     getDescription: (keys: Array<string | number> | undefined) => string,
-    allValues: Array<Value<T, A>>,
-    selectedValues: Array<Value<T, A>>,
-    getValueKey: (value: Value<T, A>) => string | number,
-    getValueCondition: (value: Value<T, A>) => ParsedSteps,
-    checkSelection?: (newSelectedValues: Array<Value<T, A>>) => boolean
-): SizedPattern<T, A> | undefined {
-    const keyMap = new Map<string | number, Value<T, A>>()
+    allValues: Array<Value<T>>,
+    selectedValues: Array<Value<T>>,
+    getValueKey: (value: Value<T>) => string | number,
+    getValueCondition: (value: Value<T>) => ParsedSteps,
+    checkSelection?: (newSelectedValues: Array<Value<T>>) => boolean
+): SizedPattern<T> | undefined {
+    const keyMap = new Map<string | number, Value<T>>()
     for (const selectedValue of selectedValues) {
         const key = getValueKey(selectedValue)
         if (!keyMap.has(key)) {

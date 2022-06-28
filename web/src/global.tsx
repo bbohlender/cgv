@@ -8,7 +8,7 @@ export type BaseDomainContext = {
     operationGuiMap: OperationGUIMap
     Viewer: (props: HTMLProps<HTMLDivElement>) => JSX.Element
     store: UseBaseStore
-    operations: Operations<any, any>
+    operations: Operations<any>
 }
 
 export const domainContext = createContext<BaseDomainContext>(null as any)

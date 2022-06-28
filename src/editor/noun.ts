@@ -27,9 +27,9 @@ import { getIndirectParentsSteps, getRelatedSelections, getSelectedStepsPath } f
 
 export function removeUnusedNouns<T>(
     grammar: AbstractParsedGrammarDefinition<T>,
-    selectionsList: SelectionsList<any, any>,
+    selectionsList: SelectionsList<any>,
     descriptionNames?: Array<string>
-): { selectionsList: SelectionsList<any, any>; grammar: AbstractParsedGrammarDefinition<T> } {
+): { selectionsList: SelectionsList<any>; grammar: AbstractParsedGrammarDefinition<T> } {
     const usedNouns = new Set<string>()
     const foundDescriptions = new Set<string>()
     for (const { name: rootName, step: rootStep } of grammar) {
@@ -53,10 +53,10 @@ export function removeUnusedNouns<T>(
     }
 }
 
-export async function setName<T, A>(
-    indicesMap: ValueMap<T, A>,
-    selectionsList: SelectionsList<T, A>,
-    patterns: Array<PatternType<T, A>>,
+export async function setName<T>(
+    indicesMap: ValueMap<T>,
+    selectionsList: SelectionsList<T>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     name: string,
     grammar: HierarchicalParsedGrammarDefinition
@@ -136,10 +136,10 @@ export function copyNoun(
     )
 }
 
-export async function renameNoun<T, A>(
-    indicesMap: ValueMap<T, A>,
-    selectionsList: SelectionsList<T, A>,
-    patterns: Array<PatternType<T, A>>,
+export async function renameNoun<T>(
+    indicesMap: ValueMap<T>,
+    selectionsList: SelectionsList<T>,
+    patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     newName: string,
     grammar: HierarchicalParsedGrammarDefinition

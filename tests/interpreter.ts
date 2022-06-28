@@ -100,7 +100,7 @@ describe("array datastructure", () => {
     it("should handle changes from observable and output the updated array", async () => {
         await expect(
             lastValueFrom(
-                scheduled<Value<number, undefined>>(
+                scheduled<Value<number>>(
                     [
                         {
                             raw: 4,
@@ -108,7 +108,6 @@ describe("array datastructure", () => {
                             invalid: createInvalidAndInvalidateAfter(100),
                             variables: {},
                             symbolDepth: {},
-                            annotation: undefined,
                         },
                         {
                             raw: 3,
@@ -116,7 +115,6 @@ describe("array datastructure", () => {
                             invalid: createCompletedInvalid(),
                             variables: {},
                             symbolDepth: {},
-                            annotation: undefined,
                         },
                         {
                             raw: 2,
@@ -124,7 +122,6 @@ describe("array datastructure", () => {
                             invalid: createInvalidAndInvalidateAfter(200),
                             variables: {},
                             symbolDepth: {},
-                            annotation: undefined,
                         },
                         {
                             raw: 1,
@@ -132,15 +129,13 @@ describe("array datastructure", () => {
                             invalid: createCompletedInvalid(),
                             variables: {},
                             symbolDepth: {},
-                            annotation: undefined,
                         },
                         {
                             raw: 2,
                             index: [10, 0],
                             invalid: createCompletedInvalid(),
                             variables: {},
-                            symbolDepth: {},
-                            annotation: undefined,
+                            symbolDepth: {}
                         },
                     ],
                     asyncScheduler
@@ -333,7 +328,7 @@ describe("interprete grammar", () => {
     it("should handle external variable changes", async () => {
         const values = new Array(100).fill(null).map((_, i) => i)
         const expected = values.map((v) => [v * 5, 2 + v])
-        const result = of<Value<number, undefined>>({
+        const result = of<Value<number>>({
             raw: 0,
             invalid: createCompletedInvalid(),
             index: [],
@@ -343,8 +338,7 @@ describe("interprete grammar", () => {
                     map((v) => values[v])
                 ),
             },
-            symbolDepth: {},
-            annotation: undefined,
+            symbolDepth: {}
         }).pipe(
             interprete(
                 parse(` a --> this.x * b | 2 + this.x

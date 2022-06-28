@@ -20,7 +20,7 @@ type Options = Array<{
     onSelect: () => void
 }>
 
-function getStepOptions(operations: Operations<any, any>, onSelectStep: (value: StepDescriptor) => void): Options {
+function getStepOptions(operations: Operations<any>, onSelectStep: (value: StepDescriptor) => void): Options {
     return getAllStepDescriptors(operations)
         .filter(({ type }) => type != "parallel" && type != "sequential")
         .map((descriptor) => ({
