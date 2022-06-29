@@ -108,7 +108,7 @@ export async function replaceAtPathOnDraft<T>(
     const newSteps = replaceWith(currentSteps, path, translatedPath) ?? currentSteps
     const oldSteps = original(currentSteps)!
     const generateCondition =
-        generatePatternCondition ?? (await getMatchingCondition(all, selected, patterns, selectCondition)).generateStep
+        generatePatternCondition ?? (await getMatchingCondition(all, selected, patterns, selectCondition))?.generateStep
 
     const translatedSteps: ParsedSteps =
         generateCondition == null ? newSteps : { type: "if", children: [generateCondition(), newSteps, oldSteps] }

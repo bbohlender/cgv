@@ -150,8 +150,8 @@ function createBaseStateFunctions(
             },
         })
     }
-    const selectPattern: PatternSelector = (conditions) =>
-        new Promise((resolve) => request("select-condition", resolve, conditions))
+    const createPatternSelector: (title: string) => PatternSelector = (title: string) => (conditions) =>
+        new Promise((resolve) => request("select-condition", resolve, { patterns: conditions, title }))
     return {
         import: (data: string) => {
             try {
@@ -277,7 +277,7 @@ function createBaseStateFunctions(
                     .reduce((prev, [name, value]) => ({ ...prev, [name]: value }), {}),
             })
         },
-        copyNoun: async (description: string, step: HierarchicalParsedSteps, globalNounName: string) => {
+        pasteNoun: async (description: string, step: HierarchicalParsedSteps, globalNounName: string) => {
             const state = get()
             if (state.type !== "gui" || state.selectedDescriptions == null) {
                 return
@@ -294,7 +294,7 @@ function createBaseStateFunctions(
                         compareSelectedStepsPath(selections.steps, step, joinedPath)
                     ),
                     patternTypes,
-                    selectPattern,
+                    createPatternSelector("On what should this noun be copied to?"),
                     () => ({ type: "symbol", identifier: globalizeNoun(localNounName, description) }),
                     state.grammar.concat(copiedNouns)
                 )
@@ -483,7 +483,7 @@ function createBaseStateFunctions(
                     state.valueMap,
                     selections,
                     patternTypes,
-                    selectPattern
+                    createPatternSelector("What should be selected?")
                 ),
             })
         },
@@ -606,7 +606,7 @@ function createBaseStateFunctions(
                     state.valueMap,
                     state.selectionsList,
                     patternTypes,
-                    selectPattern,
+                    createPatternSelector("On what should this transformation be applied?"),
                     type,
                     stepGenerator,
                     grammar
@@ -623,7 +623,7 @@ function createBaseStateFunctions(
                     state.valueMap,
                     state.selectionsList,
                     patternTypes,
-                    selectPattern,
+                    createPatternSelector("From what should this transformation be removed?"),
                     operations,
                     state.grammar
                 )
@@ -635,7 +635,14 @@ function createBaseStateFunctions(
                 return
             }
             set(
-                await renameNoun(state.valueMap, state.selectionsList, patternTypes, selectPattern, name, state.grammar)
+                await renameNoun(
+                    state.valueMap,
+                    state.selectionsList,
+                    patternTypes,
+                    createPatternSelector("What should be renamed?"),
+                    name,
+                    state.grammar
+                )
             )
         },
         setName: async (name: string) => {
@@ -649,7 +656,7 @@ function createBaseStateFunctions(
                     state.valueMap,
                     state.selectionsList,
                     patternTypes,
-                    selectPattern,
+                    createPatternSelector("What should be named?"),
                     globalizeStepsSerializer(state.selectedDescriptions[0], name) ?? name,
                     state.grammar
                 )
@@ -687,7 +694,7 @@ function createBaseStateFunctions(
                               compareSelectedStepsPath(selections.steps, steps, joinedPath)
                           ),
                     patternTypes,
-                    selectPattern,
+                    createPatternSelector("For what should the new transformation replace the current?"),
                     replaceWith as any,
                     grammar
                 )

@@ -260,8 +260,8 @@ export async function autoSelectPattern<T>(
             s === selections
                 ? {
                       ...selections,
-                      generatePatternCondition: pattern.generateStep,
-                      values: all.filter(({ after }) => pattern.isSelected(after)),
+                      generatePatternCondition: pattern!.generateStep,
+                      values: all.filter(({ after }) => pattern!.isSelected(after)),
                   }
                 : s
         )

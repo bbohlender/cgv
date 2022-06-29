@@ -61,7 +61,7 @@ function computeModuloPattern(
     checkSelection?: (newSelectedValues: Array<Value<any>>) => boolean
 ) {
     return computePattern(
-        (keys) => (keys == null ? `all indices` : `index % ${modulo} is in ${keys.join(", ")}`),
+        (keys) => `in every set of ${modulo} select index ${keys.join(", ")}`,
         allValues,
         selectedValues,
         (value) => getValueIndexModuloKey(value, modulo),
@@ -77,15 +77,15 @@ function getDistinctSortedIndices(selectedValues: Array<Value<any>>) {
         .sort((v1, v2) => v1 - v2)
 }
 
-export const generateAllPattern = (description = "all"): Pattern<any> => ({
-    description,
+export const generateAllPattern = (): Pattern<any> => ({
+    description: "everything",
     isSelected: () => true,
     generateStep: undefined,
 })
 
 export const allPatternType: PatternType<any> = {
-    generateContaining: generateAllPattern.bind(null, undefined),
-    generateMatching: generateAllPattern.bind(null, undefined),
+    generateContaining: generateAllPattern,
+    generateMatching: generateAllPattern,
 }
 
 function selectBestPattern(
@@ -143,7 +143,7 @@ const getValueIdKey = (value: Value<any>) => value.index.join(",")
 export const indexPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => (keys == null ? "all indices" : `index is in ${keys.join(", ")}`),
+            (keys) => `when index is one of ${keys.join(", ")}`,
             allValues,
             selectedValues,
             getValueIndex,
@@ -165,7 +165,7 @@ export const indexPatternType: PatternType<any> = {
         ),
     generateContaining: (allValues, selectedValues) =>
         computePattern(
-            (keys) => (keys == null ? "all indices" : `index is in ${keys.join(", ")}`),
+            (keys) => `where index is one of ${keys.join(", ")}`,
             allValues,
             selectedValues,
             getValueIndex,
@@ -215,13 +215,13 @@ function computeIndexComparisonPattern(
 const computeIndexGreaterEqual = computeIndexComparisonPattern.bind(
     null,
     (comparator: number, index: number) => index >= comparator,
-    (comparator: number) => `index >= ${comparator}`,
+    (comparator: number) => `where index >= ${comparator}`,
     "greaterEqual"
 )
 const computeIndexSmallerEqual = computeIndexComparisonPattern.bind(
     null,
     (comparator: number, index: number) => index <= comparator,
-    (comparator: number) => `index <= ${comparator}`,
+    (comparator: number) => `where index <= ${comparator}`,
     "smallerEqual"
 )
 
@@ -230,7 +230,7 @@ export const indexSmallerEqualPatternType: PatternType<any> = {
         const max = Math.max(...selectedValues.map(getValueIndex))
         const newSelectedValues = allValues.filter((value) => getValueIndex(value) <= max)
         if (newSelectedValues.length === allValues.length) {
-            return generateAllPattern(`all (index <= ${max})`)
+            return undefined
         }
         if (!patternIsMatching(allValues, selectedValues, newSelectedValues)) {
             return undefined
@@ -248,7 +248,7 @@ export const indexGreaterEqualPatternType: PatternType<any> = {
         const min = Math.min(...selectedValues.map(getValueIndex))
         const newSelectedValues = allValues.filter((value) => getValueIndex(value) >= min)
         if (newSelectedValues.length === allValues.length) {
-            return generateAllPattern(`all (index >= ${min})`)
+            return undefined
         }
         if (!patternIsMatching(allValues, selectedValues, newSelectedValues)) {
             return undefined
@@ -264,7 +264,7 @@ export const indexGreaterEqualPatternType: PatternType<any> = {
 export const idPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => (keys == null ? "all ids" : `id is in ${keys.join(", ")}`),
+            (keys) => `exactly and only my selection`,
             allValues,
             selectedValues,
             getValueIdKey,
@@ -304,9 +304,9 @@ export async function getMatchingCondition<T>(
     selectedValues: Array<Value<T>>,
     patternTypes: Array<PatternType<T>>,
     selectPattern: PatternSelector
-): Promise<Pattern<T>> {
+): Promise<Pattern<T> | undefined> {
     if (selectedValues.length === allValues.length) {
-        return generateAllPattern()
+        return undefined
     }
 
     const patterns = patternTypes
@@ -318,7 +318,7 @@ export async function getMatchingCondition<T>(
     }
 
     if (allPatternsMatchAll(patterns)) {
-        return generateAllPattern()
+        return undefined
     }
 
     return selectPattern(patterns)
@@ -332,9 +332,9 @@ export async function getContainingCondition<T>(
     selectedValues: Array<Value<T>>,
     patternTypes: Array<PatternType<T>>,
     selectPattern: PatternSelector
-): Promise<Pattern<T>> {
+): Promise<Pattern<T> | undefined> {
     if (selectedValues.length === allValues.length) {
-        return generateAllPattern()
+        return undefined
     }
 
     const patterns = patternTypes
@@ -366,10 +366,10 @@ export function patternIsMatching<T>(
 
 /**
  *
- * @returns undefined if it is not possible to match the selected values with the pattern
+ * @returns undefined if it is not possible to match the selected values with the pattern or all values would be selected
  */
 export function computePattern<T>(
-    getDescription: (keys: Array<string | number> | undefined) => string,
+    getDescription: (keys: Array<string | number>) => string,
     allValues: Array<Value<T>>,
     selectedValues: Array<Value<T>>,
     getValueKey: (value: Value<T>) => string | number,
@@ -389,13 +389,7 @@ export function computePattern<T>(
     const newSelectedValues = allValues.filter((value) => keys.includes(getValueKey(value)))
 
     if (newSelectedValues.length === allValues.length) {
-        return {
-            description: getDescription(undefined),
-            generateStep: undefined,
-            isSelected: () => true,
-            keySize: 0,
-            selectionSize: newSelectedValues.length,
-        }
+        return undefined
     }
 
     if (keyMap.size === 0 || (checkSelection != null && !checkSelection(newSelectedValues))) {

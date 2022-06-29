@@ -55,7 +55,7 @@ export async function insert<T>(
                                 patterns,
                                 selectCondition
                             )
-                        ).generateStep
+                        )?.generateStep
 
                     const translatedSteps: ParsedSteps =
                         generatedCondition == null

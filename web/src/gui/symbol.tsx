@@ -47,7 +47,7 @@ export function GUISymbolStep({
             {selectedNoun != null && selectedNoun.includes("@") && (
                 <div
                     className="mb-3 mx-3 btn btn-outline-secondary"
-                    onClick={() => store.getState().copyNoun(description, step, selectedNoun)}>
+                    onClick={() => store.getState().pasteNoun(description, step, selectedNoun)}>
                     Paste to {description}
                 </div>
             )}

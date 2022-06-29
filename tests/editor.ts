@@ -571,7 +571,7 @@ describe("pattern", () => {
         const condition = await getMatchingCondition([], [], [allPatternType, idPatternType], () =>
             Promise.resolve(generateAllPattern())
         )
-        expect(condition.generateStep).to.be.undefined
+        expect(condition?.generateStep).to.be.undefined
     })
 
     it("should get undefined as selection condition as no pattern matched", async () => {
@@ -613,7 +613,7 @@ describe("pattern", () => {
             [allPatternType, idPatternType],
             defaultConditionSelection
         )
-        expect(condition.generateStep).to.be.undefined
+        expect(condition?.generateStep).to.be.undefined
     })
 
     it("should get undefined as selection condition as no value was selected", async () => {
@@ -635,7 +635,7 @@ describe("pattern", () => {
             [allPatternType, idPatternType],
             defaultConditionSelection
         )
-        expect(condition.generateStep).to.be.undefined
+        expect(condition?.generateStep).to.be.undefined
     })
 
     it("should get undefined as selection condition as no condition was selected", async () => {
@@ -667,7 +667,7 @@ describe("pattern", () => {
             [idPatternType],
             defaultConditionSelection
         )
-        expect(condition.generateStep).to.be.undefined
+        expect(condition?.generateStep).to.be.undefined
     })
 
     it("should get id selection condition", async () => {
@@ -719,7 +719,7 @@ describe("pattern", () => {
             [idPatternType],
             defaultConditionSelection
         )
-        expect(condition.generateStep!()).to.be.deep.equal({
+        expect(condition?.generateStep!()).to.be.deep.equal({
             type: "equal",
             children: [
                 {
@@ -784,7 +784,7 @@ describe("pattern", () => {
             [indexModuloPatternType],
             defaultConditionSelection
         )
-        expect(condition.generateStep!()).to.be.deep.equal({
+        expect(condition?.generateStep!()).to.be.deep.equal({
             type: "equal",
             children: [
                 {
@@ -858,7 +858,7 @@ describe("pattern", () => {
             [indexModuloPatternType],
             defaultConditionSelection
         )
-        expect(condition.generateStep!()).to.be.deep.equal({
+        expect(condition?.generateStep!()).to.be.deep.equal({
             type: "equal",
             children: [
                 {
@@ -927,7 +927,7 @@ describe("pattern", () => {
                 isSelected: () => true,
             })
         )
-        expect(condition.generateStep!()).to.be.deep.equal(customCondition)
+        expect(condition?.generateStep!()).to.be.deep.equal(customCondition)
     })
 
     it("should get selection condition based on domain specific pattern", async () => {
@@ -1005,7 +1005,7 @@ describe("pattern", () => {
             ],
             defaultConditionSelection
         )
-        expect(condition.generateStep!()).to.be.deep.equal({
+        expect(condition?.generateStep!()).to.be.deep.equal({
             type: "or",
             children: [
                 {

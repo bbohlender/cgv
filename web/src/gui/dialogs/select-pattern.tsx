@@ -5,16 +5,18 @@ import { CloseIcon } from "../../icons/close"
 //TODO: custom condition
 
 export function SelectionPatternDialog({
-    data,
+    data: { patterns, title },
     fulfill,
 }: {
-    data: Array<Pattern<any>>
+    data: { patterns: Array<Pattern<any>>; title: string }
     fulfill: (value: Pattern<any>) => void
 }) {
     const store = useBaseStore()
     return (
         <>
-            <div className="d-flex flex-row align-items-center justify-content-end">
+            <div className="d-flex flex-row align-items-center">
+                <h5>{title}</h5>
+                <div className="flex-grow-1" />
                 <button
                     className="d-flex align-items-center ms-3 btn btn-sm btn-outline-secondary"
                     onClick={store.getState().cancelRequest}>
@@ -22,7 +24,7 @@ export function SelectionPatternDialog({
                 </button>
             </div>
             <div className="d-flex flex-column" style={{ overflowY: "auto" }}>
-                {data.map((pattern, i) => (
+                {patterns.map((pattern, i) => (
                     <button
                         onClick={fulfill.bind(null, pattern)}
                         className="mt-3 btn btn-outline-primary w-100"

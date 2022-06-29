@@ -22,6 +22,7 @@ export type PanoramaViewerState = {
     viewType: "3d"
     panoramaIndex: number
     rotation: Vector3Tuple
+    fov: number
 }
 
 export type ResultViewerState = {
@@ -127,10 +128,12 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         changePanoramaView: (panoramaIndex: number) => {
             const state = get()
             const rotation = state.viewType === "3d" ? state.rotation : panoramaRotation
+            const fov = state.viewType === "3d" ? FOV : state.fov
             set({
                 viewType: "3d",
                 panoramaIndex,
                 rotation,
+                fov,
             })
         },
         setError: (error: string | undefined) => {
