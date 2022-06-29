@@ -143,7 +143,7 @@ const getValueIdKey = (value: Value<any>) => value.index.join(",")
 export const indexPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) =>
         computePattern(
-            (keys) => `when index is one of ${keys.join(", ")}`,
+            (keys) => `where index is one of ${keys.join(", ")}`,
             allValues,
             selectedValues,
             getValueIndex,
@@ -212,52 +212,52 @@ function computeIndexComparisonPattern(
     }
 }
 
-const computeIndexGreaterEqual = computeIndexComparisonPattern.bind(
+const computeIndexGreater = computeIndexComparisonPattern.bind(
     null,
-    (comparator: number, index: number) => index >= comparator,
-    (comparator: number) => `where index >= ${comparator}`,
-    "greaterEqual"
+    (comparator: number, index: number) => index > comparator,
+    (comparator: number) => `where index > ${comparator}`,
+    "greater"
 )
-const computeIndexSmallerEqual = computeIndexComparisonPattern.bind(
+const computeIndexSmaller = computeIndexComparisonPattern.bind(
     null,
-    (comparator: number, index: number) => index <= comparator,
-    (comparator: number) => `where index <= ${comparator}`,
-    "smallerEqual"
+    (comparator: number, index: number) => index < comparator,
+    (comparator: number) => `where index < ${comparator}`,
+    "smaller"
 )
 
 export const indexSmallerEqualPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) => {
-        const max = Math.max(...selectedValues.map(getValueIndex))
-        const newSelectedValues = allValues.filter((value) => getValueIndex(value) <= max)
+        const max = Math.max(...selectedValues.map(getValueIndex)) + 1
+        const newSelectedValues = allValues.filter((value) => getValueIndex(value) < max)
         if (newSelectedValues.length === allValues.length) {
             return undefined
         }
         if (!patternIsMatching(allValues, selectedValues, newSelectedValues)) {
             return undefined
         }
-        return computeIndexSmallerEqual(max)
+        return computeIndexSmaller(max)
     },
     generateContaining: (allValues, selectedValues) => {
-        const max = Math.max(...selectedValues.map(getValueIndex))
-        return computeIndexSmallerEqual(max)
+        const max = Math.max(...selectedValues.map(getValueIndex)) + 1
+        return computeIndexSmaller(max)
     },
 }
 
 export const indexGreaterEqualPatternType: PatternType<any> = {
     generateMatching: (allValues, selectedValues) => {
-        const min = Math.min(...selectedValues.map(getValueIndex))
-        const newSelectedValues = allValues.filter((value) => getValueIndex(value) >= min)
+        const min = Math.min(...selectedValues.map(getValueIndex)) - 1
+        const newSelectedValues = allValues.filter((value) => getValueIndex(value) > min)
         if (newSelectedValues.length === allValues.length) {
             return undefined
         }
         if (!patternIsMatching(allValues, selectedValues, newSelectedValues)) {
             return undefined
         }
-        return computeIndexGreaterEqual(min)
+        return computeIndexGreater(min)
     },
     generateContaining: (allValues, selectedValues) => {
-        const min = Math.min(...selectedValues.map(getValueIndex))
-        return computeIndexGreaterEqual(min)
+        const min = Math.min(...selectedValues.map(getValueIndex)) - 1
+        return computeIndexGreater(min)
     },
 }
 

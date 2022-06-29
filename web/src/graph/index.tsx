@@ -2,14 +2,11 @@ import React, { useMemo } from "react"
 import ReactFlow, { ConnectionLineType, Node, Edge } from "react-flow-renderer"
 import { createGraph } from "./create-graph"
 import { useBaseGlobal, useBaseStore } from "../global"
-import {
-    getLocalDescription,
-    HierarchicalParsedSteps,
-    shallowEqual,
-} from "cgv"
+import { getLocalDescription, HierarchicalParsedSteps, shallowEqual } from "cgv"
 import { GraphIcon } from "../icons/graph"
 import { EditIcon } from "../icons/edit"
 import { nodeTypes } from "./node-types"
+import Tooltip from "rc-tooltip"
 
 export function Graph() {
     const store = useBaseStore()
@@ -34,7 +31,6 @@ export function Graph() {
         return [newNodes, newEdges]
     }, [localDescription, selectedDescriptions, operationGuiMap])
 
-
     if (selectedDescriptions.length != 1) {
         return (
             <div className="d-flex align-items-center justify-content-center flex-grow-1">
@@ -55,7 +51,7 @@ export function Graph() {
                 nodes={nodes}
                 edges={edges}
                 onNodeClick={(e, node: Node<{ value: HierarchicalParsedSteps | string }>) =>
-                    store.getState().select(node.data.value, undefined, e.shiftKey ? "add" : "replace")
+                    store.getState().select(node.data.value, undefined, store.getState().shift ? "add" : "replace")
                 }
                 onNodeMouseEnter={(_, node: Node<{ value: HierarchicalParsedSteps | string }>) =>
                     store.getState().onStartHover(node.data.value, undefined)
@@ -68,16 +64,20 @@ export function Graph() {
             <div
                 style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
                 className="d-flex flex-row align-items-center">
-                <button
-                    className="d-flex align-items-center btn btn-sm btn-primary me-2"
-                    onClick={() => store.getState().setGraphVisualization(false)}>
-                    <GraphIcon />
-                </button>
-                <button
-                    className="d-flex align-items-center btn btn-sm btn-secondary"
-                    onClick={() => store.getState().setType("tui")}>
-                    <EditIcon />
-                </button>
+                <Tooltip placement="top" overlay="Toggle Graph">
+                    <button
+                        className="d-flex align-items-center btn btn-sm btn-primary me-2"
+                        onClick={() => store.getState().setGraphVisualization(false)}>
+                        <GraphIcon />
+                    </button>
+                </Tooltip>
+                <Tooltip placement="topRight" overlay="Edit Text">
+                    <button
+                        className="d-flex align-items-center btn btn-sm btn-secondary"
+                        onClick={() => store.getState().setType("tui")}>
+                        <EditIcon />
+                    </button>
+                </Tooltip>
             </div>
         </div>
     )

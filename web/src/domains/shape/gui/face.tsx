@@ -1,5 +1,6 @@
 import { AbstractParsedOperation, HierarchicalInfo, assureType, SelectedSteps } from "cgv"
 import { tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
+import Tooltip from "rc-tooltip"
 import { UseBaseStore, useBaseStore } from "../../../global"
 import { DeleteIcon } from "../../../icons/delete"
 import { getPosition, useViewerState } from "../viewer/state"
@@ -19,15 +20,17 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                             value={value}
                         />
                     )}
-                    <div
-                        onClick={() =>
-                            store.getState().replace<"operation">((draft) => {
-                                draft.children.splice(i, 1)
-                            }, value)
-                        }
-                        className="ms-2 d-flex align-items-center btn-sm btn btn-outline-danger">
-                        <DeleteIcon />
-                    </div>
+                    <Tooltip placement="left" overlay="Delete Point">
+                        <div
+                            onClick={() =>
+                                store.getState().replace<"operation">((draft) => {
+                                    draft.children.splice(i, 1)
+                                }, value)
+                            }
+                            className="ms-2 d-flex align-items-center btn-sm btn btn-outline-danger">
+                            <DeleteIcon />
+                        </div>
+                    </Tooltip>
                 </div>
             ))}
             <div className="btn btn-outline-success mb-3" onClick={() => addPointToFace(store, value)}>

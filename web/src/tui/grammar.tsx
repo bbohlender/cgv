@@ -13,6 +13,8 @@ import {
     multilineStringWhitespace,
     shallowEqual,
     descendantCount,
+    getDescriptionOfNoun,
+    getSelectedStepsPath,
 } from "cgv"
 import { Fragment, useMemo } from "react"
 import { useBaseGlobal } from "../global"
@@ -21,6 +23,7 @@ import { EditIcon } from "../icons/edit"
 import { BaseState } from "../base-state"
 import { childrenSelectable } from "../gui"
 import { GraphIcon } from "../icons/graph"
+import Tooltip from "rc-tooltip"
 
 export function Grammar() {
     const store = useBaseStore()
@@ -55,16 +58,21 @@ export function Grammar() {
                 <div
                     style={{ position: "fixed", right: "1rem", bottom: "1rem" }}
                     className="d-flex flex-row align-items-center">
-                    <button
-                        className="d-flex align-items-center btn btn-sm btn-secondary me-2"
-                        onClick={() => store.getState().setGraphVisualization(true)}>
-                        <GraphIcon />
-                    </button>
-                    <button
-                        className="d-flex align-items-center btn btn-sm btn-secondary"
-                        onClick={() => store.getState().setType("tui")}>
-                        <EditIcon />
-                    </button>
+                    <Tooltip placement="top" overlay="Toggle Graph">
+                        <button
+                            className="d-flex align-items-center btn btn-sm btn-secondary me-2"
+                            onClick={() => store.getState().setGraphVisualization(true)}>
+                            <GraphIcon />
+                        </button>
+                    </Tooltip>
+
+                    <Tooltip placement="topRight" overlay="Edit Text">
+                        <button
+                            className="d-flex align-items-center btn btn-sm btn-secondary"
+                            onClick={() => store.getState().setType("tui")}>
+                            <EditIcon />
+                        </button>
+                    </Tooltip>
                 </div>
             </div>
         </div>
@@ -81,7 +89,13 @@ function InteractableSteps({
     indentation: number
 }): JSX.Element | null {
     const store = useBaseStore()
-    const events = useMemo(() => {
+    let events:
+        | {
+              onMouseLeave: () => void
+              onMouseEnter: () => void
+              onClick: () => void
+          }
+        | undefined = useMemo(() => {
         const { onEndHover, onStartHover, select } = store.getState()
         return {
             onMouseLeave: onEndHover.bind(null, value, undefined),
@@ -90,7 +104,14 @@ function InteractableSteps({
         }
     }, [store, value])
     const { operationGuiMap } = useBaseGlobal()
-    const cssClassName = store(computeCssClassName.bind(null, value))
+    let cssClassName = store(computeCssClassName.bind(null, value))
+
+    const foreign = isStepForeign(value, description)
+
+    if (foreign) {
+        events = undefined
+        cssClassName = (cssClassName ?? "") + " text-muted"
+    }
 
     if (typeof value === "string") {
         return (
@@ -108,7 +129,7 @@ function InteractableSteps({
         )
     }
 
-    if (!childrenSelectable(operationGuiMap, value)) {
+    if (!childrenSelectable(operationGuiMap, value) || foreign) {
         return (
             <span {...events} className={cssClassName}>
                 <FlatSteps indentation={indentation} description={description} value={value} />
@@ -149,14 +170,21 @@ type Events = {
     onClick: () => void
 }
 
+function isStepForeign(step: HierarchicalParsedSteps | string, description: string): boolean {
+    return getDescriptionOfNoun(getSelectedStepsPath(step)[0]) !== description
+}
+
 function createReactSerializer(description: string) {
     return createSerializer<(index: number, events?: Events) => JSX.Element, HierarchicalInfo>(
-        (text) => (index: number, events) =>
-            (
-                <span {...events} key={index}>
+        (text, forStep) => (index: number, events) => {
+            const foreign = isStepForeign(forStep, description)
+            console.log(text, forStep, foreign)
+            return (
+                <span className={foreign ? "text-muted" : undefined} {...(foreign ? events : {})} key={index}>
                     {text}
                 </span>
-            ),
+            )
+        },
         (indentation, child) => (index) =>
             <InteractableSteps indentation={indentation} description={description} key={index} value={child} />,
         (...values) =>

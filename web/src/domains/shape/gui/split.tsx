@@ -5,6 +5,7 @@ import { DeleteIcon } from "../../../icons/delete"
 import { EndLabel, StartLabel } from "../../../gui/label"
 import { AxisInput } from "./axis-input"
 import { useCallback } from "react"
+import Tooltip from "rc-tooltip"
 
 export function GUISplitSteps({ value }: { value: AbstractParsedOperation<HierarchicalInfo> }) {
     const [axisChild, repetitionChild] = value.children
@@ -75,15 +76,17 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                             }, value)
                         }
                     />
-                    <div
-                        onClick={() =>
-                            store.getState().replace<"operation">((draft) => {
-                                draft.children.splice(i + 2, 1)
-                            }, value)
-                        }
-                        className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
-                        <DeleteIcon />
-                    </div>
+                    <Tooltip placement="left" overlay="Delete">
+                        <div
+                            onClick={() =>
+                                store.getState().replace<"operation">((draft) => {
+                                    draft.children.splice(i + 2, 1)
+                                }, value)
+                            }
+                            className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
+                            <DeleteIcon />
+                        </div>
+                    </Tooltip>
                 </StartLabel>
             ))}
             <div

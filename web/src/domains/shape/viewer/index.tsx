@@ -41,6 +41,7 @@ import {
     ZeroFactor,
 } from "three"
 import { VisualSelection } from "./visual-selection"
+import Tooltip from "rc-tooltip"
 
 export function tileDescriptionSuffix(x: number, y: number): string {
     return `_${x}_${y}`
@@ -129,8 +130,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <div style={{ pointerEvents: "all" }} className="d-flex flex-row">
                         <MultiSelectButton className="me-2" />
                         <VisualSelection className="me-2" />
-                        <BackButton className="me-2" />
-                        <SpeedSelection className="me-2" />
+                        <ExitStreetViewButton className="me-2" />
+                        {/*<SpeedSelection className="me-2" />*/}
                         <DownloadButton className="me-2" />
                         <ShowError />
                     </div>
@@ -254,12 +255,14 @@ function DownloadButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
 
     return (
-        <div
-            {...rest}
-            onClick={() => store.getState().download()}
-            className={`${className} d-flex align-items-center justify-content-center btn btn-primary btn-sm `}>
-            <DownloadIcon />
-        </div>
+        <Tooltip placement="top" overlay="Download">
+            <div
+                {...rest}
+                onClick={() => store.getState().download()}
+                className={`${className} d-flex align-items-center justify-content-center btn btn-primary btn-sm `}>
+                <DownloadIcon />
+            </div>
+        </Tooltip>
     )
 }
 
@@ -267,29 +270,33 @@ function MultiSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
     const shift = store((s) => (s.type === "gui" ? s.shift : false))
     return (
-        <div
-            {...rest}
-            onPointerDown={() => store.getState().setShift(true)}
-            onPointerUp={() => store.getState().setShift(false)}
-            className={`${className} d-flex align-items-center justify-content-center btn ${
-                shift ? "btn-primary" : "btn-secondary"
-            } btn-sm `}>
-            <MultiSelectIcon />
-        </div>
+        <Tooltip placement="topLeft" overlay="Hold for multiselect">
+            <div
+                {...rest}
+                onPointerDown={() => store.getState().setShift(true)}
+                onPointerUp={() => store.getState().setShift(false)}
+                className={`${className} d-flex align-items-center justify-content-center btn ${
+                    shift ? "btn-primary" : "btn-secondary"
+                } btn-sm `}>
+                <MultiSelectIcon />
+            </div>
+        </Tooltip>
     )
 }
 
-function BackButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+function ExitStreetViewButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const viewType = useViewerState(({ viewType }) => viewType)
     if (viewType != "3d") {
         return null
     }
     return (
-        <div
-            {...rest}
-            className={`${className} d-flex align-items-center justify-content-center btn btn-sm btn-primary`}
-            onClick={() => useViewerState.getState().exitPanoramaView()}>
-            <BackIcon />
-        </div>
+        <Tooltip placement="top" overlay="Exit Street View">
+            <div
+                {...rest}
+                className={`${className} d-flex align-items-center justify-content-center btn btn-sm btn-primary`}
+                onClick={() => useViewerState.getState().exitPanoramaView()}>
+                <BackIcon />
+            </div>
+        </Tooltip>
     )
 }

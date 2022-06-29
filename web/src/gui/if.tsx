@@ -1,10 +1,8 @@
-import { AbstractParsedIf, AbstractParsedSwitch, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
+import { AbstractParsedIf, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
+import Tooltip from "rc-tooltip"
 import { useBaseStore } from "../global"
 import { ArrowLeftRightIcon } from "../icons/arrow-left-right"
-import { DeleteIcon } from "../icons/delete"
-import { BlurInput } from "./blur-input"
 import { StartLabel } from "./label"
-import { stringToConstant } from "./util"
 
 export function GUIIfStep({ step, values }: { step: AbstractParsedIf<HierarchicalInfo>; values: Array<FullValue> }) {
     const store = useBaseStore()
@@ -22,11 +20,14 @@ export function GUIIfStep({ step, values }: { step: AbstractParsedIf<Hierarchica
                 value="Then"
                 className="pointer mb-3">
                 <div className="flex-grow-1 text-end px-2">{serializeStepString(step.children[1])}</div>
-                <button
-                    onClick={() => store.getState().replace(() => step.children[1], step)}
-                    className="btn btn-sm btn-outline-primary">
-                    <ArrowLeftRightIcon />
-                </button>
+
+                <Tooltip placement="left" overlay="Replace with this">
+                    <button
+                        onClick={() => store.getState().replace(() => step.children[1], step)}
+                        className="btn btn-sm btn-outline-primary">
+                        <ArrowLeftRightIcon />
+                    </button>
+                </Tooltip>
             </StartLabel>
 
             <StartLabel
@@ -34,11 +35,14 @@ export function GUIIfStep({ step, values }: { step: AbstractParsedIf<Hierarchica
                 value="Else"
                 className="pointer mb-3">
                 <div className="flex-grow-1 text-end px-2">{serializeStepString(step.children[2])}</div>
-                <button
-                    onClick={() => store.getState().replace(() => step.children[2], step)}
-                    className="btn btn-sm btn-outline-primary">
-                    <ArrowLeftRightIcon />
-                </button>
+
+                <Tooltip placement="left" overlay="Replace with this">
+                    <button
+                        onClick={() => store.getState().replace(() => step.children[2], step)}
+                        className="btn btn-sm btn-outline-primary">
+                        <ArrowLeftRightIcon />
+                    </button>
+                </Tooltip>
             </StartLabel>
         </div>
     )

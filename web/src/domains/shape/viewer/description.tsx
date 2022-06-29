@@ -255,7 +255,7 @@ function UnselectedDescription({ name, seed }: { seed: number; name: string }) {
                     return
                 }
                 e.stopPropagation()
-                store.getState().selectDescription(name, e.nativeEvent.shiftKey)
+                store.getState().selectDescription(name, store.getState().shift ?? false)
             }}
             ref={groupRef}
         />

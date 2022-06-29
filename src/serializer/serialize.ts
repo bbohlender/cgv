@@ -22,7 +22,7 @@ import {
 import { requiresBracket } from "../util"
 
 export function createSerializer<T, K>(
-    fromText: (text: string) => T,
+    fromText: (text: string, forStep: AbstractParsedSteps<K> | string) => T,
     fromStep: (indentation: number, child: AbstractParsedSteps<K> | string) => T,
     join: (...values: Array<T>) => T,
     getWhitespace: (identation: number, ...steps: (ParsedSteps | string)[]) => T
@@ -44,7 +44,7 @@ export function serialize<T, K>(
     return serializer.join(
         ...grammarDefinition.map(({ name, step }, i) => {
             const nounName = serializer.fromStep(0, undefined, name)
-            const arrow = serializer.fromText(` -->`)
+            const arrow = serializer.fromText(` -->`, name)
             const stepWhitespace = serializer.getWhitespace(1, step)
             const stepSerialized = serializer.fromStep(1, undefined, step)
             return i === 0
@@ -106,7 +106,7 @@ export function serializeSteps<T, K>(steps: AbstractParsedSteps<K>, serializer: 
 }
 
 export type Serializer<T, K = unknown> = {
-    fromText: (text: string) => T
+    fromText: (text: string, forStep: AbstractParsedSteps<K> | string) => T
     fromStep: (
         identation: number,
         parent: AbstractParsedSteps<K> | undefined,
@@ -125,11 +125,11 @@ function serializeChildWithBrackets<T>(
 ): T {
     if (parent != null && typeof child != "string" && requiresBracket(parent, child)) {
         return serializer.join(
-            serializer.fromText("("),
+            serializer.fromText("(", child),
             serializer.getWhitespace(indentation + 1, child),
             fromStep(indentation + 1, child),
             serializer.getWhitespace(indentation, child),
-            serializer.fromText(")")
+            serializer.fromText(")", child)
         )
     }
     return fromStep(indentation, child)
@@ -142,18 +142,18 @@ function serializeRandom<T>(step: ParsedRandom, serializer: Serializer<T>, inden
     const whitespace = serializer.getWhitespace(indentation, step)
     const innerWhitespace = serializer.getWhitespace(indentation + 1, step)
     return serializer.join(
-        serializer.fromText("{"),
+        serializer.fromText("{", step),
         ...step.children
             .map((child, i) => [
                 innerWhitespace,
-                serializer.fromText(`${toFixedMax(step.probabilities[i] * 100, 2)}%:`),
+                serializer.fromText(`${toFixedMax(step.probabilities[i] * 100, 2)}%:`, step),
                 innerWhitespace,
                 serializer.fromStep(indentation + 1, step, child),
             ])
             .reduce<Array<T>>((v1, v2) => v1.concat(v2), []),
 
         whitespace,
-        serializer.fromText("}")
+        serializer.fromText("}", step)
     )
 }
 
@@ -165,9 +165,15 @@ function toFixedMax(value: number, max: number): string {
 function serializeUnaryOperator<T>(step: ParsedUnaryOperator, serializer: Serializer<T>, indentation: number): T {
     switch (step.type) {
         case "invert":
-            return serializer.join(serializer.fromText(`-`), serializer.fromStep(indentation, step, step.children[0]))
+            return serializer.join(
+                serializer.fromText(`-`, step),
+                serializer.fromStep(indentation, step, step.children[0])
+            )
         case "not":
-            return serializer.join(serializer.fromText(`!`), serializer.fromStep(indentation, step, step.children[0]))
+            return serializer.join(
+                serializer.fromText(`!`, step),
+                serializer.fromStep(indentation, step, step.children[0])
+            )
     }
 }
 
@@ -190,30 +196,26 @@ const binarOperatorMap: { [Key in ParsedBinaryOperator["type"]]: string } = {
 function serializeBinaryOperator<T>(step: ParsedBinaryOperator, serializer: Serializer<T>, indentation: number): T {
     return serializer.join(
         serializer.fromStep(indentation, step, step.children[0]),
-        serializer.fromText(` ${binarOperatorMap[step.type]} `),
+        serializer.fromText(` ${binarOperatorMap[step.type]} `, step),
         serializer.fromStep(indentation, step, step.children[1])
     )
 }
 
-function serializeReturn<T>(returnStep: ParsedReturn, serializer: Serializer<T>, indentation: number): T {
-    return serializer.fromText("return")
+function serializeReturn<T>(step: ParsedReturn, serializer: Serializer<T>, indentation: number): T {
+    return serializer.fromText("return", step)
 }
 
-function serializeNull<T>(nullStep: ParsedNull, serializer: Serializer<T>, indentation: number): T {
-    return serializer.fromText("null")
+function serializeNull<T>(step: ParsedNull, serializer: Serializer<T>, indentation: number): T {
+    return serializer.fromText("null", step)
 }
 
-function serializeGetVariable<T>(
-    getVariableStep: ParsedGetVariable,
-    serializer: Serializer<T>,
-    indentation: number
-): T {
-    return serializer.fromText(`this.${getVariableStep.identifier}`)
+function serializeGetVariable<T>(step: ParsedGetVariable, serializer: Serializer<T>, indentation: number): T {
+    return serializer.fromText(`this.${step.identifier}`, step)
 }
 
 function serializeSetVariable<T>(step: ParsedSetVariable, serializer: Serializer<T>, indentation: number): T {
     return serializer.join(
-        serializer.fromText(`this.${step.identifier} =`),
+        serializer.fromText(`this.${step.identifier} =`, step),
         serializer.getWhitespace(indentation + 1, step.children[0]),
         serializer.fromStep(indentation + 1, step, step.children[0])
     )
@@ -223,15 +225,15 @@ function serializeOperation<T>(step: ParsedOperation, serializer: Serializer<T>,
     const outerWhitespace = serializer.getWhitespace(indentation, step)
     const innerWhitespace = serializer.getWhitespace(indentation + 1, step)
     return serializer.join(
-        serializer.fromText(`${step.identifier}(`),
+        serializer.fromText(`${step.identifier}(`, step),
         ...insertBetweenAll(
             step.children.map((child) =>
                 serializer.join(innerWhitespace, serializer.fromStep(indentation + 1, step, child))
             ),
-            serializer.fromText(",")
+            serializer.fromText(",", step)
         ),
         outerWhitespace,
-        serializer.fromText(")")
+        serializer.fromText(")", step)
     )
 }
 
@@ -242,19 +244,19 @@ function serializeIf<T>(step: ParsedIf, serializer: Serializer<T>, indentation: 
     const ifElseBeforeWhitespace = serializer.getWhitespace(indentation + 1, ifStep, elseStep)
     const ifElseAfterWhitespace = serializer.getWhitespace(indentation, ifStep, elseStep)
     return serializer.join(
-        serializer.fromText(`if`),
+        serializer.fromText(`if`, step),
         conditionBeforeWhitespace,
         serializer.fromStep(indentation + 1, step, conditionStep),
         conditionAfterWhitespace,
-        serializer.fromText(`then {`),
+        serializer.fromText(`then {`, step),
         ifElseBeforeWhitespace,
         serializer.fromStep(indentation + 1, step, ifStep),
         ifElseAfterWhitespace,
-        serializer.fromText(`} else {`),
+        serializer.fromText(`} else {`, step),
         ifElseBeforeWhitespace,
         serializer.fromStep(indentation + 1, step, elseStep),
         ifElseAfterWhitespace,
-        serializer.fromText(`}`)
+        serializer.fromText(`}`, step)
     )
 }
 
@@ -262,18 +264,18 @@ function serializeSwitch<T>(step: ParsedSwitch, serializer: Serializer<T>, inden
     const whitespace = serializer.getWhitespace(indentation, step)
     const caseWhitespace = serializer.getWhitespace(indentation + 1, step)
     return serializer.join(
-        serializer.fromText("switch"),
+        serializer.fromText("switch", step),
         serializer.getWhitespace(indentation + 1, step.children[0]),
         serializer.fromStep(indentation + 1, step, step.children[0]),
         whitespace,
-        serializer.fromText("{"),
+        serializer.fromText("{", step),
         ...step.cases
             .map((caseValues, i) => [
                 ...caseValues.reduce<Array<T>>(
                     (prev, caseValue) => [
                         ...prev,
                         caseWhitespace,
-                        serializer.fromText(`case ${serializeConstant(caseValue)}:`),
+                        serializer.fromText(`case ${serializeConstant(caseValue)}:`, step),
                     ],
                     []
                 ),
@@ -282,7 +284,7 @@ function serializeSwitch<T>(step: ParsedSwitch, serializer: Serializer<T>, inden
             ])
             .reduce<Array<T>>((v1, v2) => v1.concat(v2), []),
         whitespace,
-        serializer.fromText("}")
+        serializer.fromText("}", step)
     )
 }
 
@@ -291,13 +293,13 @@ function serializeParallel<T>(step: ParsedParallel, serializer: Serializer<T>, i
     return serializer.join(
         ...insertBetweenAll(
             step.children.map((child) => serializer.fromStep(indentation, step, child)),
-            serializer.join(serializer.fromText(" |"), whitespace)
+            serializer.join(serializer.fromText(" |", step), whitespace)
         )
     )
 }
 
-function serializeRaw<T>(rawStep: ParsedRaw, serializer: Serializer<T>, indentation: number): T {
-    return serializer.fromText(serializeConstant(rawStep.value))
+function serializeRaw<T>(step: ParsedRaw, serializer: Serializer<T>, indentation: number): T {
+    return serializer.fromText(serializeConstant(step.value), step)
 }
 
 function serializeConstant(constant: string | number | boolean): string {
@@ -318,17 +320,17 @@ function serializeSequentialAbstract<T>(step: ParsedSequantial, serializer: Seri
     return serializer.join(
         ...insertBetweenAll(
             step.children.map((child) => serializer.fromStep(indentation, step, child)),
-            serializer.join(serializer.fromText(" ->"), whitespace)
+            serializer.join(serializer.fromText(" ->", step), whitespace)
         )
     )
 }
 
-function serializeSymbolAbstract<T>(symbolStep: ParsedSymbol, serializer: Serializer<T>, indentation: number): T {
-    return serializer.fromText(symbolStep.identifier)
+function serializeSymbolAbstract<T>(step: ParsedSymbol, serializer: Serializer<T>, indentation: number): T {
+    return serializer.fromText(step.identifier, step)
 }
 
-function serializeThisAbstract<T>(thisStep: ParsedThis, serializer: Serializer<T>, indentation: number): T {
-    return serializer.fromText("this")
+function serializeThisAbstract<T>(step: ParsedThis, serializer: Serializer<T>, indentation: number): T {
+    return serializer.fromText("this", step)
 }
 
 function insertBetweenAll<T, K>(array: Array<T>, insert: K): Array<K | T> {

@@ -19,6 +19,7 @@
         "cgv": "file:../dist",
         "dagre": "^0.8.5",
         "next": "^12.1.4",
+        "rc-tooltip": "^5.1.1",
         "react": "^18.0.0",
         "react-dom": "^18.0.0",
         "react-flow-renderer": "^10.2.1",

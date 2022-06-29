@@ -1,4 +1,5 @@
 import { AbstractParsedOperation, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
+import Tooltip from "rc-tooltip"
 import { useBaseGlobal, useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
 
@@ -44,15 +45,17 @@ function GeneralGUIOperation({
                         }
                     </div>
                     {
-                        <div
-                            onClick={() =>
-                                store.getState().replace<"operation">((draft) => {
-                                    draft.children.splice(i, 1)
-                                }, value)
-                            }
-                            className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
-                            <DeleteIcon />
-                        </div>
+                        <Tooltip placement="left" overlay="Delete">
+                            <div
+                                onClick={() =>
+                                    store.getState().replace<"operation">((draft) => {
+                                        draft.children.splice(i, 1)
+                                    }, value)
+                                }
+                                className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
+                                <DeleteIcon />
+                            </div>
+                        </Tooltip>
                     }
                 </div>
             ))}

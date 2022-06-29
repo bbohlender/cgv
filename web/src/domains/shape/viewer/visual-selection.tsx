@@ -1,9 +1,11 @@
+import Tooltip from "rc-tooltip"
 import { HTMLProps, useState } from "react"
 import { ImageIcon } from "../../../icons/image"
 import { useViewerState } from "./state"
 
 export function VisualSelection({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const [open, setOpen] = useState(false)
+    const [showTooltip, setShowTooltip] = useState(false)
     const interpretationDelay = useViewerState((state) => state.visualType)
     return (
         <div {...rest} className={`${className} d-flex flex-column align-items-center`}>
@@ -29,11 +31,18 @@ export function VisualSelection({ className, ...rest }: HTMLProps<HTMLDivElement
                     -
                 </div>
             )}
-            <div
-                onClick={() => setOpen((open) => !open)}
-                className={`btn btn-sm ${open ? "btn-primary" : "btn-secondary"} d-flex align-items-center`}>
-                <ImageIcon />
-            </div>
+
+            <Tooltip
+                placement="top"
+                onVisibleChange={setShowTooltip}
+                visible={showTooltip && !open}
+                overlay="Background">
+                <div
+                    onClick={() => setOpen((open) => !open)}
+                    className={`btn btn-sm ${open ? "btn-primary" : "btn-secondary"} d-flex align-items-center`}>
+                    <ImageIcon />
+                </div>
+            </Tooltip>
         </div>
     )
 }

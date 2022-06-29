@@ -1,4 +1,5 @@
 import { AbstractParsedSwitch, FullValue, HierarchicalInfo, serializeStepString } from "cgv"
+import Tooltip from "rc-tooltip"
 import { useBaseStore } from "../global"
 import { ArrowLeftRightIcon } from "../icons/arrow-left-right"
 import { DeleteIcon } from "../icons/delete"
@@ -41,21 +42,25 @@ export function GUISwitchStep({
                             serializeStepString(child) //TODO: dont use serialize here
                         }
                     </div>
-                    <button
-                        onClick={() => store.getState().replace(() => child, step)}
-                        className="btn btn-sm btn-outline-primary ms-2">
-                        <ArrowLeftRightIcon />
-                    </button>
-                    <div
-                        onClick={() => {
-                            store.getState().replace<"switch">((draft) => {
-                                draft.children.splice(i, 1)
-                                draft.cases.splice(i, 1)
-                            }, step)
-                        }}
-                        className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
-                        <DeleteIcon />
-                    </div>
+                    <Tooltip placement="left" overlay="Replace with this">
+                        <button
+                            onClick={() => store.getState().replace(() => child, step)}
+                            className="btn btn-sm btn-outline-primary ms-2">
+                            <ArrowLeftRightIcon />
+                        </button>
+                    </Tooltip>
+                    <Tooltip placement="left" overlay="Delete">
+                        <div
+                            onClick={() => {
+                                store.getState().replace<"switch">((draft) => {
+                                    draft.children.splice(i, 1)
+                                    draft.cases.splice(i, 1)
+                                }, step)
+                            }}
+                            className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
+                            <DeleteIcon />
+                        </div>
+                    </Tooltip>
                 </div>
             ))}
             <div

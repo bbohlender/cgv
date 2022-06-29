@@ -1,12 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { TextEditor, Grammar } from "./tui"
-import { GUI } from "./gui"
 import { useBaseStore, useBaseStoreState } from "./global"
 import { useBaseGlobal } from "./global"
 import { Dialogs } from "./gui/dialogs"
-import { TextEditorToggle } from "./gui/toggles/text"
-import { FullscreenToggle } from "./gui/toggles/fullscreen"
-import { DescriptionList } from "./gui/description-list"
 import { Graph } from "./graph"
 
 export function Editor() {
@@ -15,6 +11,7 @@ export function Editor() {
         const keyUpListener = (e: KeyboardEvent) => {
             switch (e.key) {
                 case "Shift":
+                case "Control":
                     store.getState().setShift(false)
                     break
             }
@@ -30,6 +27,7 @@ export function Editor() {
                     }
                     break
                 case "Shift":
+                case "Control":
                     store.getState().setShift(true)
                     break
             }
@@ -46,7 +44,7 @@ export function Editor() {
 
     return (
         <div
-            className="d-flex responsive-flex-direction overflow-hidden position-absolute"
+            className="d-flex responsive-flex-direction overflow-hidden position-absolute noselect"
             style={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <Dialogs />
             <Viewer
