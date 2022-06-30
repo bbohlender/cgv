@@ -8,7 +8,7 @@ import {
     tileMeterRatio,
     tileZoomRatio,
 } from "cgv/domains/shape"
-import { HTMLProps, DragEvent, ReactNode, useRef, useState } from "react"
+import { HTMLProps, DragEvent, ReactNode, useRef, useState, useMemo } from "react"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
@@ -30,6 +30,7 @@ import { DownloadIcon } from "../../../icons/download"
 import { Display } from "./display"
 import {
     AddEquation,
+    MultiplyBlending,
     OneFactor,
     OneMinusDstAlphaFactor,
     OneMinusSrcAlphaFactor,
@@ -95,8 +96,8 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <Panoramas />
                     <Tiles tile={DescriptionTile} />
                     <ViewerCamera>
-                        {texture != null && <Foreground texture={texture} />}
                         {texture != null && <Background texture={texture} />}
+                        {texture != null && <Foreground texture={texture} />}
                     </ViewerCamera>
                 </Bridge>
             </Canvas>
@@ -168,12 +169,51 @@ function SummarizeButton() {
     )
 }
 
+const fragmentShader = `
+uniform sampler2D map;
+uniform float opacity;
+varying vec2 vUv;
+
+vec4 fromLinear(vec4 linearRGB)
+{
+    bvec4 cutoff = lessThan(linearRGB, vec4(0.0031308));
+    vec4 higher = vec4(1.055)*pow(linearRGB, vec4(1.0/2.4)) - vec4(0.055);
+    vec4 lower = linearRGB * vec4(12.92);
+
+    return mix(higher, lower, cutoff);
+}
+
+void main() {
+    vec4 textureColor = texture2D( map, vUv );
+    gl_FragColor = fromLinear(textureColor);
+    gl_FragColor.a *= opacity;
+}`
+const vertexShader = `
+varying vec2 vUv;
+
+void main() {
+    vUv = uv;
+    gl_Position = vec4(position, 1.0);
+}
+`
+
 function Background({ texture }: { texture: Texture }) {
     const visualType = useViewerState((state) => state.visualType)
     const opacity = getBackgroundOpacity(visualType)
+    const uniforms = useMemo(() => ({ map: { value: texture }, opacity: { value: 0 } }), [texture])
+    uniforms.opacity.value = opacity
     return (
         <Display>
-            <meshBasicMaterial map={texture} depthTest={true} depthWrite={false} transparent opacity={opacity} />
+            <shaderMaterial
+                uniforms={uniforms}
+                vertexShader={vertexShader}
+                fragmentShader={fragmentShader}
+                toneMapped={true}
+                attach="material"
+                depthTest={true}
+                depthWrite={false}
+                transparent
+            />
         </Display>
     )
 }
@@ -181,14 +221,21 @@ function Background({ texture }: { texture: Texture }) {
 function Foreground({ texture }: { texture: Texture }) {
     const visualType = useViewerState((state) => state.visualType)
     const opacity = getForegroundOpacity(visualType)
+    const uniforms = useMemo(() => ({ map: { value: texture }, opacity: { value: 0 } }), [texture])
+    uniforms.opacity.value = opacity
     return (
         <Display renderOrder={2000}>
-            <meshBasicMaterial
-                map={texture}
+            <shaderMaterial
+                uniforms={uniforms}
+                vertexShader={vertexShader}
+                fragmentShader={fragmentShader}
+                toneMapped={true}
+                attach="material"
                 depthTest={false}
+                opacity={opacity}
                 depthWrite={false}
                 transparent
-                opacity={opacity}></meshBasicMaterial>
+            />
         </Display>
     )
 }

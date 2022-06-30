@@ -1,8 +1,8 @@
 import { PerspectiveCamera } from "@react-three/drei"
-import { PropsWithChildren, ReactChildren, useEffect } from "react"
+import { PropsWithChildren, ReactChildren, useEffect, useRef } from "react"
 import { animated, useSpring } from "@react-spring/three"
-import { Vector3Tuple } from "three"
-import { calculateRotation, FOV, getPosition, useViewerState, ViewerState } from "./state"
+import { PerspectiveCamera as PerspectiveCameraImpl, Vector3Tuple } from "three"
+import { calculateFOV, calculateRotation, FOV, getPosition, useViewerState, ViewerState } from "./state"
 import { PerspectiveCameraProps } from "@react-three/fiber"
 
 const APerspectiveCamera = animated(PerspectiveCamera)
@@ -17,6 +17,7 @@ function getInitialState() {
 
 export function ViewerCamera({ children, ...props }: PropsWithChildren<PerspectiveCameraProps>) {
     const [{ position, rotation }] = useSpring(getInitialState)
+    const ref = useRef<PerspectiveCameraImpl | undefined>()
 
     useEffect(() => {
         const unsubscribeRotation = useViewerState.subscribe<Vector3Tuple>(
@@ -27,16 +28,28 @@ export function ViewerCamera({ children, ...props }: PropsWithChildren<Perspecti
             (state) => getPosition(state),
             (pos) => position.start(pos)
         )
+        const unsubscribeFOV = useViewerState.subscribe<number>(
+            (state) => calculateFOV(state),
+            (fovValue) => {
+                if (ref.current == null) {
+                    return
+                }
+                ref.current.fov = fovValue
+                ref.current.updateProjectionMatrix()
+            },
+            { fireImmediately: true }
+        )
         return () => {
             unsubscribeRotation()
             unsubscribePosition()
+            unsubscribeFOV()
         }
     }, [rotation, position])
 
     return (
         <APerspectiveCamera
             {...props}
-            fov={FOV}
+            ref={ref}
             far={1000}
             near={10e-10}
             position={position}

@@ -26,7 +26,7 @@ export function ViewControls() {
                 }
                 const [lastDistance, lastOrigin] = memo
                 if (lastDistance != null) {
-                    useViewerState.getState().pinch(lastDistance / distance)
+                    useViewerState.getState().pinch(distance / lastDistance)
                 }
                 if (origin != null && lastOrigin != null) {
                     const [x, z] = origin

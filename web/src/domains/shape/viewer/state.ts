@@ -9,8 +9,6 @@ import { locations } from "../geo-search"
 
 export const FOV = 60
 
-const FOVinRadians = (FOV / 180) * Math.PI
-
 //the position representation in the state all refer to the single tile at zoom 0
 
 export type TopDownViewerState = {
@@ -55,6 +53,9 @@ const MIN_Y = 1 /*m*/ / GLOBAL_METER_RATIO
 const DEFAULT_Y = 10 /*m*/ / GLOBAL_METER_RATIO
 const MAX_Y = 40 /*m*/ / GLOBAL_METER_RATIO
 
+const MIN_FOV = 5 //degree
+const MAX_FOV = 120 //degree
+
 export function createViewerStateInitial(): ViewerState {
     return {
         viewType: "2d",
@@ -88,6 +89,7 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         },
         drag: (xDrag: number, zDrag: number) => {
             const state = get()
+            const FOVinRadians = (calculateFOV(state) / 180) * Math.PI
             if (state.viewType == "2d") {
                 const [x, y, z] = state.position
                 const fovSizeOnGround = 2 * Math.tan(FOVinRadians / 2) * state.position[1]
@@ -105,12 +107,16 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         },
         pinch: (by: number) => {
             const state = get()
-            if (state.viewType != "2d") {
+            if (state.viewType === "2d") {
+                const [x, y, z] = state.position
+                set({
+                    position: [x, clip(y / by, MIN_Y, MAX_Y), z],
+                })
                 return
             }
-            const [x, y, z] = state.position
+            const fov = clip(state.fov / ((2 + by) / 3), MIN_FOV, MAX_FOV)
             set({
-                position: [x, clip(y * by, MIN_Y, MAX_Y), z],
+                fov,
             })
         },
         changeView: (state: PanoramaViewerState | TopDownViewerState) => set(state),
@@ -128,7 +134,7 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         changePanoramaView: (panoramaIndex: number) => {
             const state = get()
             const rotation = state.viewType === "3d" ? state.rotation : panoramaRotation
-            const fov = state.viewType === "3d" ? FOV : state.fov
+            const fov = state.viewType === "3d" ? state.fov : FOV
             set({
                 viewType: "3d",
                 panoramaIndex,
@@ -165,4 +171,11 @@ export function calculateRotation(state: ViewerState): Vector3Tuple {
         return topRotation
     }
     return state.rotation
+}
+
+export function calculateFOV(state: ViewerState): number {
+    if (state.viewType === "3d") {
+        return state.fov
+    }
+    return FOV
 }
