@@ -590,7 +590,6 @@ function createBaseStateFunctions(
             dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined,
             randomize = false
         ) => {
-            console.log(randomize)
             const state = get()
             if (state.type != "gui") {
                 return

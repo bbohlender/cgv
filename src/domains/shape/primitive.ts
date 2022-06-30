@@ -459,15 +459,6 @@ export class FacePrimitive extends Primitive {
         const result = setupObject3D(new Object3D(), this.matrix)
         result.renderOrder = 1000
         result.add(outerPath, ...innerPaths)
-        const faceHighlight = new Mesh(
-            this.getGeometry(),
-            new MeshBasicMaterial({
-                transparent: true,
-                opacity: 0.5,
-                color: 0xffffff,
-            })
-        )
-        result.add(faceHighlight)
         return result
     }
 
@@ -584,11 +575,6 @@ export class ObjectPrimitive extends Primitive {
     protected computeOutline(): Object3D<Event> {
         this.getBoundingBox(box3Helper)
         box3Helper.getCenter(helperVector)
-        const matrix = this.matrix
-            .clone()
-            .multiply(makeTranslationMatrix(helperVector.x, helperVector.y, helperVector.z))
-        box3Helper.getSize(helperVector)
-        matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
         const lines = new LineSegments(
             outlineGeometry,
             new LineBasicMaterial({
@@ -597,20 +583,11 @@ export class ObjectPrimitive extends Primitive {
                 color: 1,
             })
         )
-        const faces = new Mesh(
-            boxGeometry,
-            new MeshBasicMaterial({
-                transparent: true,
-                opacity: 0.5,
-                color: 0xffffff,
-                depthTest: false,
-            })
-        )
-        const result = setupObject3D(new Object3D(), matrix)
-        result.renderOrder = 1000
-        result.add(lines)
-        result.add(faces)
-        return result
+        lines.matrix.copy(this.matrix).multiply(makeTranslationMatrix(helperVector.x, helperVector.y, helperVector.z))
+        box3Helper.getSize(helperVector)
+        lines.matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
+        lines.renderOrder = 1000
+        return lines
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {
@@ -683,34 +660,17 @@ export class GeometryPrimitive extends Primitive {
         return this.geometry
     }
     protected computeOutline(): Object3D<Event> {
-        this.geometry.boundingBox!.getCenter(helperVector)
-        const matrix = this.matrix
-            .clone()
-            .multiply(makeTranslationMatrix(helperVector.x, helperVector.y, helperVector.z))
-        this.geometry.boundingBox!.getSize(helperVector)
-        matrix.multiply(makeScaleMatrix(helperVector.x, helperVector.y, helperVector.z))
         const lines = new LineSegments(
-            outlineGeometry,
+            new EdgesGeometry(this.geometry),
             new LineBasicMaterial({
                 transparent: true,
                 depthTest: false,
                 color: 1,
             })
         )
-        const faces = new Mesh(
-            boxGeometry,
-            new MeshBasicMaterial({
-                transparent: true,
-                opacity: 0.5,
-                color: 0xffffff,
-                depthTest: false,
-            })
-        )
-        const result = setupObject3D(new Object3D(), matrix)
-        result.renderOrder = 1000
-        result.add(lines)
-        result.add(faces)
-        return result
+        lines.matrix.copy(this.matrix)
+        lines.renderOrder = 1000
+        return lines
     }
 
     expand(type: "inside" | "outside" | "both", by: number, normal: Vector3): Primitive {

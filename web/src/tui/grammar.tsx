@@ -108,8 +108,6 @@ function InteractableSteps({
 
     const foreign = isStepForeign(value, description)
 
-    console.log(foreign)
-
     if (foreign) {
         events = undefined
         cssClassName = (cssClassName ?? "") + " text-muted"
