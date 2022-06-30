@@ -1,6 +1,6 @@
-import { Euler, Vector3Tuple } from "three"
+import { Euler, Vector3, Vector3Tuple } from "three"
 import { GetState, SetState } from "zustand"
-import { CombineEmpty } from "../../../base-state"
+import { CombineEmpty, CombineEmpty3 } from "../../../base-state"
 import create from "zustand"
 import { combine, subscribeWithSelector } from "zustand/middleware"
 import { panoramas } from "../global"
@@ -11,16 +11,22 @@ export const FOV = 60
 
 //the position representation in the state all refer to the single tile at zoom 0
 
-export type TopDownViewerState = {
-    viewType: "2d"
+export type SateliteViewerState = {
+    viewType: "satelite"
     position: Vector3Tuple
 }
 
 export type PanoramaViewerState = {
-    viewType: "3d"
+    viewType: "panorama"
     panoramaIndex: number
     rotation: Vector3Tuple
     fov: number
+}
+
+export type FlyViewerState = {
+    viewType: "fly"
+    position: Vector3Tuple
+    rotation: Vector3Tuple
 }
 
 export type ResultViewerState = {
@@ -30,8 +36,9 @@ export type ResultViewerState = {
 export type PrimitiveMap = { [Key in string]: Primitive }
 
 export type ViewerState = (
-    | CombineEmpty<TopDownViewerState, PanoramaViewerState>
-    | CombineEmpty<PanoramaViewerState, TopDownViewerState>
+    | CombineEmpty3<SateliteViewerState, PanoramaViewerState, FlyViewerState>
+    | CombineEmpty3<PanoramaViewerState, SateliteViewerState, FlyViewerState>
+    | CombineEmpty3<FlyViewerState, PanoramaViewerState, SateliteViewerState>
 ) &
     ResultViewerState & {
         visualType: number
@@ -49,6 +56,7 @@ export const topRotation = eulerToTuple(new Euler(-Math.PI / 2, 0, 0))
 
 const GLOBAL_METER_RATIO = tileMeterRatio(0, 0)
 
+const MIN_Y_FLY_CAMERA = 0.1 /*m*/ / GLOBAL_METER_RATIO
 const MIN_Y = 1 /*m*/ / GLOBAL_METER_RATIO
 const DEFAULT_Y = 10 /*m*/ / GLOBAL_METER_RATIO
 const MAX_Y = 40 /*m*/ / GLOBAL_METER_RATIO
@@ -58,7 +66,7 @@ const MAX_FOV = 120 //degree
 
 export function createViewerStateInitial(): ViewerState {
     return {
-        viewType: "2d",
+        viewType: "satelite",
         position: [lon2tile(locations[0].lon, 0), DEFAULT_Y, lat2tile(locations[0].lat, 0)],
         error: undefined,
         visualType: 0,
@@ -83,14 +91,17 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
         setControlling: (controlling: boolean) => set({ controlling }),
         setLatLon: (lat: number, lon: number) => {
             set({
-                viewType: "2d",
+                viewType: "satelite",
                 position: [lon2tile(lon, 0), DEFAULT_Y, lat2tile(lat, 0)],
             })
         },
         drag: (xDrag: number, zDrag: number) => {
             const state = get()
             const FOVinRadians = (calculateFOV(state) / 180) * Math.PI
-            if (state.viewType == "2d") {
+            switch (state.viewType) {
+                case "panorama":
+            }
+            if (state.viewType == "satelite") {
                 const [x, y, z] = state.position
                 const fovSizeOnGround = 2 * Math.tan(FOVinRadians / 2) * state.position[1]
                 set({
@@ -105,38 +116,72 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
                 })
             }
         },
-        pinch: (by: number) => {
+        moveFlyCamera: (by: Vector3Tuple) => {
             const state = get()
-            if (state.viewType === "2d") {
-                const [x, y, z] = state.position
-                set({
-                    position: [x, clip(y / by, MIN_Y, MAX_Y), z],
-                })
+            if (state.viewType !== "fly") {
                 return
             }
-            const fov = clip(state.fov / ((2 + by) / 3), MIN_FOV, MAX_FOV)
             set({
-                fov,
+                position: computeFlyCameraPosition(state.position, by, state.rotation),
             })
         },
-        changeView: (state: PanoramaViewerState | TopDownViewerState) => set(state),
-        exitPanoramaView: () => {
+        pinch: (by: number) => {
             const state = get()
-            if (state.viewType != "3d") {
+            switch (state.viewType) {
+                case "satelite":
+                    {
+                        const [x, y, z] = state.position
+                        set({
+                            position: [x, clip(y / by, MIN_Y, MAX_Y), z],
+                        })
+                    }
+                    break
+                case "panorama":
+                    {
+                        const fov = clip(state.fov / ((2 + by) / 3), MIN_FOV, MAX_FOV)
+                        set({
+                            fov,
+                        })
+                    }
+                    break
+                case "fly": {
+                    set({
+                        position: computeFlyCameraPosition(state.position, [0, 0, (1 - by) * 0.000001], state.rotation),
+                    })
+                }
+            }
+        },
+        changeView: (state: PanoramaViewerState | SateliteViewerState | FlyViewerState) => set(state),
+        enterFlyCamera: () => {
+            const state = get()
+            if (state.viewType === "fly") {
+                return
+            }
+            const position = getPosition(state)
+            const rotation = calculateRotation(state)
+            set({
+                viewType: "fly",
+                position,
+                rotation,
+            })
+        },
+        backToSateliteView: () => {
+            const state = get()
+            if (state.viewType === "satelite") {
                 return
             }
             const [x, y, z] = getPosition(state)
             set({
-                viewType: "2d",
-                position: [x, DEFAULT_Y, z],
+                viewType: "satelite",
+                position: [x, clip(y, MIN_Y, MAX_Y), z],
             })
         },
         changePanoramaView: (panoramaIndex: number) => {
             const state = get()
-            const rotation = state.viewType === "3d" ? state.rotation : panoramaRotation
-            const fov = state.viewType === "3d" ? state.fov : FOV
+            const rotation = state.viewType === "satelite" ? panoramaRotation : state.rotation
+            const fov = state.viewType === "panorama" ? state.fov : FOV
             set({
-                viewType: "3d",
+                viewType: "panorama",
                 panoramaIndex,
                 rotation,
                 fov,
@@ -151,6 +196,20 @@ export function createViewerStateFunctions(set: SetState<ViewerState>, get: GetS
     }
 }
 
+const helperVector = new Vector3()
+const helperEuler = new Euler(undefined, undefined, undefined, "YXZ")
+
+function computeFlyCameraPosition([x, y, z]: Vector3Tuple, move: Vector3Tuple, rotation: Vector3Tuple): Vector3Tuple {
+    helperVector.set(...move)
+    helperEuler.set(...rotation)
+    helperVector.applyEuler(helperEuler)
+    helperVector.x += x
+    helperVector.y += y
+    helperVector.z += z
+    helperVector.y = clip(helperVector.y, MIN_Y_FLY_CAMERA, MAX_Y)
+    return helperVector.toArray()
+}
+
 export type ViewerStateFunctions = ReturnType<typeof createViewerStateFunctions>
 
 export const useViewerState = create(
@@ -160,21 +219,21 @@ export const useViewerState = create(
 )
 
 export function getPosition(state: ViewerState): Vector3Tuple {
-    if (state.viewType === "2d") {
+    if (state.viewType !== "panorama") {
         return state.position
     }
     return panoramas[state.panoramaIndex].position
 }
 
 export function calculateRotation(state: ViewerState): Vector3Tuple {
-    if (state.viewType === "2d") {
+    if (state.viewType === "satelite") {
         return topRotation
     }
     return state.rotation
 }
 
 export function calculateFOV(state: ViewerState): number {
-    if (state.viewType === "3d") {
+    if (state.viewType === "panorama") {
         return state.fov
     }
     return FOV

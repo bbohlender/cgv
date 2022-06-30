@@ -41,24 +41,28 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
         [fulfill, operations]
     )
 
-    const onPaste = useCallback(async () => {
-        const text = await navigator.clipboard.readText()
-        try {
-            fulfill({
-                step: (path: HierarchicalPath) =>
-                    globalizeStep(JSON.parse(text).step, getDescriptionOfNoun(path[0]), ...path),
-                dependencies: (descriptionName: string) => {
-                    const parsed = JSON.parse(text)
-                    if (parsed.dependencies == null) {
-                        return undefined
-                    }
-                    return toHierarchical(globalizeDescription(freeze(parsed.dependencies), descriptionName))
-                },
-            })
-        } catch (e) {
-            //TODO: notify user
-        }
-    }, [store])
+    const onPaste = useCallback(
+        async (randomize: boolean) => {
+            const text = await navigator.clipboard.readText()
+            try {
+                fulfill({
+                    randomize,
+                    step: (path: HierarchicalPath) =>
+                        globalizeStep(JSON.parse(text).step, getDescriptionOfNoun(path[0]), ...path),
+                    dependencies: (descriptionName: string) => {
+                        const parsed = JSON.parse(text)
+                        if (parsed.dependencies == null) {
+                            return undefined
+                        }
+                        return toHierarchical(globalizeDescription(freeze(parsed.dependencies), descriptionName))
+                    },
+                })
+            } catch (e) {
+                //TODO: notify user
+            }
+        },
+        [store]
+    )
 
     const filteredOptions = useMemo(
         () => stepOptions.filter(({ label }) => label.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),
@@ -84,9 +88,18 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
                     <CloseIcon />
                 </button>
             </div>
-            <PasteButton className="mb-2 btn-btn-sm button-secondary btn-outline-secondary" onPaste={onPaste}>
-                Paste
-            </PasteButton>
+            <div className="d-flex flex-row">
+                <PasteButton
+                    className="mb-2 btn-btn-sm button-secondary btn-outline-secondary flex-grow-1"
+                    onPaste={onPaste.bind(null, false)}>
+                    Paste Unrandomized
+                </PasteButton>
+                <PasteButton
+                    className="mb-2 btn-btn-sm button-secondary btn-outline-secondary ms-2 flex-grow-1"
+                    onPaste={onPaste.bind(null, true)}>
+                    Paste Randomized
+                </PasteButton>
+            </div>
             <div className="d-flex flex-column" style={{ overflowY: "auto" }}>
                 {filteredOptions.map(({ label, onSelect }) => (
                     <div className="rounded pointer p-3 border-bottom" onClick={onSelect} key={label}>

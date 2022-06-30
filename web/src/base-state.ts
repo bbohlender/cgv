@@ -67,6 +67,10 @@ export type CombineEmpty<T, K> = T & {
     [Key in Exclude<keyof K, keyof T>]?: undefined
 }
 
+export type CombineEmpty3<T, K, M> = T & {
+    [Key in Exclude<keyof K | keyof M, keyof T>]?: undefined
+}
+
 export type GuiState = {
     type: "gui"
     grammar: HierarchicalParsedGrammarDefinition
@@ -164,7 +168,7 @@ function createBaseStateFunctions(
                 set({
                     descriptions: Array.from(descriptionSet).map((name) => ({
                         name,
-                        seed: Math.random() * Number.MAX_SAFE_INTEGER,
+                        seed: 0,
                     })),
                     grammar: parsedDescription,
                     selectedDescriptions: [],
@@ -314,9 +318,7 @@ function createBaseStateFunctions(
                         )
                     )
                 }
-                descriptions = [{ name: newDescription.name, seed: Math.random() * Number.MAX_SAFE_INTEGER }].concat(
-                    descriptions
-                )
+                descriptions = [{ name: newDescription.name, seed: 0 }].concat(descriptions)
             }
             dependencyMap = computeDependencies(grammar)
             set({
@@ -585,8 +587,10 @@ function createBaseStateFunctions(
         insert: async (
             type: "before" | "after" | "parallel",
             stepGenerator: (path: HierarchicalPath) => ParsedSteps,
-            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined
+            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined,
+            randomize = false
         ) => {
+            console.log(randomize)
             const state = get()
             if (state.type != "gui") {
                 return
@@ -601,17 +605,26 @@ function createBaseStateFunctions(
                     return prev.concat(dependencies)
                 }, grammar)
             }
-            set(
-                await insert(
-                    state.valueMap,
-                    state.selectionsList,
-                    patternTypes,
-                    createPatternSelector("On what should this transformation be applied?"),
-                    type,
-                    stepGenerator,
-                    grammar
-                )
+            let partial: Partial<BaseState> = await insert(
+                state.valueMap,
+                state.selectionsList,
+                patternTypes,
+                createPatternSelector("On what should this transformation be applied?"),
+                type,
+                stepGenerator,
+                grammar
             )
+            if (randomize) {
+                partial = {
+                    descriptions: state.descriptions.map((description) =>
+                        state.selectedDescriptions.includes(description.name)
+                            ? { name: description.name, seed: Math.random() * Number.MAX_SAFE_INTEGER }
+                            : description
+                    ),
+                    ...partial,
+                }
+            }
+            set(partial as any)
         },
         removeStep: async () => {
             const state = get()
@@ -668,7 +681,8 @@ function createBaseStateFunctions(
                 path: HierarchicalPath
             ) => Draft<ParsedSteps> | void,
             steps?: SelectedSteps,
-            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined
+            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined,
+            randomize = false
         ) => {
             const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
             const state = get()
@@ -685,20 +699,30 @@ function createBaseStateFunctions(
                     return prev.concat(dependencies)
                 }, grammar)
             }
-            set(
-                await replace(
-                    state.valueMap,
-                    steps == null
-                        ? state.selectionsList
-                        : state.selectionsList.filter((selections) =>
-                              compareSelectedStepsPath(selections.steps, steps, joinedPath)
-                          ),
-                    patternTypes,
-                    createPatternSelector("For what should the new transformation replace the current?"),
-                    replaceWith as any,
-                    grammar
-                )
+
+            let partial: Partial<BaseState> = await replace(
+                state.valueMap,
+                steps == null
+                    ? state.selectionsList
+                    : state.selectionsList.filter((selections) =>
+                          compareSelectedStepsPath(selections.steps, steps, joinedPath)
+                      ),
+                patternTypes,
+                createPatternSelector("For what should the new transformation replace the current?"),
+                replaceWith as any,
+                grammar
             )
+            if (randomize) {
+                partial = {
+                    descriptions: state.descriptions.map((description) =>
+                        state.selectedDescriptions.includes(description.name)
+                            ? { name: description.name, seed: Math.random() * Number.MAX_SAFE_INTEGER }
+                            : description
+                    ),
+                    ...partial,
+                }
+            }
+            set(partial as any)
         },
         setShift: (shift: boolean) => {
             const state = get()

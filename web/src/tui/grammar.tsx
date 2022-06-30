@@ -108,6 +108,8 @@ function InteractableSteps({
 
     const foreign = isStepForeign(value, description)
 
+    console.log(foreign)
+
     if (foreign) {
         events = undefined
         cssClassName = (cssClassName ?? "") + " text-muted"
@@ -178,9 +180,8 @@ function createReactSerializer(description: string) {
     return createSerializer<(index: number, events?: Events) => JSX.Element, HierarchicalInfo>(
         (text, forStep) => (index: number, events) => {
             const foreign = isStepForeign(forStep, description)
-            console.log(text, forStep, foreign)
             return (
-                <span className={foreign ? "text-muted" : undefined} {...(foreign ? events : {})} key={index}>
+                <span className={foreign ? "text-muted" : undefined} {...(foreign ? {} : events)} key={index}>
                     {text}
                 </span>
             )

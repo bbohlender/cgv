@@ -47,10 +47,12 @@ function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") 
             ({
                 step,
                 dependencies,
+                randomize,
             }: {
+                randomize?: boolean
                 step: (path: HierarchicalPath) => ParsedSteps
                 dependencies: (descriptionName: string) => Array<AbstractParsedNoun<unknown>> | undefined
-            }) => store.getState().insert(type, step, dependencies)
+            }) => store.getState().insert(type, step, dependencies, randomize)
         )
 }
 
@@ -62,10 +64,12 @@ function requestReplace(store: UseBaseStore) {
             ({
                 step,
                 dependencies,
+                randomize,
             }: {
+                randomize?: boolean
                 step: (path: HierarchicalPath) => ParsedSteps
                 dependencies?: (descriptionName: string) => Array<AbstractParsedNoun<unknown>>
-            }) => store.getState().replace((_, path) => step(path), undefined, dependencies)
+            }) => store.getState().replace((_, path) => step(path), undefined, dependencies, randomize)
         )
 }
 

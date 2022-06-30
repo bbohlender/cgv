@@ -9,9 +9,9 @@ const geometry = new SphereBufferGeometry(500, 60, 40)
 
 export function PanoramaView() {
     const panoramaIndex = useViewerState(({ viewType, panoramaIndex }) =>
-        viewType === "3d" ? panoramaIndex : undefined
+        viewType === "panorama" ? panoramaIndex : undefined
     )
-    const visualType = useViewerState((state) => (state.viewType === "3d" ? state.visualType : 0))
+    const visualType = useViewerState((state) => (state.viewType === "panorama" ? state.visualType : 0))
     const opacity = getBackgroundOpacity(visualType)
     const panorama = panoramaIndex != null ? panoramas[panoramaIndex] : undefined
     if (panorama == null || opacity === 0) {

@@ -1,7 +1,7 @@
 import { useGesture } from "react-use-gesture"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useViewerState } from "./state"
-import { useThree } from "@react-three/fiber"
+import { useFrame, useThree } from "@react-three/fiber"
 
 export function ViewControls() {
     const canvas = useThree(({ gl }) => gl.domElement)
@@ -57,10 +57,114 @@ export function ViewControls() {
             },
         }
     )
+    useMoveFlyCamera()
     useEffect(() => {
         const listener = (e: MouseEvent) => e.preventDefault()
         window.addEventListener("contextmenu", listener)
         return () => window.removeEventListener("contextmenu", listener)
     }, [])
     return null
+}
+
+const flySpeed = 0.000001
+
+function useMoveFlyCamera() {
+    const ref = useRef({
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+    })
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            switch (e.key) {
+                case "e":
+                    ref.current.up = true
+                    break
+                case "q":
+                    ref.current.down = true
+                    break
+                case "w":
+                case "ArrowUp":
+                    ref.current.forward = true
+                    break
+                case "d":
+                case "ArrowRight":
+                    ref.current.right = true
+                    break
+                case "s":
+                case "ArrowDown":
+                    ref.current.backward = true
+                    break
+                case "a":
+                case "ArrowLeft":
+                    ref.current.left = true
+            }
+        }
+        const onKeyUp = (e: KeyboardEvent) => {
+            switch (e.key) {
+                case "e":
+                    ref.current.up = false
+                    break
+                case "q":
+                    ref.current.down = false
+                    break
+                case "w":
+                case "ArrowUp":
+                    ref.current.forward = false
+                    break
+                case "d":
+                case "ArrowRight":
+                    ref.current.right = false
+                    break
+                case "s":
+                case "ArrowDown":
+                    ref.current.backward = false
+                    break
+                case "a":
+                case "ArrowLeft":
+                    ref.current.left = false
+            }
+        }
+
+        window.addEventListener("keydown", onKeyDown)
+        window.addEventListener("keyup", onKeyUp)
+        return () => {
+            window.removeEventListener("keydown", onKeyDown)
+            window.removeEventListener("keyup", onKeyUp)
+        }
+    }, [])
+    useFrame((_, delta) => {
+        const state = useViewerState.getState()
+        if (state.viewType != "fly") {
+            return
+        }
+        const deltaMove = delta * flySpeed
+        let x = 0
+        let y = 0
+        let z = 0
+        if (ref.current.left) {
+            x -= deltaMove
+        }
+        if (ref.current.right) {
+            x += deltaMove
+        }
+        if (ref.current.forward) {
+            z -= deltaMove
+        }
+        if (ref.current.backward) {
+            z += deltaMove
+        }
+        if (ref.current.up) {
+            y += deltaMove
+        }
+        if (ref.current.down) {
+            y -= deltaMove
+        }
+        if (x != 0 || y != 0 || z != 0) {
+            state.moveFlyCamera([x, y, z])
+        }
+    })
 }

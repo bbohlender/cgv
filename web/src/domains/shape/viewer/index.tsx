@@ -1,4 +1,4 @@
-import { RenderTexture, Sphere, useContextBridge, ScreenQuad, OrthographicCamera } from "@react-three/drei"
+import { RenderTexture, Sphere, useContextBridge, ScreenQuad, OrthographicCamera, Sky } from "@react-three/drei"
 
 import { Canvas, events } from "@react-three/fiber"
 import {
@@ -43,6 +43,7 @@ import {
 } from "three"
 import { VisualSelection } from "./visual-selection"
 import Tooltip from "rc-tooltip"
+import { CameraIcon } from "../../../icons/camera"
 
 export function tileDescriptionSuffix(x: number, y: number): string {
     return `_${x}_${y}`
@@ -88,6 +89,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                     <RenderTexture ref={setTexture} attach="map" {...({} as any)}>
                         <ViewerCamera />
                         <PanoramaView />
+                        <Skybox />
                         <Tiles tile={BackgroundTile} />
                     </RenderTexture>
                     <ViewControls />
@@ -134,6 +136,7 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
                         <ExitStreetViewButton className="me-2" />
                         {/*<SpeedSelection className="me-2" />*/}
                         <DownloadButton className="me-2" />
+                        <FlyCameraButton className="me-2" />
                         <ShowError />
                     </div>
                 </div>
@@ -166,6 +169,23 @@ function SummarizeButton() {
             onClick={() => store.getState().request("summarize", undefined, store.getState().selectedDescriptions)}>
             Summarize
         </div>
+    )
+}
+
+function Skybox() {
+    const isInFlyCamera = useViewerState((state) => state.viewType === "fly")
+    if (!isInFlyCamera) {
+        return null
+    }
+    return (
+        <Sky
+            turbidity={10}
+            rayleigh={0.4}
+            mieCoefficient={0.001}
+            mieDirectionalG={0.74}
+            inclination={0.62}
+            azimuth={0.13}
+        />
     )
 }
 
@@ -313,6 +333,26 @@ function DownloadButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     )
 }
 
+function FlyCameraButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
+    const inFlyCamera = useViewerState(({ viewType }) => viewType === "fly")
+    return (
+        <Tooltip placement="top" overlay="Fly Camera">
+            <div
+                {...rest}
+                onClick={() =>
+                    inFlyCamera
+                        ? useViewerState.getState().backToSateliteView()
+                        : useViewerState.getState().enterFlyCamera()
+                }
+                className={`${className} d-flex align-items-center justify-content-center btn ${
+                    inFlyCamera ? "btn-secondary" : "btn-primary"
+                } btn-sm `}>
+                <CameraIcon />
+            </div>
+        </Tooltip>
+    )
+}
+
 function MultiSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const store = useBaseStore()
     const shift = store((s) => (s.type === "gui" ? s.shift : false))
@@ -333,7 +373,7 @@ function MultiSelectButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
 
 function ExitStreetViewButton({ className, ...rest }: HTMLProps<HTMLDivElement>) {
     const viewType = useViewerState(({ viewType }) => viewType)
-    if (viewType != "3d") {
+    if (viewType != "panorama") {
         return null
     }
     return (
@@ -341,7 +381,7 @@ function ExitStreetViewButton({ className, ...rest }: HTMLProps<HTMLDivElement>)
             <div
                 {...rest}
                 className={`${className} d-flex align-items-center justify-content-center btn btn-sm btn-primary`}
-                onClick={() => useViewerState.getState().exitPanoramaView()}>
+                onClick={() => useViewerState.getState().backToSateliteView()}>
                 <BackIcon />
             </div>
         </Tooltip>

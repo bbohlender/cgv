@@ -45,6 +45,12 @@ export function Tiles({ tile: Tile }: { tile: FC<{ highlighted: boolean; x: numb
     const { size } = useThree()
     const [centerX, centerY, minX, minY, maxX, maxY, zoom] = useViewerState((state) => {
         const [x, y, z] = getPosition(state)
+        if (state.viewType !== "satelite") {
+            const globalLocalRatio = tileZoomRatio(0, 18)
+            const _centerX = Math.floor(globalLocalRatio * x)
+            const _centerY = Math.floor(globalLocalRatio * z)
+            return [_centerX, _centerY, _centerX - 1, _centerY - 1, _centerX + 1, _centerY + 1, 18]
+        }
         return calculateTileViewBounds(x, y, z, FOV, size.width / size.height)
     }, shallowEqual)
     const distanceX = maxX + 1 - minX
@@ -100,7 +106,7 @@ export function BackgroundTile({
     y: number
     zoom: number
 }) {
-    const visualType = useViewerState((state) => (state.viewType === "2d" ? state.visualType : 0))
+    const visualType = useViewerState((state) => (state.viewType !== "panorama" ? state.visualType : 0))
     const opacity = getBackgroundOpacity(visualType)
     const { position, scale } = useTilePositionScale(x, y, zoom)
     const url = getTileUrl(zoom, x, y, "png")
