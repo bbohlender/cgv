@@ -79,14 +79,14 @@ export abstract class Primitive {
     }
 
     getOutline(): Object3D {
-        if (this.outlineCache === null) {
+        if (this.outlineCache == null) {
             this.outlineCache = this.computeOutline()
         }
         return this.outlineCache
     }
 
     getObject(): Object3D {
-        if (this.objectCache === null) {
+        if (this.objectCache == null) {
             this.objectCache = this.computeObject3D()
         }
         return this.objectCache

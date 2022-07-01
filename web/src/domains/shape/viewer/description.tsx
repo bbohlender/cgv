@@ -259,7 +259,7 @@ function HighlightDescription({ description }: { description: string }) {
                         (prev, selections) =>
                             prev.concat(
                                 selections.values
-                                    .filter((value) => "object" in value)
+                                    .filter((value) => (value as any).object != null)
                                     .map((value) => (value as any).object)
                             ),
                         []
