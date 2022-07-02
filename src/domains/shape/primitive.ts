@@ -301,8 +301,6 @@ export class LinePrimitive extends Primitive {
             new BufferGeometry().setFromPoints([new Vector3(), new Vector3(this.length, 0, 0)]),
             new LineBasicMaterial({
                 color: 0,
-                transparent: true,
-                depthTest: false,
             })
         )
         line.renderOrder = 1000
@@ -578,9 +576,7 @@ export class ObjectPrimitive extends Primitive {
         const lines = new LineSegments(
             outlineGeometry,
             new LineBasicMaterial({
-                transparent: true,
-                depthTest: false,
-                color: 1,
+                color: 0,
             })
         )
         lines.matrix.copy(this.matrix).multiply(makeTranslationMatrix(helperVector.x, helperVector.y, helperVector.z))
@@ -606,7 +602,7 @@ export class ObjectPrimitive extends Primitive {
 function getLocalBoundingBox(object: Object3D, target?: Box3): Box3 {
     target = target ?? new Box3()
     if (object instanceof Mesh) {
-        (object.geometry as BufferGeometry).computeBoundingBox()
+        ;(object.geometry as BufferGeometry).computeBoundingBox()
         target.copy((object.geometry as BufferGeometry).boundingBox!)
     } else {
         target.makeEmpty()
@@ -663,12 +659,10 @@ export class GeometryPrimitive extends Primitive {
         const lines = new LineSegments(
             new EdgesGeometry(this.geometry),
             new LineBasicMaterial({
-                transparent: true,
-                depthTest: false,
-                color: 1,
+                color: 0,
             })
         )
-        lines.matrix.copy(this.matrix)
+        setupObject3D(lines, this.matrix)
         lines.renderOrder = 1000
         return lines
     }
