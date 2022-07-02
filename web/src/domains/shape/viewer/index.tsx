@@ -105,7 +105,14 @@ export function Viewer({ className, children, ...rest }: HTMLProps<HTMLDivElemen
             </Canvas>
             <div
                 className="d-flex flex-row justify-content-between position-absolute"
-                style={{ pointerEvents: "none", inset: 0 }}>
+                style={{
+                    pointerEvents: "none",
+                    inset: 0,
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                }}>
                 <div className="d-flex flex-column my-3 ms-3" style={{ maxWidth: 200 }}>
                     <GeoSearch style={{ pointerEvents: "all" }} className="mb-3" />
                     <DescriptionList
