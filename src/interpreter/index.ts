@@ -18,6 +18,7 @@ import {
     tap,
     throwError,
 } from "rxjs"
+import { getSelectedStepsJoinedPath } from "../editor"
 import {
     AbstractParsedGrammarDefinition,
     AbstractParsedRandom,
@@ -37,7 +38,7 @@ import {
     ParsedSymbol,
     ParsedUnaryOperator,
 } from "../parser"
-import { getNounIndex } from "../util"
+import { getNounIndex, HierarchicalParsedSteps } from "../util"
 import { toList } from "./list"
 
 export type Operation<T> = {
@@ -491,7 +492,8 @@ function interpreteRandom<T, A, I>(
     return (input) =>
         input.pipe(
             groupBy((value) => {
-                const rand = v3(value.index.join(","), context.seed) / _32bit_max_int
+                const rand = v3(/*value.index.join(",")*/ getSelectedStepsJoinedPath((step as any as HierarchicalParsedSteps)), context.seed) / _32bit_max_int
+                //quick fix for limitting the per level randomization
                 let sum = 0
                 for (let i = 0; i < step.probabilities.length; i++) {
                     sum += step.probabilities[i]
