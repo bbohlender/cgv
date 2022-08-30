@@ -69,7 +69,7 @@ export function createViewerStateInitial(): ViewerState {
         viewType: "satelite",
         position: [lon2tile(locations[0].lon, 0), DEFAULT_Y, lat2tile(locations[0].lat, 0)],
         error: undefined,
-        visualType: 0,
+        visualType: 0.5,
         controlling: false,
     }
 }
