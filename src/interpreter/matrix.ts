@@ -52,5 +52,7 @@ export function applyChangeToMatrix<T>(
 }
 
 export function getMatrixSize<T>(matrix: Matrix<T>): number {
-    return matrix == null ? 0 : Array.isArray(matrix) && "size" in matrix ? matrix.size : 1
+    return matrix == null ? 0 : isArray(matrix) && "size" in matrix ? matrix.size : 1
 }
+
+const isArray: (arr: any) => arr is Array<any> & any = Array.isArray
