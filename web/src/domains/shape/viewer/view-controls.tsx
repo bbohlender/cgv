@@ -10,7 +10,7 @@ export function ViewControls() {
             onWheel: ({ first, xy: [, y], previous: [, lastY], event }) => {
                 event.preventDefault()
                 if (!first) {
-                    useViewerState.getState().pinch(1 + (y - lastY) * 0.002)
+                    useViewerState.getState().pinch(1 - (y - lastY) * 0.002)
                 }
             },
             onDrag: ({ first, xy: [x, z], previous: [lastX, lastZ], buttons, event }) => {
