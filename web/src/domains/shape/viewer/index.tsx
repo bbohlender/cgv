@@ -1,4 +1,4 @@
-import { RenderTexture, Sphere, useContextBridge, ScreenQuad, OrthographicCamera, Sky } from "@react-three/drei"
+import { RenderTexture, Sphere, useContextBridge, Sky } from "@react-three/drei"
 
 import { Canvas, events } from "@react-three/fiber"
 import {
@@ -8,16 +8,14 @@ import {
     tileMeterRatio,
     tileZoomRatio,
 } from "cgv/domains/shape"
-import { HTMLProps, DragEvent, ReactNode, useRef, useState, useMemo } from "react"
+import { HTMLProps, DragEvent, useState, useMemo } from "react"
 import { ErrorMessage } from "../../../error-message"
 import { domainContext, UseBaseStore, useBaseStore } from "../../../global"
 import { panoramas } from "../global"
 import { ViewerCamera } from "./camera"
 import { getBackgroundOpacity, getForegroundOpacity, getPosition, useViewerState } from "./state"
 import { ViewControls } from "./view-controls"
-import { ImageIcon } from "../../../icons/image"
 import { BackIcon } from "../../../icons/back"
-import { SpeedSelection } from "../../../gui/speed-selection"
 import { MultiSelectIcon } from "../../../icons/multi-select"
 import { DescriptionList } from "../../../gui/description-list"
 import { GUI } from "../../../gui"
@@ -29,17 +27,7 @@ import { getTileUrl } from "../available-tiles"
 import { DownloadIcon } from "../../../icons/download"
 import { Display } from "./display"
 import {
-    AddEquation,
-    MultiplyBlending,
-    OneFactor,
-    OneMinusDstAlphaFactor,
-    OneMinusSrcAlphaFactor,
-    PixelFormat,
-    RGBAFormat,
-    RGBFormat,
-    SrcAlphaFactor,
     Texture,
-    ZeroFactor,
 } from "three"
 import { VisualSelection } from "./visual-selection"
 import Tooltip from "rc-tooltip"

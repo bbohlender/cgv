@@ -17,6 +17,7 @@
         "@types/mocha": "^9.1.0",
         "@types/moo": "^0.5.5",
         "@types/nearley": "^2.11.2",
+        "@types/offscreencanvas": "^2019.7.0",
         "@types/pbf": "^3.0.2",
         "@types/three": "^0.139.0",
         "@typescript-eslint/eslint-plugin": "^5.11.0",

@@ -2,9 +2,15 @@ import Tooltip from "rc-tooltip"
 import { HTMLProps } from "react"
 import { useBaseStore } from "../global"
 import { DeleteIcon } from "../icons/delete"
+import { DownloadIcon } from "../icons/download"
 import { FileCheckIcon } from "../icons/file-check"
 import { PlusIcon } from "../icons/plus"
 import { RandomIcon } from "../icons/random"
+import { createPhongMaterialGenerator, operations, PointPrimitive, toGltf } from "cgv/domains/shape"
+import { Matrix4, Color } from "three"
+import { getLocalDescription } from "cgv"
+
+const point = new PointPrimitive(new Matrix4(), createPhongMaterialGenerator(new Color(0xff0000)))
 
 export function DescriptionList({
     createDescriptionRequestData,
@@ -52,6 +58,30 @@ export function DescriptionList({
                             {name}
                         </span>
                         <div className="flex-grow-1" />
+
+                        <Tooltip align={{ offset: [0, 5] }} placement="top" overlay="Export">
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation()
+                                    const state = store.getState()
+                                    const description = getLocalDescription(state.grammar, state.dependencyMap, name)
+                                    const gltf = await toGltf(
+                                        point,
+                                        description,
+                                        operations,
+                                        { seed },
+                                        (value) => value.raw.getObject(),
+                                        console.error
+                                    )
+                                    const a = document.createElement("a")
+                                    a.href = window.URL.createObjectURL(new Blob([gltf], { type: "model/gltf-binary" }))
+                                    a.download = `${name}.glb`
+                                    a.click()
+                                }}
+                                className={`btn btn-sm`}>
+                                <DownloadIcon />
+                            </button>
+                        </Tooltip>
 
                         <Tooltip align={{ offset: [0, 5] }} placement="top" overlay="Concretize">
                             <button
