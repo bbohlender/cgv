@@ -1,19 +1,25 @@
 import {
     createDefaultStep,
+    Distributions,
+    findDistributions,
     getAllStepDescriptors,
     getDescriptionOfNoun,
     globalizeDescription,
     globalizeStep,
     HierarchicalPath,
     Operations,
+    ParsedGrammarDefinition,
+    ParsedSteps,
     StepDescriptor,
     toHierarchical,
 } from "cgv"
 import { freeze } from "immer"
 import { useCallback, useMemo, useState } from "react"
+import { EditInfo } from "../../base-state"
 import { useBaseGlobal, useBaseStore } from "../../global"
 import { CloseIcon } from "../../icons/close"
 import { PasteButton } from "../success-button"
+import { SelectInstanceDialog } from "./select-instance"
 
 type Options = Array<{
     label: string
@@ -29,33 +35,54 @@ function getStepOptions(operations: Operations<any>, onSelectStep: (value: StepD
         }))
 }
 
-export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void }) {
+export function CreateStepDialog({ fulfill, data }: { data: EditInfo; fulfill: (value: any) => void }) {
     const store = useBaseStore()
     const { operations } = useBaseGlobal()
     const [filter, setFilter] = useState("")
+    const [selectInstanceDialogData, setSelectInstanceDialogData] = useState<
+        | { dependencies: ParsedGrammarDefinition; info: EditInfo; step: ParsedSteps; distributions: Distributions }
+        | undefined
+    >(undefined)
     const stepOptions = useMemo(
         () =>
-            getStepOptions(operations, (descriptor) =>
-                fulfill({ step: () => createDefaultStep(descriptor, operations) })
-            ),
-        [fulfill, operations]
+            getStepOptions(operations, (descriptor) => {
+                store.getState().edit({
+                    ...data,
+                    stepGenerator: () => createDefaultStep(descriptor, operations),
+                })
+                fulfill(null)
+            }),
+        [fulfill, data, operations]
     )
 
     const onPaste = useCallback(
         async (randomize: boolean) => {
             const text = await navigator.clipboard.readText()
             try {
-                fulfill({
-                    randomize,
-                    step: (path: HierarchicalPath) =>
+                const { step, dependencies } = JSON.parse(text)
+                const info: EditInfo = {
+                    ...data,
+                    stepGenerator: (path: HierarchicalPath) =>
                         globalizeStep(JSON.parse(text).step, getDescriptionOfNoun(path[0]), ...path),
-                    dependencies: (descriptionName: string) => {
+                    dependenciesGenerator: (descriptionName: string) => {
                         const parsed = JSON.parse(text)
                         if (parsed.dependencies == null) {
                             return undefined
                         }
                         return toHierarchical(globalizeDescription(freeze(parsed.dependencies), descriptionName))
                     },
+                }
+                const distributions = findDistributions(step, dependencies)
+                if (distributions.length === 0) {
+                    store.getState().edit(info, randomize)
+                    fulfill(null)
+                    return
+                }
+                setSelectInstanceDialogData({
+                    info,
+                    step,
+                    dependencies,
+                    distributions,
                 })
             } catch (e) {
                 //TODO: notify user
@@ -68,6 +95,11 @@ export function CreateStepDialog({ fulfill }: { fulfill: (value: any) => void })
         () => stepOptions.filter(({ label }) => label.toLocaleLowerCase().includes(filter.toLocaleLowerCase())),
         [filter, stepOptions]
     )
+
+    if (selectInstanceDialogData != null) {
+        return <SelectInstanceDialog fulfill={fulfill} {...selectInstanceDialogData} />
+    }
+
     return (
         <>
             <div className="d-flex flex-row mb-2">

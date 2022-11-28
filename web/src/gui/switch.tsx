@@ -30,9 +30,13 @@ export function GUISwitchStep({
                         type="text"
                         value={step.cases[i]}
                         onBlur={(e) =>
-                            store.getState().replace<"switch">((draft) => {
-                                draft.cases[i] = [stringToConstant(e.target.value)]
-                            }, step)
+                            store.getState().edit<"switch">({
+                                mode: "replace",
+                                stepGenerator: (path, draft) => {
+                                    draft.cases[i] = [stringToConstant(e.target.value)]
+                                },
+                                steps: step,
+                            })
                         }
                     />
                     <div
@@ -44,7 +48,13 @@ export function GUISwitchStep({
                     </div>
                     <Tooltip placement="left" overlay="Replace with this">
                         <button
-                            onClick={() => store.getState().replace(() => child, step)}
+                            onClick={() =>
+                                store.getState().edit({
+                                    mode: "replace",
+                                    stepGenerator: () => child,
+                                    steps: step,
+                                })
+                            }
                             className="btn btn-sm btn-outline-primary ms-2">
                             <ArrowLeftRightIcon />
                         </button>
@@ -52,10 +62,14 @@ export function GUISwitchStep({
                     <Tooltip placement="left" overlay="Delete">
                         <div
                             onClick={() => {
-                                store.getState().replace<"switch">((draft) => {
-                                    draft.children.splice(i, 1)
-                                    draft.cases.splice(i, 1)
-                                }, step)
+                                store.getState().edit<"switch">({
+                                    mode: "replace",
+                                    stepGenerator: (path, draft) => {
+                                        draft.children.splice(i, 1)
+                                        draft.cases.splice(i, 1)
+                                    },
+                                    steps: step,
+                                })
                             }}
                             className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                             <DeleteIcon />
@@ -65,10 +79,14 @@ export function GUISwitchStep({
             ))}
             <div
                 onClick={() =>
-                    store.getState().replace<"switch">((draft) => {
-                        draft.children.push({ type: "this" })
-                        draft.cases.push([0])
-                    }, step)
+                    store.getState().edit<"switch">({
+                        mode: "replace",
+                        stepGenerator: (path, draft) => {
+                            draft.children.push({ type: "this" })
+                            draft.cases.push([0])
+                        },
+                        steps: step,
+                    })
                 }
                 className="btn btn-outline-success">
                 Add Case

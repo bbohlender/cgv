@@ -23,7 +23,9 @@ export function GUIIfStep({ step, values }: { step: AbstractParsedIf<Hierarchica
 
                 <Tooltip placement="left" overlay="Replace with this">
                     <button
-                        onClick={() => store.getState().replace(() => step.children[1], step)}
+                        onClick={() =>
+                            store.getState().edit({ mode: "replace", stepGenerator: () => step.children[1], steps: step })
+                        }
                         className="btn btn-sm btn-outline-primary">
                         <ArrowLeftRightIcon />
                     </button>
@@ -38,7 +40,13 @@ export function GUIIfStep({ step, values }: { step: AbstractParsedIf<Hierarchica
 
                 <Tooltip placement="left" overlay="Replace with this">
                     <button
-                        onClick={() => store.getState().replace(() => step.children[2], step)}
+                        onClick={() =>
+                            store.getState().edit({
+                                mode: "replace",
+                                stepGenerator: () => step.children[2],
+                                steps: step,
+                            })
+                        }
                         className="btn btn-sm btn-outline-primary">
                         <ArrowLeftRightIcon />
                     </button>

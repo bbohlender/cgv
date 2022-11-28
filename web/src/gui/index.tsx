@@ -19,6 +19,7 @@ import {
 import { stat } from "fs"
 import { freeze } from "immer"
 import { HTMLProps, useMemo } from "react"
+import { EditInfo } from "../base-state"
 import { UseBaseStore, useBaseStore } from "../global"
 import { CheckIcon } from "../icons/check"
 import { DeleteIcon } from "../icons/delete"
@@ -40,20 +41,13 @@ export function childrenSelectable(operationGuiMap: OperationGUIMap, steps: Sele
 }
 
 function requestAdd(store: UseBaseStore, type: "parallel" | "before" | "after") {
-    store
-        .getState()
-        .request(
-            "create-step",
-            ({
-                step,
-                dependencies,
-                randomize,
-            }: {
-                randomize?: boolean
-                step: (path: HierarchicalPath) => ParsedSteps
-                dependencies: (descriptionName: string) => Array<AbstractParsedNoun<unknown>> | undefined
-            }) => store.getState().insert(type, step, dependencies, randomize)
-        )
+    store.getState().request(
+        "create-step",
+        () => {
+            //nothing to do
+        },
+        { mode: "insert", type }
+    )
 }
 
 function requestReplace(store: UseBaseStore) {
@@ -61,15 +55,12 @@ function requestReplace(store: UseBaseStore) {
         .getState()
         .request(
             "create-step",
-            ({
-                step,
-                dependencies,
-                randomize,
-            }: {
-                randomize?: boolean
-                step: (path: HierarchicalPath) => ParsedSteps
-                dependencies?: (descriptionName: string) => Array<AbstractParsedNoun<unknown>>
-            }) => store.getState().replace((_, path) => step(path), undefined, dependencies, randomize)
+            () => {
+                //nothing to do
+            },
+            {
+                mode: "replace"
+            }
         )
 }
 

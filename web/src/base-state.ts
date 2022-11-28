@@ -48,6 +48,8 @@ import {
     HierarchicalPath,
     globalizeStepsSerializer,
     ValueMap,
+    AbstractParsedGrammarDefinition,
+    HierarchicalInfo,
 } from "cgv"
 import { PointPrimitive, createPhongMaterialGenerator } from "cgv/domains/shape"
 import { Draft, freeze } from "immer"
@@ -134,7 +136,7 @@ function createBaseStateFunctions(
     set: SetState<BaseState>,
     get: GetState<BaseState>
 ) {
-    const request = (type: string, fulfill: ((value: any) => void) | undefined, data?: any) => {
+    const request = <T = any>(type: string, fulfill: ((value: any) => void) | undefined, data?: T) => {
         const state = get()
         if (state.type != "gui") {
             return
@@ -584,47 +586,6 @@ function createBaseStateFunctions(
             }
             set({ requested: undefined })
         },
-        insert: async (
-            type: "before" | "after" | "parallel",
-            stepGenerator: (path: HierarchicalPath) => ParsedSteps,
-            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined,
-            randomize = false
-        ) => {
-            const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            let grammar = state.grammar
-            if (dependenciesGenerator != null) {
-                grammar = state.selectedDescriptions.reduce((prev, descriptionName) => {
-                    const dependencies = dependenciesGenerator(descriptionName)
-                    if (dependencies == null) {
-                        return prev
-                    }
-                    return prev.concat(dependencies)
-                }, grammar)
-            }
-            let partial: Partial<BaseState> = await insert(
-                state.valueMap,
-                state.selectionsList,
-                patternTypes,
-                createPatternSelector("On what should this transformation be applied?"),
-                type,
-                stepGenerator,
-                grammar
-            )
-            if (randomize) {
-                partial = {
-                    descriptions: state.descriptions.map((description) =>
-                        state.selectedDescriptions.includes(description.name)
-                            ? { name: description.name, seed: Math.random() * Number.MAX_SAFE_INTEGER }
-                            : description
-                    ),
-                    ...partial,
-                }
-            }
-            set(partial as any)
-        },
         removeStep: async () => {
             const state = get()
             if (state.type != "gui") {
@@ -674,43 +635,12 @@ function createBaseStateFunctions(
                 )
             )
         },
-        replace: async <Type extends ParsedSteps["type"]>(
-            replaceWith: (
-                steps: Draft<ParsedSteps & { type: Type }>,
-                path: HierarchicalPath
-            ) => Draft<ParsedSteps> | void,
-            steps?: SelectedSteps,
-            dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined,
-            randomize = false
-        ) => {
-            const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
+        edit: async <Type extends ParsedSteps["type"]>(info: EditInfo<Type>, randomize = false) => {
             const state = get()
-            if (state.type != "gui") {
-                return
-            }
-            let grammar = state.grammar
-            if (dependenciesGenerator != null) {
-                grammar = state.selectedDescriptions.reduce((prev, descriptionName) => {
-                    const dependencies = dependenciesGenerator(descriptionName)
-                    if (dependencies == null) {
-                        return prev
-                    }
-                    return prev.concat(dependencies)
-                }, grammar)
-            }
-
-            let partial: Partial<BaseState> = await replace(
-                state.valueMap,
-                steps == null
-                    ? state.selectionsList
-                    : state.selectionsList.filter((selections) =>
-                          compareSelectedStepsPath(selections.steps, steps, joinedPath)
-                      ),
-                patternTypes,
-                createPatternSelector("For what should the new transformation replace the current?"),
-                replaceWith as any,
-                grammar
-            )
+            let partial: Partial<BaseState> =
+                info.mode === "replace"
+                    ? await executeReplace<Type>(state, patternTypes, createPatternSelector, info)
+                    : await executeInsert(state, patternTypes, createPatternSelector, info)
             if (randomize) {
                 partial = {
                     descriptions: state.descriptions.map((description) =>
@@ -722,6 +652,14 @@ function createBaseStateFunctions(
                 }
             }
             set(partial as any)
+        },
+        tryOut: async <Type extends ParsedSteps["type"]>(info: EditInfo<Type>) => {
+            const state = get()
+            return (
+                info.mode === "replace"
+                    ? await executeReplace<Type>(state, patternTypes, createPatternSelector, info)
+                    : await executeInsert(state, patternTypes, createPatternSelector, info)
+            ).grammar
         },
         setShift: (shift: boolean) => {
             const state = get()
@@ -745,6 +683,87 @@ export function getFirstSelectedDescription(state: BaseState): string | undefine
 
     return getDescriptionOfNoun(
         typeof firstSelections.steps === "string" ? firstSelections.steps : firstSelections.steps.path[0]
+    )
+}
+
+export type EditInfo<Type extends ParsedSteps["type"] = any> = ReplaceEditInfo<Type> | InsertEditInfo
+
+export type ReplaceEditInfo<Type extends ParsedSteps["type"]> = {
+    mode: "replace"
+    stepGenerator: (path: HierarchicalPath, steps: Draft<ParsedSteps & { type: Type }>) => Draft<ParsedSteps> | void
+    steps?: SelectedSteps
+    dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined
+}
+
+export type InsertEditInfo = {
+    mode: "insert"
+    type: "before" | "after" | "parallel"
+    stepGenerator: (path: HierarchicalPath) => ParsedSteps
+    dependenciesGenerator?: (description: string) => Array<AbstractParsedNoun<unknown>> | undefined
+}
+
+async function executeReplace<Type extends ParsedSteps["type"]>(
+    state: BaseState,
+    patternTypes: Array<PatternType<any>>,
+    createPatternSelector: (title: string) => PatternSelector,
+    { stepGenerator: replaceWith, dependenciesGenerator, steps }: ReplaceEditInfo<Type>
+): Promise<EditorState> {
+    const joinedPath = steps != null ? getSelectedStepsJoinedPath(steps) : undefined
+    if (state.type != "gui") {
+        throw new Error("try out is only possible in gui mode")
+    }
+    let grammar = state.grammar
+    if (dependenciesGenerator != null) {
+        grammar = state.selectedDescriptions.reduce((prev, descriptionName) => {
+            const dependencies = dependenciesGenerator(descriptionName)
+            if (dependencies == null) {
+                return prev
+            }
+            return prev.concat(dependencies)
+        }, grammar)
+    }
+
+    return replace(
+        state.valueMap,
+        steps == null
+            ? state.selectionsList
+            : state.selectionsList.filter((selections) =>
+                  compareSelectedStepsPath(selections.steps, steps, joinedPath)
+              ),
+        patternTypes,
+        createPatternSelector("For what should the new transformation replace the current?"),
+        replaceWith as any,
+        grammar
+    )
+}
+
+async function executeInsert(
+    state: BaseState,
+    patternTypes: Array<PatternType<any>>,
+    createPatternSelector: (title: string) => PatternSelector,
+    { stepGenerator, type, dependenciesGenerator }: InsertEditInfo
+): Promise<EditorState> {
+    if (state.type != "gui") {
+        throw new Error("try out is only possible in gui mode")
+    }
+    let grammar = state.grammar
+    if (dependenciesGenerator != null) {
+        grammar = state.selectedDescriptions.reduce((prev, descriptionName) => {
+            const dependencies = dependenciesGenerator(descriptionName)
+            if (dependencies == null) {
+                return prev
+            }
+            return prev.concat(dependencies)
+        }, grammar)
+    }
+    return insert(
+        state.valueMap,
+        state.selectionsList,
+        patternTypes,
+        createPatternSelector("On what should this transformation be applied?"),
+        type,
+        stepGenerator,
+        grammar
     )
 }
 

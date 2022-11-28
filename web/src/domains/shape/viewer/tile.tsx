@@ -1,7 +1,7 @@
 import { useLoader, useThree } from "@react-three/fiber"
 import { tileMeterRatio, tileZoomRatio } from "cgv/domains/shape"
-import { Component, FC, ReactComponentElement, ReactElement, Suspense, useMemo } from "react"
-import { DoubleSide, PlaneBufferGeometry, TextureLoader, Vector3Tuple } from "three"
+import { FC, Suspense, useMemo } from "react"
+import { DoubleSide, PlaneGeometry, TextureLoader, Vector3Tuple } from "three"
 import { clip, FOV, getBackgroundOpacity, getPosition, useViewerState } from "./state"
 import { shallowEqual } from "cgv"
 import { Descriptions } from "./description"
@@ -66,7 +66,7 @@ export function Tiles({ tile: Tile }: { tile: FC<{ highlighted: boolean; x: numb
     )
 }
 
-function useTilePositionScale(x: number, y: number, zoom: number): { position: Vector3Tuple; scale: number } {
+export function useTilePositionScale(x: number, y: number, zoom: number): { position: Vector3Tuple; scale: number } {
     return useMemo<{ position: Vector3Tuple; scale: number }>(() => {
         const globalLocalRatio = tileZoomRatio(0, zoom)
         const xGlobal = x / globalLocalRatio
@@ -122,7 +122,7 @@ export function BackgroundTile({
     )
 }
 
-const planeGeometry = new PlaneBufferGeometry(1, 1)
+const planeGeometry = new PlaneGeometry(1, 1)
 planeGeometry.translate(0.5, -0.5, 0)
 planeGeometry.rotateX(-Math.PI / 2)
 

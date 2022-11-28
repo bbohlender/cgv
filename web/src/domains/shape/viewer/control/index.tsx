@@ -244,12 +244,16 @@ function SingleSplitControl({
                 child={clonedOutline}
                 mode="translate"
                 set={(...newPosition) =>
-                    store.getState().replace<"operation">((draft) => {
-                        draft.children[index + 2] = {
-                            type: "raw",
-                            value: Math.max(0, newPosition[axisIndex] - offset),
-                        }
-                    }, step)
+                    store.getState().edit<"operation">({
+                        mode: "replace",
+                        steps: step,
+                        stepGenerator: (path, draft) => {
+                            draft.children[index + 2] = {
+                                type: "raw",
+                                value: Math.max(0, newPosition[axisIndex] - offset),
+                            }
+                        },
+                    })
                 }
             />
         )
@@ -293,14 +297,18 @@ export function ExtrudeControl({ value, step }: { step: AbstractParsedOperation<
             mode="translate"
             child={clonedOutline}
             set={(x, extrusionAndY, z) =>
-                store.getState().replace((draft) => {
-                    draft.children = [
-                        {
-                            type: "raw",
-                            value: extrusionAndY - y,
-                        },
-                    ]
-                }, step)
+                store.getState().edit({
+                    mode: "replace",
+                    steps: step,
+                    stepGenerator: (path, draft) => {
+                        draft.children = [
+                            {
+                                type: "raw",
+                                value: extrusionAndY - y,
+                            },
+                        ]
+                    },
+                })
             }
         />
     )
@@ -339,22 +347,26 @@ export function TranslateControl({
             mode="translate"
             child={clonedOutline}
             set={(x, y, z) =>
-                store.getState().replace((draft) => {
-                    draft.children = [
-                        {
-                            type: "raw",
-                            value: x - xCenter,
-                        },
-                        {
-                            type: "raw",
-                            value: y - yCenter,
-                        },
-                        {
-                            type: "raw",
-                            value: z - zCenter,
-                        },
-                    ]
-                }, step)
+                store.getState().edit({
+                    mode: "replace",
+                    stepGenerator: (path, draft) => {
+                        draft.children = [
+                            {
+                                type: "raw",
+                                value: x - xCenter,
+                            },
+                            {
+                                type: "raw",
+                                value: y - yCenter,
+                            },
+                            {
+                                type: "raw",
+                                value: z - zCenter,
+                            },
+                        ]
+                    },
+                    steps: step,
+                })
             }
         />
     )

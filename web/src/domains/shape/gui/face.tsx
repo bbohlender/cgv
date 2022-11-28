@@ -23,9 +23,13 @@ export function GUIFaceSteps({ value }: { value: AbstractParsedOperation<Hierarc
                     <Tooltip placement="left" overlay="Delete Point">
                         <div
                             onClick={() =>
-                                store.getState().replace<"operation">((draft) => {
-                                    draft.children.splice(i, 1)
-                                }, value)
+                                store.getState().edit<"operation">({
+                                    mode: "replace",
+                                    stepGenerator: (path, draft) => {
+                                        draft.children.splice(i, 1)
+                                    },
+                                    steps: value,
+                                })
                             }
                             className="ms-2 d-flex align-items-center btn-sm btn btn-outline-danger">
                             <DeleteIcon />
@@ -46,14 +50,18 @@ function addPointToFace(store: UseBaseStore, step: SelectedSteps) {
     const meterRatio = tileMeterRatio(Math.round(y * zoomRatio), 18)
     const xMeter = ((x * zoomRatio) % 1) * meterRatio
     const yMeter = ((y * zoomRatio) % 1) * meterRatio
-    store.getState().replace<"operation">((draft) => {
-        draft.children.push({
-            type: "operation",
-            identifier: "point2",
-            children: [
-                { type: "raw", value: xMeter },
-                { type: "raw", value: yMeter },
-            ],
-        })
-    }, step)
+    store.getState().edit<"operation">({
+        mode: "replace",
+        stepGenerator: (path, draft) => {
+            draft.children.push({
+                type: "operation",
+                identifier: "point2",
+                children: [
+                    { type: "raw", value: xMeter },
+                    { type: "raw", value: yMeter },
+                ],
+            })
+        },
+        steps: step,
+    })
 }

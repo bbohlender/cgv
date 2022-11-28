@@ -22,9 +22,13 @@ export function GUIRandomStep({
                         type="text"
                         value={step.probabilities[i] * 100}
                         onBlur={(e) =>
-                            store.getState().replace<"random">((draft) => {
-                                draft.probabilities[i] = toProbability(e.target.value)
-                            }, step)
+                            store.getState().edit<"random">({
+                                mode: "replace",
+                                stepGenerator: (path, draft) => {
+                                    draft.probabilities[i] = toProbability(e.target.value)
+                                },
+                                steps: step,
+                            })
                         }
                     />
                     <div
@@ -36,7 +40,13 @@ export function GUIRandomStep({
                     </div>
                     <Tooltip placement="left" overlay="Replace with this">
                         <button
-                            onClick={() => store.getState().replace(() => child, step)}
+                            onClick={() =>
+                                store.getState().edit({
+                                    mode: "replace",
+                                    stepGenerator: () => child,
+                                    steps: step,
+                                })
+                            }
                             className="btn ms-2 btn-sm btn-outline-primary">
                             <ArrowLeftRightIcon />
                         </button>
@@ -44,10 +54,14 @@ export function GUIRandomStep({
                     <Tooltip placement="left" overlay="Delete">
                         <div
                             onClick={() =>
-                                store.getState().replace<"random">((draft) => {
-                                    draft.children.splice(i, 1)
-                                    draft.probabilities.splice(i, 1)
-                                }, step)
+                                store.getState().edit<"random">({
+                                    mode: "replace",
+                                    stepGenerator: (path, draft) => {
+                                        draft.children.splice(i, 1)
+                                        draft.probabilities.splice(i, 1)
+                                    },
+                                    steps: step,
+                                })
                             }
                             className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                             <DeleteIcon />
@@ -57,10 +71,14 @@ export function GUIRandomStep({
             ))}
             <div
                 onClick={() =>
-                    store.getState().replace<"random">((draft) => {
-                        draft.children.push({ type: "this" })
-                        draft.probabilities.push(0)
-                    }, step)
+                    store.getState().edit<"random">({
+                        mode: "replace",
+                        stepGenerator: (path, draft) => {
+                            draft.children.push({ type: "this" })
+                            draft.probabilities.push(0)
+                        },
+                        steps: step,
+                    })
                 }
                 className="btn btn-outline-success">
                 Add

@@ -10,9 +10,13 @@ export function GUIRawStep({ step }: { step: AbstractParsedRaw<HierarchicalInfo>
             value={step.value}
             className="mx-3 mb-3 w-auto form-control form-control-sm"
             onBlur={(e) =>
-                store.getState().replace<"raw">((draft) => {
-                    draft.value = stringToConstant(e.target.value)
-                }, step)
+                store.getState().edit<"raw">({
+                    mode: "replace",
+                    stepGenerator: (path, draft) => {
+                        draft.value = stringToConstant(e.target.value)
+                    },
+                    steps: step,
+                })
             }
         />
     )

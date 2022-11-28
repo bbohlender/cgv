@@ -65,7 +65,7 @@ export async function removeStep<T>(
     operations: Operations<any>,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
-    const replaceWith: ReplaceWith = (_, path, translatedPath) =>
+    const replaceWith: ReplaceWith = (path, _, translatedPath) =>
         getNeutralStep(translatedPath[translatedPath.length - 2], path[path.length - 1], operations)
     const newGrammar = await produce(grammar, async (draft) => {
         await replaceOnDraft(valueMap, selectionsList, patterns, selectCondition, replaceWith, draft)

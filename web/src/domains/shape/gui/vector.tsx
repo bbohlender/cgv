@@ -21,16 +21,20 @@ export function GUIVector3<Type extends ParsedSteps["type"]>({
     const store = useBaseStore()
 
     const update = (index: number, number: number) =>
-        store.getState().replace<Type>((draft) => {
-            const subDraft = getSubstep(draft)
-            if (subDraft.type !== "operation") {
-                return
-            }
-            subDraft.children[index] = {
-                type: "raw",
-                value: number,
-            }
-        }, value)
+        store.getState().edit<Type>({
+            mode: "replace",
+            stepGenerator: (path, draft) => {
+                const subDraft = getSubstep(draft)
+                if (subDraft.type !== "operation") {
+                    return
+                }
+                subDraft.children[index] = {
+                    type: "raw",
+                    value: number,
+                }
+            },
+            steps: value,
+        })
     return (
         <div className={className}>
             <BlurInput
@@ -72,16 +76,20 @@ export function GUIVector2<Type extends ParsedSteps["type"]>({
     const store = useBaseStore()
 
     const update = (index: number, number: number) =>
-        store.getState().replace<Type>((draft) => {
-            const subDraft = getSubstep(draft)
-            if (subDraft.type !== "operation") {
-                return
-            }
-            subDraft.children[index] = {
-                type: "raw",
-                value: number,
-            }
-        }, value)
+        store.getState().edit<Type>({
+            mode: "replace",
+            stepGenerator: (path, draft) => {
+                const subDraft = getSubstep(draft)
+                if (subDraft.type !== "operation") {
+                    return
+                }
+                subDraft.children[index] = {
+                    type: "raw",
+                    value: number,
+                }
+            },
+            steps: value,
+        })
     return (
         <div className={className}>
             <BlurInput

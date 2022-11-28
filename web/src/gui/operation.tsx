@@ -48,9 +48,13 @@ function GeneralGUIOperation({
                         <Tooltip placement="left" overlay="Delete">
                             <div
                                 onClick={() =>
-                                    store.getState().replace<"operation">((draft) => {
-                                        draft.children.splice(i, 1)
-                                    }, value)
+                                    store.getState().edit<"operation">({
+                                        mode: "replace",
+                                        stepGenerator: (path, draft) => {
+                                            draft.children.splice(i, 1)
+                                        },
+                                        steps: value,
+                                    })
                                 }
                                 className="d-flex align-items-center ms-2 btn btn-sm btn-outline-danger">
                                 <DeleteIcon />
@@ -62,9 +66,13 @@ function GeneralGUIOperation({
             <div
                 className="btn btn-outline-success"
                 onClick={() =>
-                    store.getState().replace<"operation">((draft) => {
-                        draft.children.push({ type: "this" })
-                    }, value)
+                    store.getState().edit<"operation">({
+                        mode: "replace",
+                        stepGenerator: (path, draft) => {
+                            draft.children.push({ type: "this" })
+                        },
+                        steps: value,
+                    })
                 }>
                 Add Parameter
             </div>

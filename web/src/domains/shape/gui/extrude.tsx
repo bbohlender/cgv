@@ -11,12 +11,16 @@ export function GUIExtrudeStep({ value }: { value: AbstractParsedOperation<Hiera
             type="number"
             className="mx-3 mb-3 w-auto form-control form-control-sm"
             onBlur={(e) =>
-                store.getState().replace<"operation">((draft) => {
-                    draft.children[0] = {
-                        type: "raw",
-                        value: e.target.valueAsNumber,
-                    }
-                }, value)
+                store.getState().edit<"operation">({
+                    mode: "replace",
+                    stepGenerator: (path, draft) => {
+                        draft.children[0] = {
+                            type: "raw",
+                            value: e.target.valueAsNumber,
+                        }
+                    },
+                    steps: value,
+                })
             }
         />
     )
