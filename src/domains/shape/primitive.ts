@@ -1,7 +1,7 @@
 import {
     Box2,
     Box3,
-    BoxBufferGeometry,
+    BoxGeometry,
     BufferGeometry,
     Color,
     EdgesGeometry,
@@ -20,7 +20,7 @@ import {
     PointsMaterial,
     Quaternion,
     Shape,
-    ShapeBufferGeometry,
+    ShapeGeometry,
     ShapeUtils,
     Vector2,
     Vector3,
@@ -381,7 +381,7 @@ export class FacePrimitive extends Primitive {
     }
 
     protected computeGeometry(): BufferGeometry | undefined {
-        const geometry = new ShapeBufferGeometry(this.shape)
+        const geometry = new ShapeGeometry(this.shape)
         invertWinding(geometry)
         swapYZ(geometry)
         return geometry
@@ -526,7 +526,7 @@ function invertWinding(geometry: BufferGeometry): void {
 
 const box3Helper = new Box3()
 
-const boxGeometry = new BoxBufferGeometry(1, 1, 1)
+const boxGeometry = new BoxGeometry(1, 1, 1)
 const outlineGeometry = new EdgesGeometry(boxGeometry)
 
 export class ObjectPrimitive extends Primitive {

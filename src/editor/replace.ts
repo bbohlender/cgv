@@ -84,8 +84,8 @@ export async function replaceOnDraft<T>(
 }
 
 export type ReplaceWith = (
-    draft: Draft<ParsedSteps>,
     path: HierarchicalPath,
+    draft: Draft<ParsedSteps>,
     translatedPath: TranslatedPath<HierarchicalInfo>
 ) => Draft<ParsedSteps> | undefined
 
@@ -105,7 +105,7 @@ export async function replaceAtPathOnDraft<T>(
     }
     const currentSteps: Draft<HierarchicalParsedSteps> = getAtPath(translatedPath, path.length - 1)
 
-    const newSteps = replaceWith(currentSteps, path, translatedPath) ?? currentSteps
+    const newSteps = replaceWith(path, currentSteps, translatedPath) ?? currentSteps
     const oldSteps = original(currentSteps)!
     const generateCondition =
         generatePatternCondition ?? (await getMatchingCondition(all, selected, patterns, selectCondition))?.generateStep

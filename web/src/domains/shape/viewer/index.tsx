@@ -167,7 +167,7 @@ function SummarizeButton() {
     )
 }
 
-function Skybox() {
+export function Skybox() {
     const isInFlyCamera = useViewerState((state) => state.viewType === "fly")
     if (!isInFlyCamera) {
         return null
@@ -212,7 +212,7 @@ void main() {
 }
 `
 
-function Background({ texture }: { texture: Texture }) {
+export function Background({ texture }: { texture: Texture }) {
     const visualType = useViewerState((state) => state.visualType)
     const opacity = getBackgroundOpacity(visualType)
     const uniforms = useMemo(() => ({ map: { value: texture }, opacity: { value: 0 } }), [texture])
@@ -233,7 +233,7 @@ function Background({ texture }: { texture: Texture }) {
     )
 }
 
-function Foreground({ texture }: { texture: Texture }) {
+export function Foreground({ texture }: { texture: Texture }) {
     const visualType = useViewerState((state) => state.visualType)
     const opacity = getForegroundOpacity(visualType)
     const uniforms = useMemo(() => ({ map: { value: texture }, opacity: { value: 0 } }), [texture])
@@ -294,7 +294,7 @@ function ShowError() {
     return <ErrorMessage message={error} align="left" />
 }
 
-function Panoramas() {
+export function Panoramas() {
     return (
         <>
             {panoramas.map(({ position }, index) => (

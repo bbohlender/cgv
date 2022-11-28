@@ -14,9 +14,13 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
     const store = useBaseStore()
     const setRepitions = useCallback(
         (repetitions: number | boolean) => {
-            store.getState().replace<"operation">((draft) => {
-                draft.children[1] = { type: "raw", value: repetitions }
-            }, value)
+            store.getState().edit<"operation">({
+                mode: "replace",
+                stepGenerator: (path, draft) => {
+                    draft.children[1] = { type: "raw", value: repetitions }
+                },
+                steps: value,
+            })
         },
         [store, value]
     )
@@ -26,9 +30,13 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                 <AxisInput
                     value={axis}
                     onChange={(e) =>
-                        store.getState().replace<"operation">((draft) => {
-                            draft.children[0] = { type: "raw", value: e.currentTarget.value }
-                        }, value)
+                        store.getState().edit<"operation">({
+                            mode: "replace",
+                            stepGenerator: (path, draft) => {
+                                draft.children[0] = { type: "raw", value: e.currentTarget.value }
+                            },
+                            steps: value,
+                        })
                     }
                     className="flex-grow-1 w-auto form-select form-select-sm"
                 />
@@ -71,17 +79,25 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
                         type="number"
                         value={(child.type === "raw" ? child.value : undefined) ?? 1}
                         onBlur={(e) =>
-                            store.getState().replace<"operation">((draft) => {
-                                draft.children[i + 2] = { type: "raw", value: e.target.valueAsNumber }
-                            }, value)
+                            store.getState().edit<"operation">({
+                                mode: "replace",
+                                stepGenerator: (path, draft) => {
+                                    draft.children[i + 2] = { type: "raw", value: e.target.valueAsNumber }
+                                },
+                                steps: value,
+                            })
                         }
                     />
                     <Tooltip placement="left" overlay="Delete">
                         <div
                             onClick={() =>
-                                store.getState().replace<"operation">((draft) => {
-                                    draft.children.splice(i + 2, 1)
-                                }, value)
+                                store.getState().edit<"operation">({
+                                    mode: "replace",
+                                    stepGenerator: (path, draft) => {
+                                        draft.children.splice(i + 2, 1)
+                                    },
+                                    steps: value,
+                                })
                             }
                             className="d-flex align-items-center btn-sm ms-2 btn btn-outline-danger">
                             <DeleteIcon />
@@ -92,9 +108,13 @@ export function GUISplitSteps({ value }: { value: AbstractParsedOperation<Hierar
             <div
                 className="btn btn-outline-success mb-3"
                 onClick={() =>
-                    store.getState().replace<"operation">((draft) => {
-                        draft.children.push({ type: "raw", value: 1 })
-                    }, value)
+                    store.getState().edit<"operation">({
+                        mode: "replace",
+                        stepGenerator: (path, draft) => {
+                            draft.children.push({ type: "raw", value: 1 })
+                        },
+                        steps: value,
+                    })
                 }>
                 Add
             </div>

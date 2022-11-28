@@ -29,13 +29,17 @@ export function Point3Control<Type extends ParsedSteps["type"]>({
             matrix={matrix}
             mode="translate"
             set={(...xyz) =>
-                store.getState().replace<Type>((draft) => {
-                    const subDraft = getSubstep == null ? draft : getSubstep(draft)
-                    subDraft.children = xyz.map((value) => ({
-                        type: "raw",
-                        value,
-                    }))
-                }, valueRef.current)
+                store.getState().edit<Type>({
+                    mode: "replace",
+                    stepGenerator: (path, draft) => {
+                        const subDraft = getSubstep == null ? draft : getSubstep(draft)
+                        subDraft.children = xyz.map((value) => ({
+                            type: "raw",
+                            value,
+                        }))
+                    },
+                    steps: valueRef.current,
+                })
             }
         />
     )
@@ -64,13 +68,17 @@ export function Point2Control<Type extends ParsedSteps["type"]>({
             matrix={matrix}
             mode="translate"
             set={(x, y, z) =>
-                store.getState().replace<Type>((draft) => {
-                    const subDraft = getSubstep == null ? draft : getSubstep(draft)
-                    subDraft.children = [x, z].map((value) => ({
-                        type: "raw",
-                        value,
-                    }))
-                }, valueRef.current)
+                store.getState().edit<Type>({
+                    mode: "replace",
+                    stepGenerator: (path, draft) => {
+                        const subDraft = getSubstep == null ? draft : getSubstep(draft)
+                        subDraft.children = [x, z].map((value) => ({
+                            type: "raw",
+                            value,
+                        }))
+                    },
+                    steps: valueRef.current,
+                })
             }
         />
     )

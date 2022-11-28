@@ -29,12 +29,13 @@ export function GUISymbolStep({
                 <select
                     value={selectedNoun}
                     onChange={(e) =>
-                        store.getState().replace<"symbol">(
-                            (draft) => {
+                        store.getState().edit<"symbol">({
+                            mode: "replace",
+                            stepGenerator: (path, draft) => {
                                 draft.identifier = e.currentTarget.value
                             },
-                            step
-                        )
+                            steps: step,
+                        })
                     }
                     className="flex-grow-1 form-select form-select-sm">
                     {localNouns.map((localNoun) => (

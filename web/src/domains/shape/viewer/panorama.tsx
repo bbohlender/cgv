@@ -1,11 +1,10 @@
 import { useTexture } from "@react-three/drei"
-import { Suspense, useEffect, useState } from "react"
-import { a } from "@react-spring/three"
-import { DoubleSide, SphereBufferGeometry } from "three"
+import { Suspense } from "react"
+import { DoubleSide, SphereGeometry } from "three"
 import { panoramas } from "../global"
 import { getBackgroundOpacity, useViewerState } from "./state"
 
-const geometry = new SphereBufferGeometry(500, 60, 40)
+const geometry = new SphereGeometry(500, 60, 40)
 
 export function PanoramaView() {
     const panoramaIndex = useViewerState(({ viewType, panoramaIndex }) =>
