@@ -4,7 +4,7 @@
 
 _A Web-based Approach for Quick Procedural 3D Reconstructions of Buildings_
 
-[<h2>⤷ Demo</h2>](https://cc-bbohlender.github.io/cgv)
+# [⤷ Demo](https://cc-bbohlender.github.io/cgv)
 
 ## Development
 
