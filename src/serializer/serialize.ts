@@ -1,34 +1,34 @@
 import {
-    AbstractParsedGrammarDefinition,
-    AbstractParsedNoun,
-    AbstractParsedSteps,
+    ParsedDescription,
+    ParsedNounReference,
+    ParsedTransformation,
     ParsedBinaryOperator,
     ParsedGetVariable,
     ParsedIf,
     ParsedNull,
     ParsedOperation,
     ParsedParallel,
-    ParsedRandom,
+    ParsedStochasticSwitch,
     ParsedRaw,
     ParsedReturn,
     ParsedSequantial,
     ParsedSetVariable,
-    ParsedSteps,
+    ParsedTransformation,
     ParsedSwitch,
-    ParsedSymbol,
+    ParsedNounReference,
     ParsedThis,
     ParsedUnaryOperator,
 } from "../parser"
 import { requiresBracket } from "../util"
 
 export function createSerializer<T, K>(
-    fromText: (text: string, forStep: AbstractParsedSteps<K> | string) => T,
-    fromStep: (indentation: number, child: AbstractParsedSteps<K> | string) => T,
+    fromText: (text: string, forStep: ParsedTransformation<K> | string) => T,
+    fromStep: (indentation: number, child: ParsedTransformation<K> | string) => T,
     join: (...values: Array<T>) => T,
-    getWhitespace: (identation: number, ...steps: (ParsedSteps | string)[]) => T
+    getWhitespace: (identation: number, ...steps: (ParsedTransformation | string)[]) => T
 ): Serializer<T, K> {
     const serializer: Serializer<T, K> = {
-        fromStep: (indentation: number, parent: AbstractParsedSteps<K> | undefined, child: ParsedSteps | string) =>
+        fromStep: (indentation: number, parent: ParsedTransformation<K> | undefined, child: ParsedTransformation | string) =>
             serializeChildWithBrackets(parent, child, serializer, fromStep, indentation),
         fromText,
         getWhitespace,
@@ -38,7 +38,7 @@ export function createSerializer<T, K>(
 }
 
 export function serialize<T, K>(
-    grammarDefinition: AbstractParsedGrammarDefinition<K>,
+    grammarDefinition: ParsedDescription<K>,
     serializer: Serializer<T, K>
 ): T {
     return serializer.join(
@@ -57,7 +57,7 @@ export function serialize<T, K>(
 /**
  * @returns a array of strings that represents the text that fits between the children (text[0], children[0], text[1], children[1], text[2]) - the result start with a text and ends with a text and thus the length of text is equal to the amount of children plus 1
  */
-export function serializeSteps<T, K>(steps: AbstractParsedSteps<K>, serializer: Serializer<T, K>, indentation = 0): T {
+export function serializeSteps<T, K>(steps: ParsedTransformation<K>, serializer: Serializer<T, K>, indentation = 0): T {
     switch (steps.type) {
         case "operation":
             return serializeOperation(steps, serializer, indentation)
@@ -106,21 +106,21 @@ export function serializeSteps<T, K>(steps: AbstractParsedSteps<K>, serializer: 
 }
 
 export type Serializer<T, K = unknown> = {
-    fromText: (text: string, forStep: AbstractParsedSteps<K> | string) => T
+    fromText: (text: string, forStep: ParsedTransformation<K> | string) => T
     fromStep: (
         identation: number,
-        parent: AbstractParsedSteps<K> | undefined,
-        step: AbstractParsedSteps<K> | string
+        parent: ParsedTransformation<K> | undefined,
+        step: ParsedTransformation<K> | string
     ) => T
     join: (...values: Array<T>) => T
-    getWhitespace: (identation: number, ...steps: Array<AbstractParsedSteps<K> | string>) => T
+    getWhitespace: (identation: number, ...steps: Array<ParsedTransformation<K> | string>) => T
 }
 
 function serializeChildWithBrackets<T>(
-    parent: ParsedSteps | undefined,
-    child: ParsedSteps | string,
+    parent: ParsedTransformation | undefined,
+    child: ParsedTransformation | string,
     serializer: Serializer<T>,
-    fromStep: (indentation: number, child: AbstractParsedSteps<unknown> | string) => T,
+    fromStep: (indentation: number, child: ParsedTransformation<unknown> | string) => T,
     indentation: number
 ): T {
     if (parent != null && typeof child != "string" && requiresBracket(parent, child)) {
@@ -135,7 +135,7 @@ function serializeChildWithBrackets<T>(
     return fromStep(indentation, child)
 }
 
-function serializeRandom<T>(step: ParsedRandom, serializer: Serializer<T>, indentation: number): T {
+function serializeRandom<T>(step: ParsedStochasticSwitch, serializer: Serializer<T>, indentation: number): T {
     if (step.children.length != step.probabilities.length) {
         throw new Error(`random step must have the same amount of childrens as the amount of probabilities`)
     }
@@ -325,7 +325,7 @@ function serializeSequentialAbstract<T>(step: ParsedSequantial, serializer: Seri
     )
 }
 
-function serializeSymbolAbstract<T>(step: ParsedSymbol, serializer: Serializer<T>, indentation: number): T {
+function serializeSymbolAbstract<T>(step: ParsedNounReference, serializer: Serializer<T>, indentation: number): T {
     return serializer.fromText(step.identifier, step)
 }
 

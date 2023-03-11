@@ -1,25 +1,25 @@
 import { lastValueFrom, of } from "rxjs"
 import { interprete, InterpreterOptions, Operations, toValue } from "../interpreter"
-import { ParsedGrammarDefinition, ParsedSteps } from "../parser"
+import { ParsedDescription, ParsedTransformation } from "../parser"
 import { filterNull } from "../util"
 
 export async function concretize<T>(
     baseValue: T,
-    grammar: ParsedGrammarDefinition,
+    grammar: ParsedDescription,
     operations: Operations<T>,
     options: InterpreterOptions<T, any>
-): Promise<ParsedGrammarDefinition> {
+): Promise<ParsedDescription> {
     const indexMap = await deriveRandomOutputStepIndex(baseValue, grammar, operations, options)
     return concretizeRandomDerivedIndices(grammar, indexMap)
 }
 
 export async function deriveRandomOutputStepIndex<T>(
     baseValue: T,
-    grammar: ParsedGrammarDefinition,
+    grammar: ParsedDescription,
     operations: Operations<T>,
     options: InterpreterOptions<T, any>
-): Promise<Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>> {
-    const fullIndicesMap = new Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>()
+): Promise<Map<ParsedTransformation, Array<[inputIndex: string, selectedChildIndex: number]>>> {
+    const fullIndicesMap = new Map<ParsedTransformation, Array<[inputIndex: string, selectedChildIndex: number]>>()
     await lastValueFrom(
         of(baseValue).pipe(
             toValue(),
@@ -42,16 +42,16 @@ export async function deriveRandomOutputStepIndex<T>(
 }
 
 export function concretizeRandomDerivedIndices(
-    grammar: ParsedGrammarDefinition,
-    indexMap: Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>
-): ParsedGrammarDefinition {
+    grammar: ParsedDescription,
+    indexMap: Map<ParsedTransformation, Array<[inputIndex: string, selectedChildIndex: number]>>
+): ParsedDescription {
     return grammar.map(({ name, step }) => ({ name, step: concretizeRandomStep(step, indexMap) }))
 }
 
 function concretizeRandomStep(
-    step: ParsedSteps,
-    indexMap: Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>
-): ParsedSteps {
+    step: ParsedTransformation,
+    indexMap: Map<ParsedTransformation, Array<[inputIndex: string, selectedChildIndex: number]>>
+): ParsedTransformation {
     if (step.type === "random") {
         const indices = indexMap.get(step)
         if (indices == null) {
@@ -91,5 +91,5 @@ function concretizeRandomStep(
     return {
         ...step,
         children: step.children.map((child) => concretizeRandomStep(child, indexMap)),
-    } as ParsedSteps
+    } as ParsedTransformation
 }

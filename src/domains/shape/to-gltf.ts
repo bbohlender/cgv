@@ -4,8 +4,8 @@ import {
     interprete,
     InterpreterOptions,
     Operations,
-    ParsedGrammarDefinition,
-    ParsedSteps,
+    ParsedDescription,
+    ParsedTransformation,
     toValue,
     Value,
     valuesToChanges,
@@ -18,7 +18,7 @@ const exporter = new GLTFExporter()
 
 export async function toGltf(
     baseValue: Primitive,
-    grammar: ParsedGrammarDefinition,
+    grammar: ParsedDescription,
     operations: Operations<Primitive>,
     options: InterpreterOptions<Primitive, any>,
     toObject: (value: Value<Primitive>) => Object3D,

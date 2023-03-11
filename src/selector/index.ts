@@ -1,17 +1,17 @@
-import { AbstractParsedGrammarDefinition, AbstractParsedSteps, ParsedGrammarDefinition, ParsedSteps } from "../parser"
+import { ParsedDescription, ParsedTransformation, ParsedDescription, ParsedTransformation } from "../parser"
 
 // accumulate to 1
 export type Distributions = Array<Array<number>>
 export type Instance = Array<number>
 export type Population = Array<Instance>
 
-export function findDistributions(step: ParsedSteps, dependencies: ParsedGrammarDefinition): Distributions {
+export function findDistributions(step: ParsedTransformation, dependencies: ParsedDescription): Distributions {
     return findStepDistributions(step).concat(
         dependencies.reduce<Distributions>((prev, noun) => prev.concat(findStepDistributions(noun.step)), [])
     )
 }
 
-function findStepDistributions(step: ParsedSteps): Distributions {
+function findStepDistributions(step: ParsedTransformation): Distributions {
     let basis: Distributions = []
     if ("children" in step && step.children != null) {
         basis = step.children.reduce<Distributions>((prev, child) => prev.concat(findStepDistributions(child)), basis)
@@ -24,9 +24,9 @@ function findStepDistributions(step: ParsedSteps): Distributions {
 
 export function applyInstance<T>(
     selections: Instance,
-    step: AbstractParsedSteps<T>,
-    dependencies: ParsedGrammarDefinition
-): [AbstractParsedSteps<T>, AbstractParsedGrammarDefinition<T>] {
+    step: ParsedTransformation<T>,
+    dependencies: ParsedDescription
+): [ParsedTransformation<T>, ParsedDescription<T>] {
     const indexRef = { ref: 0 }
     return [
         applyStepInstance(selections, step, indexRef),
@@ -39,10 +39,10 @@ export function applyInstance<T>(
 
 function applyStepInstance<T>(
     selections: Instance,
-    step: AbstractParsedSteps<T>,
+    step: ParsedTransformation<T>,
     indexRef: { ref: number }
-): AbstractParsedSteps<T> {
-    let children: Array<AbstractParsedSteps<T>> | undefined
+): ParsedTransformation<T> {
+    let children: Array<ParsedTransformation<T>> | undefined
     if ("children" in step && step.children != null) {
         children = step.children.map((step) => applyStepInstance(selections, step, indexRef))
     }

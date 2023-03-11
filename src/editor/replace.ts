@@ -1,4 +1,4 @@
-import { HierarchicalPath, ParsedSteps, HierarchicalParsedGrammarDefinition } from ".."
+import { HierarchicalPath, ParsedTransformation, HierarchicalParsedGrammarDefinition } from ".."
 import type { EditorState } from "."
 import { Draft, freeze, original, produce } from "immer"
 import { PatternSelector, getMatchingCondition, PatternType } from "./pattern"
@@ -85,9 +85,9 @@ export async function replaceOnDraft<T>(
 
 export type ReplaceWith = (
     path: HierarchicalPath,
-    draft: Draft<ParsedSteps>,
+    draft: Draft<ParsedTransformation>,
     translatedPath: TranslatedPath<HierarchicalInfo>
-) => Draft<ParsedSteps> | undefined
+) => Draft<ParsedTransformation> | undefined
 
 export async function replaceAtPathOnDraft<T>(
     all: Array<Value<T>>,
@@ -98,7 +98,7 @@ export async function replaceAtPathOnDraft<T>(
     path: HierarchicalPath,
     translatedPath: TranslatedPath<HierarchicalInfo>,
     newSelectionsList: SelectionsList | undefined,
-    generatePatternCondition: (() => ParsedSteps) | undefined
+    generatePatternCondition: (() => ParsedTransformation) | undefined
 ): Promise<void> {
     if (all.length > 0 && selected.length === 0) {
         return
@@ -110,7 +110,7 @@ export async function replaceAtPathOnDraft<T>(
     const generateCondition =
         generatePatternCondition ?? (await getMatchingCondition(all, selected, patterns, selectCondition))?.generateStep
 
-    const translatedSteps: ParsedSteps =
+    const translatedSteps: ParsedTransformation =
         generateCondition == null ? newSteps : { type: "if", children: [generateCondition(), newSteps, oldSteps] }
 
     setAtPath(path, translatedPath, path.length - 1, translatedSteps)

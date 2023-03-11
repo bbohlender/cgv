@@ -1,10 +1,10 @@
-import type { ParsedSteps, Operations } from ".."
+import type { ParsedTransformation, Operations } from ".."
 
 export type StepDescriptor =
-    | { type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }
+    | { type: Exclude<ParsedTransformation["type"], "operation" | "symbol"> }
     | { type: "operation"; identifier: string }
 
-const allStepTypes: Array<{ type: Exclude<ParsedSteps["type"], "operation" | "symbol"> }> = [
+const allStepTypes: Array<{ type: Exclude<ParsedTransformation["type"], "operation" | "symbol"> }> = [
     { type: "add" },
     { type: "and" },
     { type: "divide" },
@@ -40,7 +40,7 @@ export function getAllStepDescriptors(operations: Operations<any>): Array<StepDe
     ]
 }
 
-export function createDefaultStep<T>(descriptor: StepDescriptor, operations: Operations<T>): ParsedSteps {
+export function createDefaultStep<T>(descriptor: StepDescriptor, operations: Operations<T>): ParsedTransformation {
     switch (descriptor.type) {
         case "add":
         case "multiply":

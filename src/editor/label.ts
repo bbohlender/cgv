@@ -1,8 +1,8 @@
-import { ParsedSteps } from "../parser"
+import { ParsedTransformation } from "../parser"
 import { localizeNoun } from "../util"
 import { SelectedSteps } from "./selection"
 
-export function getStepLabel(step: ParsedSteps, descriptionName: string): string {
+export function getStepLabel(step: ParsedTransformation, descriptionName: string): string {
     if (step.type === "symbol") {
         return localizeNoun(step.identifier, descriptionName)
     }

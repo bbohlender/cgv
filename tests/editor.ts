@@ -17,7 +17,7 @@ import {
     localizeStepsSerializer,
     getMatchingCondition,
     Value,
-    ParsedSteps,
+    ParsedTransformation,
     idPatternType,
     PatternSelector,
     copyNoun,
@@ -884,7 +884,7 @@ describe("pattern", () => {
     })
 
     it("should get custom selection condition", async () => {
-        const customCondition: ParsedSteps = {
+        const customCondition: ParsedTransformation = {
             type: "raw",
             value: false,
         }

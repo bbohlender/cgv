@@ -7,7 +7,7 @@ import {
     localizeStepsSerializer,
     parse,
     parseDescription,
-    ParsedSteps,
+    ParsedTransformation,
     serializeString,
     toHierarchical,
     toHierarchicalSteps,
@@ -26,7 +26,7 @@ describe("hierarchical steps", () => {
     })
 
     it(`should throw an error when validating unvalid hierchical steps`, () => {
-        const steps: ParsedSteps = {
+        const steps: ParsedTransformation = {
             type: "parallel",
             children: [
                 {

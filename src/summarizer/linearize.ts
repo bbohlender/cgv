@@ -6,14 +6,14 @@ import {
     ParsedNull,
     ParsedOperation,
     ParsedParallel,
-    ParsedRandom,
+    ParsedStochasticSwitch,
     ParsedRaw,
     ParsedReturn,
     ParsedSequantial,
     ParsedSetVariable,
-    ParsedSteps,
+    ParsedTransformation,
     ParsedSwitch,
-    ParsedSymbol,
+    ParsedNounReference,
     ParsedThis,
     ParsedUnaryOperator,
 } from "../parser"
@@ -44,8 +44,8 @@ export type LinearizationResult = {
 }
 
 export function linearize(
-    step: ParsedSteps,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    step: ParsedTransformation,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     switch (step.type) {
@@ -85,7 +85,7 @@ function linearizeStepWithChildren(
         | ParsedGetVariable
         | ParsedReturn
         | ParsedNull,
-    resolveNoun: (identifier: string) => ParsedSteps
+    resolveNoun: (identifier: string) => ParsedTransformation
 ): LinearizedStep {
     if (step.children != null) {
         return {
@@ -120,8 +120,8 @@ export function mapLinearizationResult(
 }
 
 function linearizeRandom(
-    step: ParsedRandom,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    step: ParsedStochasticSwitch,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     return step.children
@@ -131,7 +131,7 @@ function linearizeRandom(
 
 function linearizeIf(
     step: ParsedIf,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     return combineLinearizationResult(
@@ -171,7 +171,7 @@ function linearizeIf(
 
 function linearizeSequential(
     step: ParsedSequantial,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     const { seperationMatrix, vertical } = step.children
@@ -221,7 +221,7 @@ function combineSequentialLinearization(l1: LinearizationResult, l2: Linearizati
 
 function linearizeParallel(
     step: ParsedParallel,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     return step.children
@@ -231,7 +231,7 @@ function linearizeParallel(
 
 function linearizeSwitch(
     step: ParsedSwitch,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     const p = probability / (step.children.length - 1)
@@ -260,8 +260,8 @@ function linearizeSwitch(
 }
 
 function linearizeNounRef(
-    step: ParsedSymbol,
-    resolveNoun: (identifier: string) => ParsedSteps,
+    step: ParsedNounReference,
+    resolveNoun: (identifier: string) => ParsedTransformation,
     probability: number
 ): LinearizationResult {
     return mapLinearizationResult(linearize(resolveNoun(step.identifier), resolveNoun, probability), (nextSteps) => ({

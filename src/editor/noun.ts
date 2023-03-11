@@ -2,12 +2,12 @@ import produce, { freeze, original } from "immer"
 import { EditorState, ValueMap, SelectionsList, PatternType, PatternSelector } from "."
 import {
     toHierarchicalSteps,
-    AbstractParsedSymbol,
+    ParsedNounReference,
     HierarchicalParsedGrammarDefinition,
     HierarchicalParsedSteps,
     HierarchicalInfo,
 } from ".."
-import { AbstractParsedGrammarDefinition, ParsedGrammarDefinition, ParsedSteps } from "../parser"
+import { ParsedDescription, ParsedDescription, ParsedTransformation } from "../parser"
 import {
     computeDependencies,
     DependencyMap,
@@ -26,10 +26,10 @@ import { replaceOnDraft } from "./replace"
 import { getIndirectParentsSteps, getRelatedSelections, getSelectedStepsPath } from "./selection"
 
 export function removeUnusedNouns<T>(
-    grammar: AbstractParsedGrammarDefinition<T>,
+    grammar: ParsedDescription<T>,
     selectionsList: SelectionsList<any>,
     descriptionNames?: Array<string>
-): { selectionsList: SelectionsList<any>; grammar: AbstractParsedGrammarDefinition<T> } {
+): { selectionsList: SelectionsList<any>; grammar: ParsedDescription<T> } {
     const usedNouns = new Set<string>()
     const foundDescriptions = new Set<string>()
     for (const { name: rootName, step: rootStep } of grammar) {
@@ -83,7 +83,7 @@ export async function setName<T>(
 }
 
 export function copyNoun(
-    globalDescription: ParsedGrammarDefinition,
+    globalDescription: ParsedDescription,
     localNounName: string,
     fromDescriptionName: string,
     toDescriptionName: string,
@@ -213,7 +213,7 @@ export async function renameNoun<T>(
 export function findSymbolsWithIdentifier(
     root: HierarchicalParsedSteps,
     identifier: string,
-    onFound: (step: AbstractParsedSymbol<HierarchicalInfo>) => void
+    onFound: (step: ParsedNounReference<HierarchicalInfo>) => void
 ): void {
     traverseSteps(root, (step) => {
         if (step.type === "symbol" && step.identifier === identifier) {

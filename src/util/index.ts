@@ -1,5 +1,5 @@
-import { AbstractParsedSteps, ParsedSteps } from ".."
-import { AbstractParsedGrammarDefinition, ParsedGrammarDefinition } from "../parser"
+import { ParsedTransformation, ParsedTransformation } from ".."
+import { ParsedDescription, ParsedDescription } from "../parser"
 
 export enum HierarchicalRelation {
     Predecessor,
@@ -40,10 +40,10 @@ export function shallowEqual(array1: Array<any> | undefined, array2: Array<any> 
     return true
 }
 
-export function assureType<Type extends ParsedSteps["type"], T>(
+export function assureType<Type extends ParsedTransformation["type"], T>(
     type: Type,
-    steps: AbstractParsedSteps<T>
-): AbstractParsedSteps<T> & { type: Type } {
+    steps: ParsedTransformation<T>
+): ParsedTransformation<T> & { type: Type } {
     if (steps.type != type) {
         throw new Error(`expected step "${steps}" to have type "${type}"`)
     }
@@ -54,12 +54,12 @@ export function filterNull<T>(val: T | null | undefined): val is T {
     return val != null
 }
 
-export function getNounIndex(name: string, grammar: ParsedGrammarDefinition): number | undefined {
+export function getNounIndex(name: string, grammar: ParsedDescription): number | undefined {
     const index = grammar.findIndex(({ name: nounName }) => nounName === name)
     return index === -1 ? undefined : index
 }
 
-export function setNounStep(name: string, grammar: ParsedGrammarDefinition, step: ParsedSteps): void {
+export function setNounStep(name: string, grammar: ParsedDescription, step: ParsedTransformation): void {
     const index = getNounIndex(name, grammar)
     if (index != null) {
         grammar[index].step = step
@@ -75,13 +75,13 @@ export function setNounName(name: string, grammar: ParsedGrammarDefinition, newN
 
 export function getNounStep<T>(
     name: string,
-    grammar: AbstractParsedGrammarDefinition<T>
-): AbstractParsedSteps<T> | undefined {
+    grammar: ParsedDescription<T>
+): ParsedTransformation<T> | undefined {
     const index = getNounIndex(name, grammar)
     return index == null ? undefined : grammar[index].step
 }
 
-export function traverseSteps<T>(root: AbstractParsedSteps<T>, cb: (step: AbstractParsedSteps<T>) => void) {
+export function traverseSteps<T>(root: ParsedTransformation<T>, cb: (step: ParsedTransformation<T>) => void) {
     cb(root)
     if (root.children == null) {
         return

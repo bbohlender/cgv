@@ -5,7 +5,7 @@ import {
     HierarchicalInfo,
     setAtPath,
     translatePath,
-    ParsedSteps,
+    ParsedTransformation,
     HierarchicalParsedGrammarDefinition,
     HierarchicalPath,
     getMatchingCondition,
@@ -20,7 +20,7 @@ export async function insert<T>(
     patterns: Array<PatternType<T>>,
     selectCondition: PatternSelector,
     position: "before" | "after" | "parallel",
-    stepGenerator: (path: HierarchicalPath) => ParsedSteps,
+    stepGenerator: (path: HierarchicalPath) => ParsedTransformation,
     grammar: HierarchicalParsedGrammarDefinition
 ): Promise<EditorState> {
     const partial = await produce(
@@ -44,7 +44,7 @@ export async function insert<T>(
                     }
 
                     const newSteps = stepGenerator(path)
-                    const oldSteps: ParsedSteps = type === "parallel" ? { type: "null" } : { type: "this" }
+                    const oldSteps: ParsedTransformation = type === "parallel" ? { type: "null" } : { type: "this" }
                     const selector = position === "parallel" ? "before" : position
                     const generatedCondition =
                         generatePatternCondition ??
@@ -57,13 +57,13 @@ export async function insert<T>(
                             )
                         )?.generateStep
 
-                    const translatedSteps: ParsedSteps =
+                    const translatedSteps: ParsedTransformation =
                         generatedCondition == null
                             ? newSteps
                             : { type: "if", children: [generatedCondition(), newSteps, oldSteps] }
 
                     const current = getAtPath(translatedPath, path.length - 1)
-                    const parent: ParsedSteps | undefined =
+                    const parent: ParsedTransformation | undefined =
                         path.length > 1 ? getAtPath(translatedPath, path.length - 2) : undefined
                     if (parent?.type === type) {
                         let index = path[path.length - 1] as number

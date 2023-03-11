@@ -1,5 +1,5 @@
 import { ConfigAddition } from "."
-import { ParsedSteps } from "../parser"
+import { ParsedTransformation } from "../parser"
 import { EPSILON, shallowEqual } from "../util"
 import { Row, NestGroupConfig } from "./group"
 import { LinearizedStep } from "./linearize"
@@ -11,7 +11,7 @@ import { stepSimilarity } from "./step-similarity"
 export function rowSimilarity(
     rows: Array<Row<LinearizedStep>>,
     rowsCombineableMatrix: Array<Array<boolean>>,
-    config: NestGroupConfig<LinearizedStep, ParsedSteps, ConfigAddition>,
+    config: NestGroupConfig<LinearizedStep, ParsedTransformation, ConfigAddition>,
     probability: number,
     xStart: number,
     xEnd: number,

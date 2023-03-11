@@ -1,14 +1,14 @@
-import { ParsedGrammarDefinition, ParsedSteps } from ".."
+import { ParsedDescription, ParsedTransformation } from ".."
 import { createSerializer, serialize, Serializer, serializeSteps } from "./serialize"
 
-function singleLineWhitespace(indentation: number, ...steps: (ParsedSteps | string)[]): string {
+function singleLineWhitespace(indentation: number, ...steps: (ParsedTransformation | string)[]): string {
     if (typeof steps[0] === "string") {
         return "\n"
     }
     return " "
 }
 
-export function multilineStringWhitespace(indentation: number, ...steps: (ParsedSteps | string)[]): string {
+export function multilineStringWhitespace(indentation: number, ...steps: (ParsedTransformation | string)[]): string {
     for (const step of steps) {
         if (typeof step === "string") {
             return "\n\n"
@@ -20,13 +20,13 @@ export function multilineStringWhitespace(indentation: number, ...steps: (Parsed
     return " "
 }
 
-export function descendantCount(step: ParsedSteps): number {
+export function descendantCount(step: ParsedTransformation): number {
     return step.children?.reduce((prev, child) => prev + descendantCount(child) + 1, 0) ?? 0
 }
 
 function createStringSerializer(
-    customSerialize: (step: ParsedSteps | string) => string | undefined = () => undefined,
-    getWhitespace: (identation: number, ...steps: (ParsedSteps | string)[]) => string = singleLineWhitespace
+    customSerialize: (step: ParsedTransformation | string) => string | undefined = () => undefined,
+    getWhitespace: (identation: number, ...steps: (ParsedTransformation | string)[]) => string = singleLineWhitespace
 ) {
     const serializer: Serializer<string> = createSerializer(
         (text) => text,
@@ -39,19 +39,19 @@ function createStringSerializer(
 }
 
 export function serializeString(
-    grammarDefinition: ParsedGrammarDefinition,
-    customSerialize: (step: ParsedSteps | string) => string | undefined = () => undefined,
-    getWhitespace: (identation: number, ...steps: (ParsedSteps | string)[]) => string = singleLineWhitespace
+    grammarDefinition: ParsedDescription,
+    customSerialize: (step: ParsedTransformation | string) => string | undefined = () => undefined,
+    getWhitespace: (identation: number, ...steps: (ParsedTransformation | string)[]) => string = singleLineWhitespace
 ): string {
     const serializer = createStringSerializer(customSerialize, getWhitespace)
     return serialize(grammarDefinition, serializer)
 }
 
 export function serializeStepString(
-    step: ParsedSteps,
+    step: ParsedTransformation,
     indentation = 0,
-    customSerialize: (step: ParsedSteps | string) => string | undefined = () => undefined,
-    getWhitespace: (identation: number, ...steps: (ParsedSteps | string)[]) => string = singleLineWhitespace
+    customSerialize: (step: ParsedTransformation | string) => string | undefined = () => undefined,
+    getWhitespace: (identation: number, ...steps: (ParsedTransformation | string)[]) => string = singleLineWhitespace
 ): string {
     const serializer = createStringSerializer(customSerialize, getWhitespace)
     return serializer.fromStep(indentation, undefined, step)

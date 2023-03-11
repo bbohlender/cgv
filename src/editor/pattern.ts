@@ -1,5 +1,5 @@
 import { Value } from "../interpreter"
-import { ParsedSteps } from "../parser"
+import { ParsedTransformation } from "../parser"
 import { filterNull } from "../util"
 
 export type InterpretedInfo = {
@@ -13,7 +13,7 @@ export type PatternSelector = (patterns: Array<Pattern<any>>) => Promise<Pattern
 export type Pattern<T> = {
     description: string
     isSelected: (value: Value<T>) => boolean
-    generateStep: (() => ParsedSteps) | undefined
+    generateStep: (() => ParsedTransformation) | undefined
 }
 
 type SizedPattern<T> = Pattern<T> & {
@@ -30,7 +30,7 @@ const getValueIndex = (value: Value<any>) => value.index[value.index.length - 1]
 
 const getValueIndexModuloKey = (value: Value<any>, modulo: number): number => getValueIndex(value) % modulo
 
-const getValueIndexModuloCondition = (value: Value<any>, modulo: number): ParsedSteps => ({
+const getValueIndexModuloCondition = (value: Value<any>, modulo: number): ParsedTransformation => ({
     type: "equal",
     children: [
         {
@@ -373,7 +373,7 @@ export function computePattern<T>(
     allValues: Array<Value<T>>,
     selectedValues: Array<Value<T>>,
     getValueKey: (value: Value<T>) => string | number,
-    getValueCondition: (value: Value<T>) => ParsedSteps,
+    getValueCondition: (value: Value<T>) => ParsedTransformation,
     checkSelection?: (newSelectedValues: Array<Value<T>>) => boolean
 ): SizedPattern<T> | undefined {
     const keyMap = new Map<string | number, Value<T>>()

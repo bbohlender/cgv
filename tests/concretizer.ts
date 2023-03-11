@@ -3,7 +3,7 @@ import {
     concretizeRandomDerivedIndices,
     HierarchicalParsedSteps,
     parse,
-    ParsedSteps,
+    ParsedTransformation,
     serializeString,
     summarize,
 } from "../src"
@@ -13,7 +13,7 @@ describe("concretize grammars", () => {
     it("should capture a conrete derivation", async () => {
         const description = parse(`a --> { 50%: 1 50%: 2 } | 3`)
         const indexMap = await deriveRandomOutputStepIndex(0, description, {}, {})
-        const expectedIndexMap: Array<[ParsedSteps, Array<Array<[inputIndex: string, selectedChildIndex: number]>>]> = [
+        const expectedIndexMap: Array<[ParsedTransformation, Array<Array<[inputIndex: string, selectedChildIndex: number]>>]> = [
             [description[0].step.children![0], [[["0", 0]], [["0", 1]]]],
         ]
         for (const [step, indices] of expectedIndexMap) {
@@ -23,16 +23,16 @@ describe("concretize grammars", () => {
 
     it("should concretize a conrete derivation as a description", () => {
         const description = parse(`a --> { 50%: 1 50%: 2 } | 3`)
-        const indexMap: Array<[ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>]> = [
+        const indexMap: Array<[ParsedTransformation, Array<[inputIndex: string, selectedChildIndex: number]>]> = [
             [description[0].step.children![0], [["", 1]]],
         ]
-        const indices = new Map<ParsedSteps, Array<[inputIndex: string, selectedChildIndex: number]>>(indexMap)
+        const indices = new Map<ParsedTransformation, Array<[inputIndex: string, selectedChildIndex: number]>>(indexMap)
         expect(serializeString(concretizeRandomDerivedIndices(description, indices))).to.equal(`a --> 2 | 3`)
     })
 
     it("should concretize a conrete derivation as a description with id selection", () => {
         const description = parse(`a --> ( 1 | 2 ) -> { 50%: 1 50%: 2 } | 3`)
-        const indexMap: Array<[ParsedSteps, Array<[string, number]>]> = [
+        const indexMap: Array<[ParsedTransformation, Array<[string, number]>]> = [
             [
                 description[0].step.children![0]!.children![1]!,
                 [
@@ -41,7 +41,7 @@ describe("concretize grammars", () => {
                 ],
             ],
         ]
-        const indices = new Map<ParsedSteps, Array<[string, number]>>(indexMap)
+        const indices = new Map<ParsedTransformation, Array<[string, number]>>(indexMap)
         expect(serializeString(concretizeRandomDerivedIndices(description, indices))).to.equal(
             `a --> ( 1 | 2 ) -> switch id( ) { case "0,0": 2 case "0,1": 1 } | 3`
         )

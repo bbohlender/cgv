@@ -1,17 +1,17 @@
-import { ParsedSteps, ParsedRandom } from "../parser"
+import { ParsedTransformation, ParsedStochasticSwitch } from "../parser"
 import { almostTheSame, EPSILON } from "../util"
 import { NestedGroup } from "./group"
 
-export function translateNestedGroup(group: NestedGroup<ParsedSteps> | ParsedSteps): ParsedSteps {
+export function translateNestedGroup(group: NestedGroup<ParsedTransformation> | ParsedTransformation): ParsedTransformation {
     if (!Array.isArray(group)) {
         return group
     }
-    const sequentialSteps = group.map<ParsedSteps>((column) => {
-        const parallelSteps: Array<ParsedSteps> = []
+    const sequentialSteps = group.map<ParsedTransformation>((column) => {
+        const parallelSteps: Array<ParsedTransformation> = []
 
         const workset = new Set(column.vertical)
 
-        let currentRandom: ParsedRandom | undefined
+        let currentRandom: ParsedStochasticSwitch | undefined
         let currentProbability: number | undefined
 
         while (workset.size > 0) {
@@ -20,7 +20,7 @@ export function translateNestedGroup(group: NestedGroup<ParsedSteps> | ParsedSte
             let row:
                 | {
                       probability: number
-                      group: ParsedSteps | NestedGroup<ParsedSteps>
+                      group: ParsedTransformation | NestedGroup<ParsedTransformation>
                   }
                 | undefined
 
@@ -94,13 +94,13 @@ export function translateNestedGroup(group: NestedGroup<ParsedSteps> | ParsedSte
 function findBestFittingRow(
     set: Set<{
         probability: number
-        group: ParsedSteps | NestedGroup<ParsedSteps>
+        group: ParsedTransformation | NestedGroup<ParsedTransformation>
     }>,
     probability: number
 ):
     | {
           probability: number
-          group: ParsedSteps | NestedGroup<ParsedSteps>
+          group: ParsedTransformation | NestedGroup<ParsedTransformation>
       }
     | undefined {
     if (almostTheSame(probability, 1)) {
@@ -110,7 +110,7 @@ function findBestFittingRow(
     let best:
         | {
               probability: number
-              group: ParsedSteps | NestedGroup<ParsedSteps>
+              group: ParsedTransformation | NestedGroup<ParsedTransformation>
           }
         | undefined
     let highestFittingProbability: number | undefined = undefined

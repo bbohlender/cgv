@@ -1,6 +1,6 @@
 import produce, { freeze } from "immer"
 import { Value } from "../interpreter"
-import { ParsedSteps } from "../parser"
+import { ParsedTransformation } from "../parser"
 import {
     filterNull,
     getAtPath,
@@ -20,7 +20,7 @@ export type SelectionsList<T = any> = Array<Selections<T>>
 export type Selections<T = any> = {
     steps: SelectedSteps
     values: Array<FullValue<T>>
-    generatePatternCondition?: () => ParsedSteps
+    generatePatternCondition?: () => ParsedTransformation
 }
 export type SelectedSteps = HierarchicalParsedSteps | string
 

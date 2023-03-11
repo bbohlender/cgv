@@ -24,9 +24,8 @@ function computeGraphExpand(
     instance: Primitive,
     distance: number,
     ...lines: Array<LinePrimitive>
-): Observable<Array<Primitive>> {
-    return of(
-        expandGraph(
+): Array<Primitive> {
+    return expandGraph(
             createGraph(
                 lines.map((line) => [line.getStart(), line.getEnd()]),
                 YAXIS,
@@ -37,7 +36,6 @@ function computeGraphExpand(
             YAXIS,
             instance.materialGenerator
         )
-    )
 }
 
 THREE.Cache.enabled = true
@@ -95,13 +93,13 @@ function computeSample(instance: Primitive, amount: number): Observable<Array<Pr
 const size = new Vector3()
 const box3Helper = new Box3()
 
-function computeSize(instance: Primitive, axis: "x" | "y" | "z"): Observable<Array<any>> {
+function computeSize(instance: Primitive, axis: "x" | "y" | "z"): any {
     instance.getBoundingBox(box3Helper)
     box3Helper.getSize(size)
     return of([size[axis as keyof Vector3]])
 }
 
-function computeScale(instance: Primitive, x: number, y: number, z: number): Observable<Array<Primitive>> {
+function computeScale(instance: Primitive, x: number, y: number, z: number): Primitive {
     return of([instance.multiplyMatrix(makeScaleMatrix(x, y, z))])
 }
 
@@ -109,15 +107,15 @@ function degreeToRadians(degree: number): number {
     return (Math.PI * degree) / 180
 }
 
-function computeRotate(instance: Primitive, x: number, y: number, z: number): Observable<Array<Primitive>> {
+function computeRotate(instance: Primitive, x: number, y: number, z: number): Array<Primitive> {
     return of([instance.multiplyMatrix(makeRotationMatrix(degreeToRadians(x), degreeToRadians(y), degreeToRadians(z)))])
 }
 
-function computeTranslate(instance: Primitive, x: number, y: number, z: number): Observable<Array<Primitive>> {
+function computeTranslate(instance: Primitive, x: number, y: number, z: number): Array<Primitive> {
     return of([instance.multiplyMatrix(makeTranslationMatrix(x, y, z))])
 }
 
-function computeColorChange(instance: Primitive, color: Color): Observable<Array<Primitive>> {
+function computeColorChange(instance: Primitive, color: Color): Array<Primitive> {
     return of([instance.changeMaterialGenerator(createPhongMaterialGenerator(color))])
 }
 

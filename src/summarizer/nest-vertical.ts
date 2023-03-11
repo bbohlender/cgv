@@ -1,5 +1,5 @@
 import { ConfigAddition, Vertical, summarizeLinearization } from "."
-import { ParsedSteps } from "../parser"
+import { ParsedTransformation } from "../parser"
 import { shallowEqual } from "../util"
 import { abstractNestVerticalGroups } from "./abstract-nest-vertical"
 import { combine } from "./combine"
@@ -9,7 +9,7 @@ import { rowSimilarity } from "./row-similarity"
 import { stepSimilarity } from "./step-similarity"
 import { translateNestedGroup } from "./translate-nested"
 
-export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps, ConfigAddition> = (
+export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedTransformation, ConfigAddition> = (
     rows,
     rowsCombineableMatrix,
     config,
@@ -67,7 +67,7 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
         probability: row.probability,
     }))
 
-    const result: NestedGroup<ParsedSteps> = []
+    const result: NestedGroup<ParsedTransformation> = []
 
     if (xStartSubsection - xStart > 0) {
         result.push(...nestGroups(rows, rowsCombineableMatrix, config, xStart, xStartSubsection, yList, probability))
@@ -98,7 +98,7 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
         xEndSubsection++
     }
 
-    let step: ParsedSteps
+    let step: ParsedTransformation
 
     if (firstStartStep.type === "filterStart") {
         const valueGroups: Array<{ values: Array<any>; yList: Array<number> }> = []
@@ -185,7 +185,7 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
             const thenYList = valueGroups.find(({ values }) => values[0] === true)?.yList
             const elseYList = valueGroups.find(({ values }) => values[0] === false)?.yList
 
-            const thenStep: ParsedSteps =
+            const thenStep: ParsedTransformation =
                 thenYList == null
                     ? { type: "null" }
                     : translateNestedGroup(
@@ -200,7 +200,7 @@ export const nestVerticalGroups: NestVerticalGroups<LinearizedStep, ParsedSteps,
                           )
                       )
 
-            const elseStep: ParsedSteps =
+            const elseStep: ParsedTransformation =
                 elseYList == null
                     ? { type: "null" }
                     : translateNestedGroup(

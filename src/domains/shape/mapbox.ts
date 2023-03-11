@@ -1,7 +1,7 @@
 import { of } from "rxjs"
 import { VectorTile, VectorTileLayer } from "@mapbox/vector-tile"
 import Protobuf from "pbf"
-import { ParsedSteps } from "../../parser"
+import { ParsedTransformation } from "../../parser"
 import { filterNull } from "../../util"
 
 //https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
@@ -83,11 +83,11 @@ export function convertRoadsToSteps(
     suffix: string,
     outside: "exclude" | "clip" | "include",
     extent: number
-): Array<{ name: string; step: ParsedSteps }> {
+): Array<{ name: string; step: ParsedTransformation }> {
     return layers["road"]
         .filter((feature) => feature.properties.class === "street")
-        .map<ParsedSteps | undefined>((feature) => {
-            const steps = feature.geometry.reduce<Array<ParsedSteps>>((prev, polygon) => {
+        .map<ParsedTransformation | undefined>((feature) => {
+            const steps = feature.geometry.reduce<Array<ParsedTransformation>>((prev, polygon) => {
                 const steps = convertPolygonStreetToSteps(polygon, outside, extent)
                 if (steps == null) {
                     return prev
@@ -110,10 +110,10 @@ function convertPolygonStreetToSteps(
     polygon: Layers[string][number]["geometry"][number],
     outside: "exclude" | "clip" | "include",
     extent: number
-): Array<ParsedSteps> | undefined {
+): Array<ParsedTransformation> | undefined {
     const result = polygon
         .slice(0, -1)
-        .map<ParsedSteps | undefined>((p1, i) => {
+        .map<ParsedTransformation | undefined>((p1, i) => {
             let p2 = polygon[(i + 1) % polygon.length]
 
             switch (outside) {
@@ -231,9 +231,9 @@ export function convertLotsToSteps(
     suffix: string,
     outside: "exclude" | "include",
     extent: number
-): Array<{ name: string; step: ParsedSteps }> {
+): Array<{ name: string; step: ParsedTransformation }> {
     return layers["building"]
-        .map<ParsedSteps | undefined>((feature) => {
+        .map<ParsedTransformation | undefined>((feature) => {
             const steps = feature.geometry
                 .map((polygon) => convertPolygonLotToSteps(polygon, outside, extent))
                 .filter(filterNull)
@@ -263,8 +263,8 @@ function convertPolygonLotToSteps(
     geometry: Layers[string][number]["geometry"][number],
     outside: "exclude" | "include",
     extent: number
-): ParsedSteps | undefined {
-    const children = new Array<ParsedSteps>(geometry.length - 1)
+): ParsedTransformation | undefined {
+    const children = new Array<ParsedTransformation>(geometry.length - 1)
     for (let i = 0; i < geometry.length - 1; i++) {
         const { x, y } = geometry[i]
         if (outside === "exclude" && !isInTile(x, y, extent)) {

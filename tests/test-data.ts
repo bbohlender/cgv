@@ -1,7 +1,7 @@
-import { ParsedGrammarDefinition } from "../src"
+import { ParsedDescription } from "../src"
 
 export const parsedAndUnparsedGrammarPairs: Array<{
-    parsed: ParsedGrammarDefinition
+    parsed: ParsedDescription
     unparsed: string
 }> = [
     {

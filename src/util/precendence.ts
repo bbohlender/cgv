@@ -1,9 +1,9 @@
-import { ParsedSteps } from ".."
+import { ParsedTransformation } from ".."
 
 /**
  * further up (low precedence) to further down (high precedence)
  */
-const operatorPrecedence: Array<Array<ParsedSteps["type"]>> = [
+const operatorPrecedence: Array<Array<ParsedTransformation["type"]>> = [
     ["parallel"],
     ["sequential"],
     ["or"],
@@ -17,9 +17,9 @@ const operatorPrecedence: Array<Array<ParsedSteps["type"]>> = [
     ["getVariable", "setVariable", "if", "switch", "random", "symbol", "operation", "this", "raw", "return", "null"],
 ]
 
-const bracketFree: Array<ParsedSteps["type"]> = ["if", "switch", "random", "operation"]
+const bracketFree: Array<ParsedTransformation["type"]> = ["if", "switch", "random", "operation"]
 
-const operatorPrecedenceMap: { [Key in ParsedSteps["type"]]: number } = operatorPrecedence.reduce(
+const operatorPrecedenceMap: { [Key in ParsedTransformation["type"]]: number } = operatorPrecedence.reduce(
     (result, types, i) => {
         types.forEach((type) => (result[type] = i))
         return result
@@ -27,12 +27,12 @@ const operatorPrecedenceMap: { [Key in ParsedSteps["type"]]: number } = operator
     {} as any
 )
 
-export function hasHigherPrecendence(s1: ParsedSteps, s2: ParsedSteps): boolean {
+export function hasHigherPrecendence(s1: ParsedTransformation, s2: ParsedTransformation): boolean {
     const s1Precedence = operatorPrecedenceMap[s1.type]
     const s2Precedence = operatorPrecedenceMap[s2.type]
     return s1Precedence > s2Precedence
 }
 
-export function requiresBracket(parent: ParsedSteps, child: ParsedSteps): boolean {
+export function requiresBracket(parent: ParsedTransformation, child: ParsedTransformation): boolean {
     return !bracketFree.includes(parent.type) && hasHigherPrecendence(parent, child)
 }

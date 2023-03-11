@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { EPSILON, parse, ParsedSteps, serializeString, summarize, Vertical } from "../src"
+import { EPSILON, parse, ParsedTransformation, serializeString, summarize, Vertical } from "../src"
 import { abstractNestVerticalGroups } from "../src/summarizer/abstract-nest-vertical"
 import { align, NestedGroup, NestGroupConfig, nestGroups, Row } from "../src/summarizer/group"
 import { linearize, LinearizedRow, LinearizedStep } from "../src/summarizer/linearize"
@@ -525,7 +525,7 @@ describe("summarize grammars", () => {
     })
 
     it("should translate compatible nested group to parallel and random steps", () => {
-        const input: NestedGroup<ParsedSteps> = [
+        const input: NestedGroup<ParsedTransformation> = [
             {
                 compatible: true,
                 vertical: [
@@ -540,7 +540,7 @@ describe("summarize grammars", () => {
     })
 
     it("should translate nested group to steps", () => {
-        const input: NestedGroup<ParsedSteps> = [
+        const input: NestedGroup<ParsedTransformation> = [
             {
                 compatible: false,
                 vertical: [

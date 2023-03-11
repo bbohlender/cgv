@@ -1,5 +1,5 @@
 import { ConfigAddition, Horizontal, summarizeLinearization, Vertical } from "."
-import { AbstractParsedNoun, ParsedSteps } from "../parser"
+import { ParsedNounReference, ParsedTransformation } from "../parser"
 import { filterNull } from "../util"
 import { NestGroupConfig } from "./group"
 import { combineLinearizationResult, LinearizationResult, LinearizedStep } from "./linearize"
@@ -8,9 +8,9 @@ import { combineLinearizationResult, LinearizationResult, LinearizedStep } from 
  * @param vertical sum of all probabilities must be 1
  */
 export function combine(
-    config: NestGroupConfig<LinearizedStep, ParsedSteps, ConfigAddition>,
+    config: NestGroupConfig<LinearizedStep, ParsedTransformation, ConfigAddition>,
     vertical: Vertical<{ value: LinearizedStep; probability: number }>
-): ParsedSteps {
+): ParsedTransformation {
     if (vertical.length === 0) {
         return { type: "this" }
     }
@@ -37,17 +37,17 @@ export function combine(
                               vertical.map(({ probability }) => probability),
                               config.createNoun
                           ),
-            } as ParsedSteps
+            } as ParsedTransformation
     }
 }
 
 function summarizeChildren(
     childrenList: Vertical<Horizontal<LinearizationResult>>,
     probabilities: Array<number>,
-    createNoun: (identifier: string) => AbstractParsedNoun<unknown>
-): Array<ParsedSteps> {
+    createNoun: (identifier: string) => ParsedNounReference<unknown>
+): Array<ParsedTransformation> {
     const length = Math.max(...childrenList.map((a) => a.length))
-    return new Array(length).fill(undefined).map<ParsedSteps>((_, x) =>
+    return new Array(length).fill(undefined).map<ParsedTransformation>((_, x) =>
         summarizeLinearization(
             childrenList
                 .map<LinearizationResult | undefined>((children, y) => {

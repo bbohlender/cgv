@@ -1,17 +1,17 @@
-import { HierarchicalParsedSteps, ParsedSteps, HierarchicalParsedGrammarDefinition, Operations } from ".."
+import { HierarchicalParsedSteps, ParsedTransformation, HierarchicalParsedGrammarDefinition, Operations } from ".."
 import { PatternSelector, EditorState, PatternType } from "."
 import { ValueMap, SelectionsList } from "./selection"
 import { computeDependencies, toHierarchical } from "../util"
 import produce from "immer"
 import { replaceOnDraft, ReplaceWith } from "./replace"
-import { AbstractParsedSteps } from "../parser"
+import { ParsedTransformation } from "../parser"
 import { removeUnusedNouns } from "./noun"
 
 function getNeutralStep(
     parent: HierarchicalParsedSteps | HierarchicalParsedGrammarDefinition,
     childIndex: number | string,
     operations: Operations<any>
-): ParsedSteps | undefined {
+): ParsedTransformation | undefined {
     if (Array.isArray(parent) || typeof childIndex == "string") {
         return {
             type: "this",
@@ -82,7 +82,7 @@ export async function removeStep<T>(
     }
 }
 
-function simplifyStepOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {
+function simplifyStepOnDraft<T>(step: ParsedTransformation<T>): ParsedTransformation<T> {
     if (step.children == null) {
         return step
     }
@@ -94,7 +94,7 @@ function simplifyStepOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSte
     return simplifyStepItselfOnDraft(step)
 }
 
-function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractParsedSteps<T> {
+function simplifyStepItselfOnDraft<T>(step: ParsedTransformation<T>): ParsedTransformation<T> {
     if (step.type === "if" && step.children[1].type === "this" && step.children[2].type === "this") {
         return { type: "this" }
     }
@@ -108,10 +108,10 @@ function simplifyStepItselfOnDraft<T>(step: AbstractParsedSteps<T>): AbstractPar
  * @returns true if the child was deleted
  */
 function deleteUnnecassaryStepChildOnDraft<T>(
-    parent: AbstractParsedSteps<T> & { children: Array<AbstractParsedSteps<T>> },
+    parent: ParsedTransformation<T> & { children: Array<ParsedTransformation<T>> },
     childIndex: number
 ): boolean {
-    const child: AbstractParsedSteps<T> | undefined = parent.children[childIndex]
+    const child: ParsedTransformation<T> | undefined = parent.children[childIndex]
     if (child == null) {
         return false
     }
