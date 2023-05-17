@@ -11,6 +11,22 @@ _A Web-based Approach for Quick Procedural 3D Reconstructions of Buildings_
 * [Tutorial 1 - Introduction](https://youtu.be/zPJIINTPS94)
 * [Tutorial 2 - Copy, Paste, and Adapt](https://youtu.be/r1kTkCn6QgI)
 
+## How to cite
+
+```bibtex
+@inproceedings {10.2312:egs.20231001,
+booktitle = {Eurographics 2023 - Short Papers},
+editor = {Babaei, Vahid and Skouras, Melina},
+title = {{Quick-Pro-Build: A Web-based Approach for Quick Procedural 3D Reconstructions of Buildings}},
+author = {Bohlender, Bela and Mühlhäuser, Max and Guinea, Alejandro Sanchez},
+year = {2023},
+publisher = {The Eurographics Association},
+ISSN = {1017-4656},
+ISBN = {978-3-03868-209-7},
+DOI = {10.2312/egs.20231001}
+}
+```
+
 ## Development
 
 1. `npm install` to install the library dependencies
