@@ -6,6 +6,11 @@ _A Web-based Approach for Quick Procedural 3D Reconstructions of Buildings_
 
 # [⤷ Demo](https://cc-bbohlender.github.io/cgv)
 
+# Tutorials
+
+* [Tutorial 1 - Introduction](https://youtu.be/zPJIINTPS94)
+* [Tutorial 2 - Copy, Paste, and Adapt](https://youtu.be/r1kTkCn6QgI)
+
 ## Development
 
 1. `npm install` to install the library dependencies
